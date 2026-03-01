@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Backend",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/backend", // Ajuste para sua pasta
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Frontend",
+            "type": "node",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/frontend", // Ajuste para sua pasta
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "dev"
+            ],
+            "console": "integratedTerminal"
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Fullstack (Back + Front)",
+            "configurations": [
+                "Run Backend",
+                "Run Frontend"
+            ],
+            "stopAll": true
+        }
+    ]
+}
