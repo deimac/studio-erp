@@ -314,15 +314,6 @@ export default function Financeiro() {
                 </Card>
             )}
 
-            {!finQ.isLoading && !finQ.isError && (finQ.data?.length ?? 0) === 0 && (
-                <Card className="bg-yellow-50 border-yellow-200">
-                    <CardContent className="p-4 text-sm">
-                        <p className="font-bold text-yellow-700">⚠️ Nenhum dado encontrado</p>
-                        <p className="text-yellow-600">Tipo: {tipo} | Unidade: {pessoasQ.data?.[0]?.id_unidade || 'carregando...'}</p>
-                    </CardContent>
-                </Card>
-            )}
-
             {/* Summary cards */}
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
                 <Card>
