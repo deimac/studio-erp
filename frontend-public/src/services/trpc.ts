@@ -1,4 +1,6 @@
 import { createTRPCReact } from '@trpc/react-query';
-import type { AppRouter } from '@backend/app';
 
-export const trpc = createTRPCReact<AppRouter>();
+// Cliente tRPC
+// Nota: Para type-safety completo em produção,
+// implemente code-generation dos tipos do backend
+export const trpc = createTRPCReact();

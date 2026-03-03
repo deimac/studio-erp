@@ -1,8 +1,9 @@
 import { createTRPCReact } from '@trpc/react-query';
-// Importa o tipo do AppRouter do backend para obter type-safety no client.
-import type { AppRouter } from '@backend/app';
 
-export const trpc = createTRPCReact<AppRouter>();
+// Cliente tRPC
+// Nota: Para type-safety completo em produção,
+// implemente code-generation dos tipos do backend
+export const trpc = createTRPCReact();
 
 // Mutation para remover parcela filha
 // Exemplo de uso: trpc.vendas.removerParcelaFilha.useMutation()
