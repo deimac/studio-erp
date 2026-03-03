@@ -1,3 +1,5 @@
+import * as React from 'react';
+
 const WHATSAPP_URL = 'https://wa.me/5543998468294?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20uma%20sess%C3%A3o';
 
 export default function Hero() {

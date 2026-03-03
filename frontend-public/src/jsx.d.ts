@@ -1,6 +1,4 @@
-/// <reference types="vite/client" />
-/// <reference types="react" />
-/// <reference types="react-dom" />
+import * as React from 'react';
 
 declare global {
     namespace JSX {
@@ -125,14 +123,4 @@ declare global {
     }
 }
 
-interface ImportMetaEnv {
-    readonly VITE_API_URL?: string;
-}
-
-interface ImportMeta {
-    readonly env: ImportMetaEnv;
-}
-
-// tRPC AppRouter type placeholder for production
-// Em produção, a tipagem completa deve ser gerada do backend
-type AppRouter = any;
+export { };
