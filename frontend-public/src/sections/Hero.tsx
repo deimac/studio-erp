@@ -13,13 +13,12 @@ export default function Hero() {
 
             <div className="container-page flex flex-col lg:flex-row w-full items-center gap-12 py-28 lg:py-32 lg:gap-20">
                 {/* Image — top on mobile, right on desktop */}
-                <div className="flex lg:hidden w-full justify-center animate-fade-in-up">
+                <div className="flex lg:hidden w-full justify-center">
                     <div className="relative">
                         <img
                             src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
                             alt="Tayna Santos"
                             className="w-64 h-80 object-contain"
-                            loading="eager"
                         />
                     </div>
                 </div>
@@ -64,13 +63,12 @@ export default function Hero() {
                 </div>
 
                 {/* Image — hidden on mobile, right on desktop */}
-                <div className="hidden lg:flex flex-1 justify-end animate-fade-in-up animate-delay-200">
+                <div className="hidden lg:flex flex-1 justify-end">
                     <div className="relative">
                         <img
                             src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
                             alt="Tayna Santos"
                             className="relative w-[420px] h-[540px] object-contain"
-                            loading="eager"
                         />
                     </div>
                 </div>
