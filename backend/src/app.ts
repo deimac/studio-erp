@@ -32,6 +32,10 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 // Servir arquivos estáticos (ex.: imagens)
 app.use('/uploads', express.static(uploadsDir));
 
+// Servir pasta public/brand do frontend-public
+const brandDir = path.join(process.cwd(), '..', 'frontend-public', 'public', 'brand');
+app.use('/brand', express.static(brandDir));
+
 // Upload de imagens (serviços)
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, uploadsDir),
