@@ -9,9 +9,22 @@ export default function Hero() {
             {/* Subtle radial glow */}
             <div className="absolute inset-0 pointer-events-none hero-glow" />
 
-            <div className="container-page flex w-full items-center gap-12 py-28 lg:py-32 lg:gap-20">
-                {/* Text — left */}
-                <div className="flex-1 max-w-xl animate-fade-in-up">
+            <div className="container-page flex flex-col lg:flex-row w-full items-center gap-12 py-28 lg:py-32 lg:gap-20">
+                {/* Image — top on mobile, right on desktop */}
+                <div className="flex lg:hidden w-full justify-center animate-fade-in-up">
+                    <div className="relative">
+                        <img
+                            src="/brand/logo_tayna.png"
+                            alt="Tayna Santos"
+                            className="relative w-64 h-80 object-contain"
+                            loading="lazy"
+                            decoding="async"
+                        />
+                    </div>
+                </div>
+
+                {/* Text — bottom on mobile, left on desktop */}
+                <div className="flex-1 max-w-xl animate-fade-in-up w-full lg:w-auto">
                     <p className="eyebrow text-gold mb-6">
                         Tayna Santos • Massoterapeuta
                     </p>
@@ -49,10 +62,9 @@ export default function Hero() {
                     </div>
                 </div>
 
-                {/* Image — right */}
+                {/* Image — hidden on mobile, right on desktop */}
                 <div className="hidden lg:flex flex-1 justify-end animate-fade-in-up animate-delay-200">
                     <div className="relative">
-                        {/* Image */}
                         <img
                             src="/brand/logo_tayna.png"
                             alt="Tayna Santos"
