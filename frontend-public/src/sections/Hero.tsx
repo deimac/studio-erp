@@ -24,7 +24,7 @@ export default function Hero() {
                 </div>
 
                 {/* Text — bottom on mobile, left on desktop */}
-                <div className="flex-1 max-w-xl animate-fade-in-up w-full lg:w-auto">
+                <div className="flex-1 max-w-xl w-full lg:w-auto text-center lg:text-left">
                     <p className="eyebrow text-gold mb-6">
                         Tayna Santos • Massoterapeuta
                     </p>
@@ -37,7 +37,7 @@ export default function Hero() {
 
                     <div className="h-6 lg:h-8" aria-hidden="true" />
 
-                    <p className="lead text-text-muted max-w-md">
+                    <p className="lead text-text-muted max-w-md mx-auto lg:mx-0">
                         Atendimento personalizado, técnicas especializadas em um ambiente acolhedor —
                         para você relaxar, se recuperar e ter uma verdadeira conexão.
                     </p>

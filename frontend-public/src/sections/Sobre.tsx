@@ -43,15 +43,15 @@ export default function Sobre() {
                             Sobre mim
                         </p>
 
-                        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-semibold leading-[1.1] mb-6 text-on-light"
+                        <h2 className="text-4xl sm:text-4xl lg:text-5xl font-serif font-semibold leading-[1.1] text-on-light" style={{ marginBottom: '0.75rem' }}
                         >
                             Tayna{' '}
                             <span className="text-gold-accent">Santos</span>
                         </h2>
 
-                        <div className="w-16 hairline-gold mb-7" />
+                        <div className="w-16 hairline-gold" style={{ marginBottom: '0.75rem' }} />
 
-                        <p className="lead mb-8 text-on-light"
+                        <p className="lead mb-8 text-on-light" style={{ marginTop: '0rem' }}
                         >
                             Com 4 anos de experiência no ramo de massoterapia, sou apaixonada
                             por cuidar das pessoas e proporcionar momentos de bem-estar e
