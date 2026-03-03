@@ -19,8 +19,6 @@ export default function Hero() {
                             src="/brand/logo_tayna.png"
                             alt="Tayna Santos"
                             className="relative w-64 h-80 object-contain"
-                            loading="lazy"
-                            decoding="async"
                         />
                     </div>
                 </div>
