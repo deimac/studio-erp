@@ -14,6 +14,15 @@ import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { hasVendasVinculadasPacote } from '@/services/hasVendasVinculadasPacote';
 
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
+function resolveImageUrl(url?: string | null) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return API_URL ? `${API_URL}${url}` : url;
+    return API_URL ? `${API_URL}/${url}` : `/${url}`;
+}
+
 export default function Servicos() {
     const { toast } = useToast();
     const confirm = useConfirm();
@@ -100,7 +109,7 @@ export default function Servicos() {
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
                                                     {s.imagem_url ? (
-                                                        <img src={s.imagem_url} alt={s.nome} className="h-10 w-10 rounded-lg object-cover" />
+                                                        <img src={resolveImageUrl(s.imagem_url)} alt={s.nome} className="h-10 w-10 rounded-lg object-cover" />
                                                     ) : (
                                                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[hsl(var(--muted))] text-xs font-bold text-[hsl(var(--muted-foreground))]">
                                                             {s.nome[0]}

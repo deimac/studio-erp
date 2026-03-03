@@ -21,6 +21,16 @@ type Servico = {
     tecnicas?: { id: number; nome: string }[];
 };
 
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const UPLOAD_URL = API_URL ? `${API_URL}/api/upload` : '/api/upload';
+
+function resolveImageUrl(url?: string | null) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return API_URL ? `${API_URL}${url}` : url;
+    return API_URL ? `${API_URL}/${url}` : `/${url}`;
+}
+
 export function ServicoForm({
     servico,
     onSuccess,
@@ -66,7 +76,7 @@ export function ServicoForm({
         if (servico) {
             setNome(servico.nome);
             setDescricao(servico.descricao ?? '');
-            setImagemUrl(servico.imagem_url ?? '');
+            setImagemUrl(resolveImageUrl(servico.imagem_url));
             setDuracao(String(servico.duracao_minutos));
             setValor(formatAmountToMask(servico.valor));
             setGeraCredito(servico.gera_credito);
@@ -91,7 +101,7 @@ export function ServicoForm({
         try {
             const fd = new FormData();
             fd.append('image', file);
-            const res = await fetch('/api/upload', {
+            const res = await fetch(UPLOAD_URL, {
                 method: 'POST',
                 body: fd,
                 headers: { Authorization: `Bearer ${localStorage.getItem('studio_erp_token')}` },
@@ -101,7 +111,7 @@ export function ServicoForm({
                 throw new Error(err?.error ?? 'Upload falhou');
             }
             const data = await res.json();
-            setImagemUrl(data.url);
+            setImagemUrl(resolveImageUrl(data.url));
             toast({ title: 'Imagem enviada!', variant: 'success' });
         } catch (e: any) {
             toast({ title: e?.message ?? 'Erro ao enviar imagem', variant: 'error' });

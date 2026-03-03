@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { trpc } from '@/services/trpc';
 
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+
+function resolveImageUrl(url?: string | null) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/')) return API_URL ? `${API_URL}${url}` : url;
+    return API_URL ? `${API_URL}/${url}` : `/${url}`;
+}
+
 const WHATSAPP_NUMBER = '5543998468294';
 
 function buildWhatsAppUrl(serviceName: string, pacoteName?: string) {
@@ -49,7 +58,7 @@ function ServiceCard({ servico }: { servico: Servico }) {
             <div className="sc-img">
                 {servico.imagem_url ? (
                     <img
-                        src={servico.imagem_url}
+                        src={resolveImageUrl(servico.imagem_url)}
                         alt={servico.nome}
                         className={imgLoaded ? 'opacity-100' : 'opacity-0'}
                         loading="lazy"
