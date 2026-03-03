@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
-    DialogTrigger,
     DialogContent,
     DialogHeader,
     DialogTitle,
@@ -37,9 +36,10 @@ type PessoaData = {
 type Props = {
     onSuccess: () => void;
     editData?: PessoaData;
+    trigger?: React.ReactNode;
 };
 
-export function PessoaForm({ onSuccess, editData }: Props) {
+export function PessoaForm({ onSuccess, editData, trigger }: Props) {
     const isEdit = !!editData?.id;
     const [open, setOpen] = useState(false);
 
@@ -96,9 +96,8 @@ export function PessoaForm({ onSuccess, editData }: Props) {
         }
     }
 
-    function handleOpen(open: boolean) {
-        setOpen(open);
-        if (open && editData) {
+    function handleOpenClick() {
+        if (editData) {
             setTipo(editData.tipo ?? 'CLIENTE');
             setNome(editData.nome ?? '');
             setCpfCnpj(editData.cpf_cnpj ?? '');
@@ -108,128 +107,128 @@ export function PessoaForm({ onSuccess, editData }: Props) {
             setObservacao(editData.observacao ?? '');
             setStatus(editData.status ?? 'ATIVO');
         }
+        setOpen(true);
     }
 
     const isPending = createMut.isPending || updateMut.isPending;
     const error = createMut.error || updateMut.error;
 
     return (
-        <Dialog open={open} onOpenChange={handleOpen}>
-            <DialogTrigger asChild>
-                {isEdit ? (
-                    <Button variant="ghost" size="sm" className="text-xs">
-                        Editar
-                    </Button>
-                ) : (
-                    <Button>
-                        <Plus className="mr-2 h-4 w-4" /> Nova Pessoa
-                    </Button>
-                )}
-            </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{isEdit ? 'Editar Pessoa' : 'Nova Pessoa'}</DialogTitle>
-                </DialogHeader>
+        <>
+            <Button
+                variant={isEdit ? 'ghost' : 'default'}
+                size="sm"
+                onClick={handleOpenClick}
+                className={isEdit ? 'h-8 px-2 text-xs' : ''}
+            >
+                {trigger ?? (isEdit ? 'Editar' : <><Plus className="mr-2 h-4 w-4" /> Nova Pessoa</>)}
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>{isEdit ? 'Editar Pessoa' : 'Nova Pessoa'}</DialogTitle>
+                    </DialogHeader>
 
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>Tipo</Label>
-                            <Select value={tipo} onValueChange={setTipo}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="CLIENTE">Cliente</SelectItem>
-                                    <SelectItem value="FORNECEDOR">Fornecedor</SelectItem>
-                                    <SelectItem value="AMBOS">Ambos</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {isEdit && (
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1.5">
-                                <Label>Status</Label>
-                                <Select value={status} onValueChange={setStatus}>
+                                <Label>Tipo</Label>
+                                <Select value={tipo} onValueChange={setTipo}>
                                     <SelectTrigger>
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="ATIVO">Ativo</SelectItem>
-                                        <SelectItem value="INATIVO">Inativo</SelectItem>
+                                        <SelectItem value="CLIENTE">Cliente</SelectItem>
+                                        <SelectItem value="FORNECEDOR">Fornecedor</SelectItem>
+                                        <SelectItem value="AMBOS">Ambos</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
-                        )}
-                    </div>
+                            {isEdit && (
+                                <div className="space-y-1.5">
+                                    <Label>Status</Label>
+                                    <Select value={status} onValueChange={setStatus}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ATIVO">Ativo</SelectItem>
+                                            <SelectItem value="INATIVO">Inativo</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+                        </div>
 
-                    <div className="space-y-1.5">
-                        <Label>Nome *</Label>
-                        <Input value={nome} onChange={(e) => setNome(e.target.value)} />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
-                            <Label>CPF/CNPJ</Label>
-                            <Input
-                                value={cpf_cnpj}
-                                onChange={(e) => {
-                                    const raw = e.target.value;
-                                    if (tipo === 'FORNECEDOR') {
-                                        setCpfCnpj(maskCnpj(raw));
-                                    } else {
-                                        setCpfCnpj(maskCpf(raw));
-                                    }
-                                }}
-                                placeholder={tipo === 'FORNECEDOR' ? '00.000.000/0000-00' : '000.000.000-00'}
+                            <Label>Nome *</Label>
+                            <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label>CPF/CNPJ</Label>
+                                <Input
+                                    value={cpf_cnpj}
+                                    onChange={(e) => {
+                                        const raw = e.target.value;
+                                        if (tipo === 'FORNECEDOR') {
+                                            setCpfCnpj(maskCnpj(raw));
+                                        } else {
+                                            setCpfCnpj(maskCpf(raw));
+                                        }
+                                    }}
+                                    placeholder={tipo === 'FORNECEDOR' ? '00.000.000/0000-00' : '000.000.000-00'}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Telefone</Label>
+                                <Input
+                                    value={telefone}
+                                    onChange={(e) => setTelefone(maskTelefone(e.target.value))}
+                                    placeholder="(00) 00000-0000"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                                <Label>E-mail</Label>
+                                <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Data de Nascimento</Label>
+                                <Input
+                                    type="date"
+                                    value={data_nascimento}
+                                    onChange={(e) => setDataNascimento(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label>Observação</Label>
+                            <Textarea
+                                value={observacao}
+                                onChange={(e) => setObservacao(e.target.value)}
+                                rows={2}
+                                placeholder="Opcional"
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label>Telefone</Label>
-                            <Input
-                                value={telefone}
-                                onChange={(e) => setTelefone(maskTelefone(e.target.value))}
-                                placeholder="(00) 00000-0000"
-                            />
-                        </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label>E-mail</Label>
-                            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label>Data de Nascimento</Label>
-                            <Input
-                                type="date"
-                                value={data_nascimento}
-                                onChange={(e) => setDataNascimento(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button onClick={handleSubmit} disabled={!nome.trim() || isPending}>
+                            {isPending ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar'}
+                        </Button>
+                    </DialogFooter>
 
-                    <div className="space-y-1.5">
-                        <Label>Observação</Label>
-                        <Textarea
-                            value={observacao}
-                            onChange={(e) => setObservacao(e.target.value)}
-                            rows={2}
-                            placeholder="Opcional"
-                        />
-                    </div>
-                </div>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setOpen(false)}>
-                        Cancelar
-                    </Button>
-                    <Button onClick={handleSubmit} disabled={!nome.trim() || isPending}>
-                        {isPending ? 'Salvando…' : isEdit ? 'Salvar' : 'Criar'}
-                    </Button>
-                </DialogFooter>
-
-                {error && <p className="text-sm text-red-500 mt-2">{error.message}</p>}
-            </DialogContent>
-        </Dialog>
+                    {error && <p className="text-sm text-red-500 mt-2">{error.message}</p>}
+                </DialogContent>
+            </Dialog>
+        </>
     );
 }

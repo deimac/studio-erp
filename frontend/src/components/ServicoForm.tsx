@@ -55,13 +55,20 @@ export function ServicoForm({
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
+    function formatAmountToMask(value: string | number) {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return '';
+        const cents = Math.round(amount * 100);
+        return maskMoney(String(cents));
+    }
+
     function handleOpen() {
         if (servico) {
             setNome(servico.nome);
             setDescricao(servico.descricao ?? '');
             setImagemUrl(servico.imagem_url ?? '');
             setDuracao(String(servico.duracao_minutos));
-            setValor(String(servico.valor));
+            setValor(formatAmountToMask(servico.valor));
             setGeraCredito(servico.gera_credito);
             setAtivo(servico.ativo);
             setTecnicaIds(servico.tecnicas?.map((t) => t.id) ?? []);
@@ -126,7 +133,8 @@ export function ServicoForm({
             toast({ title: 'Informe uma duração válida (mínimo 1 minuto)', variant: 'error' });
             return;
         }
-        if (!valor || Number(valor) < 0.01) {
+        const valorNumerico = Number(valor.replace(/\./g, '').replace(',', '.'));
+        if (!valor || valorNumerico < 0.01) {
             toast({ title: 'Informe um valor válido (mínimo R$ 0,01)', variant: 'error' });
             return;
         }
@@ -135,7 +143,7 @@ export function ServicoForm({
             descricao: descricao.trim() || undefined,
             imagem_url: imagemUrl || undefined,
             duracao_minutos: Number(duracao),
-            valor: Number(valor),
+            valor: valorNumerico,
             gera_credito: geraCredito,
             ativo,
             tecnica_ids: tecnicaIds,

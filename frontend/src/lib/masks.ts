@@ -33,3 +33,11 @@ export function maskMoney(value: string) {
     if (v.length === 2) return '0,' + v;
     return v.replace(/(\d+)(\d{2})$/, '$1,$2').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
 }
+
+/** Converte valor mascarado (ex: "1.234,56") para número (ex: 1234.56) */
+export function unmaskMoney(value: string): number {
+    if (!value) return 0;
+    // Remove pontos de milhar e troca vírgula por ponto
+    const numeric = value.replace(/\./g, '').replace(',', '.');
+    return parseFloat(numeric) || 0;
+}

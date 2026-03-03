@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { trpc } from '@/services/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
+import { SquarePen, Trash2 } from 'lucide-react';
 
 export default function Configuracoes() {
     return (
@@ -17,6 +18,7 @@ export default function Configuracoes() {
                 <TabsList>
                     <TabsTrigger value="formas">Formas de Pagamento</TabsTrigger>
                     <TabsTrigger value="unidades">Unidades</TabsTrigger>
+                    <TabsTrigger value="categorias">Categorias</TabsTrigger>
                     <TabsTrigger value="usuarios">Profissionais</TabsTrigger>
                 </TabsList>
 
@@ -25,6 +27,9 @@ export default function Configuracoes() {
                 </TabsContent>
                 <TabsContent value="unidades" className="mt-4">
                     <UnidadesPanel />
+                </TabsContent>
+                <TabsContent value="categorias" className="mt-4">
+                    <CategoriasReceitasDespesasPanel />
                 </TabsContent>
                 <TabsContent value="usuarios" className="mt-4">
                     <ProfissionaisPanel />
@@ -38,16 +43,17 @@ export default function Configuracoes() {
 function FormasPagamentoPanel() {
     const { toast } = useToast();
     const utils = trpc.useUtils();
+    const [editId, setEditId] = useState<number | null>(null);
     const [nome, setNome] = useState('');
-    const [descricao, setDescricao] = useState('');
+    const nomeInputRef = useRef<HTMLInputElement>(null);
     const formasQ = trpc.formasPagamento.list.useQuery();
 
     const createMut = trpc.formasPagamento.create.useMutation({
-        onSuccess: () => { setNome(''); setDescricao(''); utils.formasPagamento.list.invalidate(); toast({ title: 'Forma criada', variant: 'success' }); },
+        onSuccess: () => { setNome(''); utils.formasPagamento.list.invalidate(); toast({ title: 'Forma criada', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
     const updateMut = trpc.formasPagamento.update.useMutation({
-        onSuccess: () => { utils.formasPagamento.list.invalidate(); toast({ title: 'Atualizado', variant: 'success' }); },
+        onSuccess: () => { setEditId(null); setNome(''); utils.formasPagamento.list.invalidate(); toast({ title: 'Atualizado', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
@@ -58,24 +64,36 @@ function FormasPagamentoPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
                 <form
-                    onSubmit={(e) => { e.preventDefault(); if (!nome.trim()) return; createMut.mutate({ nome: nome.trim(), descricao: descricao.trim() || undefined }); }}
-                    className="flex flex-wrap items-end gap-2"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!nome.trim()) return;
+                        if (editId) {
+                            updateMut.mutate({ id: editId, nome: nome.trim() });
+                        } else {
+                            createMut.mutate({ nome: nome.trim() });
+                        }
+                    }}
+                    className="flex items-end gap-2"
                 >
-                    <div className="flex-1 min-w-[200px]">
+                    <div className="flex-1 max-w-sm">
                         <label className="text-xs text-gray-500">Nome</label>
-                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: PIX, Cartão, Dinheiro" />
+                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: PIX, Cartão, Dinheiro" ref={nomeInputRef} />
                     </div>
-                    <div className="flex-1 min-w-[200px]">
-                        <label className="text-xs text-gray-500">Descrição (opcional)</label>
-                        <Input value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-                    </div>
-                    <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
+                    {editId ? (
+                        <>
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setEditId(null); setNome(''); }}>Cancelar</Button>
+                            <Button type="submit" size="sm" disabled={updateMut.isPending}>
+                                {updateMut.isPending ? 'Salvando…' : 'Salvar'}
+                            </Button>
+                        </>
+                    ) : (
+                        <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
+                    )}
                 </form>
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
-                            <TableHead className="hidden sm:table-cell">Descrição</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -84,15 +102,23 @@ function FormasPagamentoPanel() {
                         {formasQ.data?.map((f) => (
                             <TableRow key={f.id}>
                                 <TableCell className="font-medium">{f.nome}</TableCell>
-                                <TableCell className="hidden sm:table-cell text-gray-400">{f.descricao ?? '–'}</TableCell>
                                 <TableCell>
                                     <Badge variant={f.ativo ? 'success' : 'destructive'}>{f.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => {
-                                        const novoNome = prompt('Nome:', f.nome);
-                                        if (novoNome && novoNome !== f.nome) updateMut.mutate({ id: f.id, nome: novoNome });
-                                    }}>Editar</Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0" title="Editar" onClick={() => {
+                                        setEditId(f.id);
+                                        setNome(f.nome);
+                                        setTimeout(() => {
+                                            if (nomeInputRef.current) {
+                                                nomeInputRef.current.focus();
+                                                const len = f.nome.length;
+                                                nomeInputRef.current.setSelectionRange(len, len);
+                                            }
+                                        }, 100);
+                                    }}>
+                                        <SquarePen className="w-4 h-4 text-blue-600" />
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: f.id, ativo: !f.ativo })}>
                                         {f.ativo ? 'Desativar' : 'Ativar'}
                                     </Button>
@@ -100,7 +126,7 @@ function FormasPagamentoPanel() {
                             </TableRow>
                         ))}
                         {formasQ.data?.length === 0 && (
-                            <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-6">Nenhuma forma cadastrada.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={3} className="text-center text-gray-400 py-6">Nenhuma forma cadastrada.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
@@ -113,7 +139,9 @@ function FormasPagamentoPanel() {
 function UnidadesPanel() {
     const { toast } = useToast();
     const utils = trpc.useUtils();
+    const [editId, setEditId] = useState<number | null>(null);
     const [nome, setNome] = useState('');
+    const nomeInputRef = useRef<HTMLInputElement>(null);
     const unidsQ = trpc.unidades.list.useQuery();
 
     const createMut = trpc.unidades.create.useMutation({
@@ -121,7 +149,7 @@ function UnidadesPanel() {
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
     const updateMut = trpc.unidades.update.useMutation({
-        onSuccess: () => { utils.unidades.list.invalidate(); toast({ title: 'Atualizado', variant: 'success' }); },
+        onSuccess: () => { setEditId(null); setNome(''); utils.unidades.list.invalidate(); toast({ title: 'Atualizado', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
@@ -132,14 +160,31 @@ function UnidadesPanel() {
             </CardHeader>
             <CardContent className="space-y-4">
                 <form
-                    onSubmit={(e) => { e.preventDefault(); if (!nome.trim()) return; createMut.mutate({ nome: nome.trim() }); }}
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!nome.trim()) return;
+                        if (editId) {
+                            updateMut.mutate({ id: editId, nome: nome.trim() });
+                        } else {
+                            createMut.mutate({ nome: nome.trim() });
+                        }
+                    }}
                     className="flex items-end gap-2"
                 >
                     <div className="flex-1 max-w-sm">
                         <label className="text-xs text-gray-500">Nova Unidade</label>
-                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome da unidade" />
+                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome da unidade" ref={nomeInputRef} />
                     </div>
-                    <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
+                    {editId ? (
+                        <>
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setEditId(null); setNome(''); }}>Cancelar</Button>
+                            <Button type="submit" size="sm" disabled={updateMut.isPending}>
+                                {updateMut.isPending ? 'Salvando…' : 'Salvar'}
+                            </Button>
+                        </>
+                    ) : (
+                        <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
+                    )}
                 </form>
                 <Table>
                     <TableHeader>
@@ -157,10 +202,19 @@ function UnidadesPanel() {
                                     <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativa' : 'Inativa'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => {
-                                        const n = prompt('Nome:', u.nome);
-                                        if (n && n !== u.nome) updateMut.mutate({ id: u.id, nome: n });
-                                    }}>Editar</Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0" title="Editar" onClick={() => {
+                                        setEditId(u.id);
+                                        setNome(u.nome);
+                                        setTimeout(() => {
+                                            if (nomeInputRef.current) {
+                                                nomeInputRef.current.focus();
+                                                const len = u.nome.length;
+                                                nomeInputRef.current.setSelectionRange(len, len);
+                                            }
+                                        }, 100);
+                                    }}>
+                                        <SquarePen className="w-4 h-4 text-blue-600" />
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: u.id, ativo: !u.ativo })}>
                                         {u.ativo ? 'Desativar' : 'Ativar'}
                                     </Button>
@@ -265,6 +319,125 @@ function ProfissionaisPanel() {
                     </form>
                 </DialogContent>
             </Dialog>
+        </Card>
+    );
+}
+
+/* ===== Categorias Receitas/Despesas ===== */
+function CategoriasReceitasDespesasPanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const [editId, setEditId] = useState<number | null>(null);
+    const [nome, setNome] = useState('');
+    const [tipo, setTipo] = useState<'RECEITA' | 'DESPESA'>('RECEITA');
+    const nomeInputRef = useRef<HTMLInputElement>(null);
+    const categoriasQ = trpc.receitasDespesas.listCategorias.useQuery();
+
+    const createMut = trpc.receitasDespesas.createCategoria.useMutation({
+        onSuccess: () => { setNome(''); setTipo('RECEITA'); utils.receitasDespesas.listCategorias.invalidate(); toast({ title: 'Categoria criada', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const updateMut = trpc.receitasDespesas.updateCategoria.useMutation({
+        onSuccess: () => { setEditId(null); setNome(''); setTipo('RECEITA'); utils.receitasDespesas.listCategorias.invalidate(); toast({ title: 'Atualizado', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const deleteMut = trpc.receitasDespesas.deleteCategoria.useMutation({
+        onSuccess: () => { utils.receitasDespesas.listCategorias.invalidate(); toast({ title: 'Categoria removida', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+
+    return (
+        <Card>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Categorias Receitas/Despesas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!nome.trim()) return;
+                        if (editId) {
+                            updateMut.mutate({ id: editId, nome: nome.trim(), tipo });
+                        } else {
+                            createMut.mutate({ nome: nome.trim(), tipo });
+                        }
+                    }}
+                    className="space-y-3"
+                >
+                    <div className="flex-1 max-w-sm">
+                        <label className="text-xs text-gray-500">Nome da Categoria</label>
+                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome da categoria" ref={nomeInputRef} />
+                    </div>
+                    <div>
+                        <label className="text-xs text-gray-500 block mb-2">Tipo</label>
+                        <div className="flex gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="tipo" value="RECEITA" checked={tipo === 'RECEITA'} onChange={() => setTipo('RECEITA')} className="w-4 h-4" />
+                                <span className="text-sm">Receita</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="tipo" value="DESPESA" checked={tipo === 'DESPESA'} onChange={() => setTipo('DESPESA')} className="w-4 h-4" />
+                                <span className="text-sm">Despesa</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        {editId ? (
+                            <>
+                                <Button type="button" size="sm" variant="outline" onClick={() => { setEditId(null); setNome(''); setTipo('RECEITA'); }}>Cancelar</Button>
+                                <Button type="submit" size="sm" disabled={updateMut.isPending}>
+                                    {updateMut.isPending ? 'Salvando…' : 'Salvar'}
+                                </Button>
+                            </>
+                        ) : (
+                            <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
+                        )}
+                    </div>
+                </form>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Nome</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {categoriasQ.data?.map((cat: any) => (
+                            <TableRow key={cat.id}>
+                                <TableCell className="font-medium">{cat.nome}</TableCell>
+                                <TableCell><Badge variant={cat.tipo === 'RECEITA' ? 'success' : 'destructive'}>{cat.tipo}</Badge></TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0" title="Editar" onClick={() => {
+                                        setEditId(cat.id);
+                                        setNome(cat.nome);
+                                        setTipo(cat.tipo);
+                                        setTimeout(() => {
+                                            if (nomeInputRef.current) {
+                                                nomeInputRef.current.focus();
+                                                const len = cat.nome.length;
+                                                nomeInputRef.current.setSelectionRange(len, len);
+                                            }
+                                        }, 100);
+                                    }}>
+                                        <SquarePen className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0" title="Excluir" onClick={() => {
+                                        if (window.confirm(`Excluir "${cat.nome}"?`)) {
+                                            deleteMut.mutate({ id: cat.id });
+                                        }
+                                    }}>
+                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {categoriasQ.data?.length === 0 && (
+                            <TableRow><TableCell colSpan={3} className="text-center text-gray-400 py-6">Nenhuma categoria cadastrada.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+            </CardContent>
         </Card>
     );
 }

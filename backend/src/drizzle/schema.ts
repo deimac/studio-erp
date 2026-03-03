@@ -180,9 +180,6 @@ export const categoriasReceitasDespesas = mysqlTable(
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
-    (t) => ({
-        tipoIdx: index('idx_tipo').on(t.tipo),
-    }),
 );
 
 /* =========================================================================

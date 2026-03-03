@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/useToast';
 
 export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
@@ -24,6 +25,8 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
     }
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
+    const [idCliente, setIdCliente] = useState<string>('');
+    const [clienteSearch, setClienteSearch] = useState('');
     const [idVenda, setIdVenda] = useState<number | ''>('');
     const [idProfissional, setIdProfissional] = useState<number | ''>('');
     const [data, setData] = useState('');
@@ -32,6 +35,7 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
     const [horaFim, setHoraFim] = useState('');
     const [observacoes, setObservacoes] = useState('');
 
+    const pessoasQ = trpc.pessoas.list.useQuery();
     const vendasQ = trpc.vendas.list.useQuery({ status: 'ATIVA' });
     const profissionaisQ = trpc.usuarios.list.useQuery();
 
@@ -41,8 +45,20 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
     });
 
     function resetForm() {
-        setIdVenda(''); setIdProfissional(''); setData(''); setHoraInicio(''); setHoraFim(''); setObservacoes('');
+        setIdCliente(''); setClienteSearch(''); setIdVenda(''); setIdProfissional(''); setData(''); setHoraInicio(''); setHoraFim(''); setObservacoes('');
     }
+
+    // Filtrar clientes pela busca
+    const filteredClientes = pessoasQ.data?.filter((p: any) => {
+        const matchSearch = !clienteSearch || p.nome.toLowerCase().includes(clienteSearch.toLowerCase());
+        return matchSearch && p.tipo === 'CLIENTE';
+    });
+
+    // Filtrar vendas pelo cliente selecionado
+    const filteredVendas = vendasQ.data?.filter((v: any) => {
+        if (!idCliente) return true;
+        return v.id_pessoa === Number(idCliente);
+    });
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -86,12 +102,38 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
                         <DialogTitle>Agendar Atendimento</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Cliente (filtro) */}
+                        <div className="space-y-1.5">
+                            <Label>Cliente</Label>
+                            <Select value={idCliente} onValueChange={(v) => { setIdCliente(v); setIdVenda(''); }}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Filtrar por cliente…" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <div className="p-2">
+                                        <Input
+                                            placeholder="Buscar…"
+                                            value={clienteSearch}
+                                            onChange={(e) => setClienteSearch(e.target.value)}
+                                            className="h-8"
+                                        />
+                                    </div>
+                                    {filteredClientes?.map((p: any) => (
+                                        <SelectItem key={p.id} value={String(p.id)}>
+                                            {p.nome}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Venda */}
                         <div>
                             <Label>Venda *</Label>
                             <select aria-label="Venda" className="w-full rounded-md border px-3 py-2 text-sm" value={idVenda}
                                 onChange={(e) => setIdVenda(e.target.value ? Number(e.target.value) : '')}>
                                 <option value="">Selecionar…</option>
-                                {vendasQ.data?.map((v) => (
+                                {filteredVendas?.map((v) => (
                                     <option key={v.id} value={v.id}>
                                         {v.pessoa_nome} – {v.servico_nome ?? v.pacote_nome ?? '?'} ({v.quantidade_sessoes} sessões)
                                     </option>

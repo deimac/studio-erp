@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/sections/depoimentos.tsx","./src/sections/faq.tsx","./src/sections/footer.tsx","./src/sections/header.tsx","./src/sections/hero.tsx","./src/sections/localizacao.tsx","./src/sections/resultados.tsx","./src/sections/servicos.tsx","./src/sections/sobre.tsx","./src/services/trpc.ts"],"version":"5.9.3"}

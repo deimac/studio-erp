@@ -45,6 +45,23 @@ export const vendasRouter = createTRPCRouter({
                 .limit(1);
             return Boolean(row);
         }),
+    /** Verifica se existe venda vinculada a pacote */
+    hasVinculoPacote: protectedProcedure
+        .input(z.object({ id_pacote: z.number().int().positive() }))
+        .query(async ({ ctx, input }) => {
+            const [row] = await ctx.db
+                .select({ id: vendas.id })
+                .from(vendas)
+                .where(
+                    and(
+                        eq(vendas.id_pacote, input.id_pacote),
+                        eq(vendas.id_unidade, ctx.session.unidadeId),
+                        isNull(vendas.deleted_at),
+                    ),
+                )
+                .limit(1);
+            return Boolean(row);
+        }),
     /* ============= Atualizar valor da parcela principal ============= */
     atualizarValorParcelaPrincipal: adminProcedure
         .input(z.object({

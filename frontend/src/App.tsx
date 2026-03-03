@@ -5,7 +5,6 @@ import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Pessoas from '@/pages/Pessoas';
 import Servicos from '@/pages/Servicos';
-import Pacotes from '@/pages/Pacotes';
 import Vendas from '@/pages/Vendas';
 import Atendimentos from '@/pages/Atendimentos';
 import Financeiro from '@/pages/Financeiro';
@@ -34,7 +33,6 @@ export default function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="pessoas" element={<Pessoas />} />
                     <Route path="servicos" element={<Servicos />} />
-                    <Route path="pacotes" element={<Pacotes />} />
                     <Route path="vendas" element={<Vendas />} />
                     <Route path="atendimentos" element={<Atendimentos />} />
                     <Route element={<AdminRoute />}>

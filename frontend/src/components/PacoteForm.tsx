@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/useToast';
+import { maskMoney } from '@/lib/masks';
 
 type Pacote = {
     id: number;
@@ -49,13 +50,20 @@ export function PacoteForm({
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
+    function formatAmountToMask(value: string | number) {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return '';
+        const cents = Math.round(amount * 100);
+        return maskMoney(String(cents));
+    }
+
     function handleOpen() {
         if (pacote) {
             setNome(pacote.nome);
             setDescricao(pacote.descricao ?? '');
             setServicoId(pacote.id_servico ?? '');
             setQtdSessoes(String(pacote.quantidade_sessoes));
-            setValorTotal(String(pacote.valor_total));
+            setValorTotal(formatAmountToMask(pacote.valor_total));
             setStatus(pacote.status ?? 'ATIVO');
         } else {
             setNome('');
@@ -82,12 +90,13 @@ export function PacoteForm({
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
+        const valorNumerico = Number(valorTotal.replace(/\./g, '').replace(',', '.'));
         const data = {
             nome: nome.trim(),
             descricao: descricao.trim() || undefined,
             id_servico: servicoId ? Number(servicoId) : undefined,
             quantidade_sessoes: Number(qtdSessoes),
-            valor_total: Number(valorTotal),
+            valor_total: valorNumerico,
             status,
         };
         if (pacote) {
@@ -101,7 +110,13 @@ export function PacoteForm({
 
     return (
         <>
-            <Button size="sm" variant={pacote ? 'ghost' : 'default'} onClick={handleOpen}>
+            <Button
+                size={pacote && trigger ? 'icon' : 'sm'}
+                variant={pacote ? 'ghost' : 'default'}
+                className={pacote && trigger ? 'h-8 w-8 p-0 flex items-center justify-center' : ''}
+                title={pacote ? 'Editar pacote' : undefined}
+                onClick={handleOpen}
+            >
                 {trigger ?? (pacote ? 'Editar' : 'Novo Pacote')}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
@@ -131,8 +146,15 @@ export function PacoteForm({
                                 <Input required type="number" min={1} value={qtdSessoes} onChange={(e) => setQtdSessoes(e.target.value)} />
                             </div>
                             <div>
-                                <Label>Valor Total (R$) *</Label>
-                                <Input required type="number" step="0.01" min="0.01" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} />
+                                <Label>Valor (R$) *</Label>
+                                <Input
+                                    required
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={valorTotal}
+                                    onChange={(e) => setValorTotal(maskMoney(e.target.value))}
+                                    placeholder="0,00"
+                                />
                             </div>
                         </div>
                         <div>

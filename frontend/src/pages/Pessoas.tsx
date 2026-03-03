@@ -13,7 +13,7 @@ import {
     TableHead,
     TableCell,
 } from '@/components/ui/table';
-import { Search, Users, Trash2 } from 'lucide-react';
+import { Search, Users, Trash2, SquarePen } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
@@ -149,7 +149,7 @@ export default function Pessoas() {
                                             {p.status}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-end gap-1">
                                             <PessoaForm
                                                 editData={p as any}
@@ -157,11 +157,12 @@ export default function Pessoas() {
                                                     utils.pessoas.list.invalidate();
                                                     toast({ title: 'Pessoa atualizada', variant: 'success' });
                                                 }}
+                                                trigger={<SquarePen className="w-4 h-4 text-blue-600" />}
                                             />
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                className="text-xs text-red-500 hover:text-red-700"
+                                                className="h-8 px-2 text-xs text-red-500 hover:text-red-700"
                                                 onClick={async () => {
                                                     const hasVendas = await hasVendasVinculadas(p.id, trpcClient);
                                                     if (hasVendas) {
@@ -188,7 +189,7 @@ export default function Pessoas() {
                                                     }
                                                 }}
                                             >
-                                                <Trash2 className="h-3.5 w-3.5" />
+                                                <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </TableCell>

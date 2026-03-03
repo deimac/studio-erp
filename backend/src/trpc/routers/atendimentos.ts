@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
     agendaConfiguracao,
@@ -87,14 +87,16 @@ export const atendimentosRouter = createTRPCRouter({
                     observacoes: atendimentos.observacoes,
                     created_at: atendimentos.created_at,
                     // Joined data
-                    pessoa_nome: pessoas.nome,
-                    servico_nome: servicos.nome,
-                    profissional_nome: usuarios.nome,
+                    pessoa_nome: sql<string>`${pessoas.nome}`.as('pessoa_nome'),
+                    servico_nome: sql<string | null>`${servicos.nome}`.as('servico_nome'),
+                    pacote_nome: sql<string | null>`${pacotes.nome}`.as('pacote_nome'),
+                    profissional_nome: sql<string>`${usuarios.nome}`.as('profissional_nome'),
                 })
                 .from(atendimentos)
                 .innerJoin(vendas, eq(atendimentos.id_venda, vendas.id))
                 .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
                 .leftJoin(servicos, eq(vendas.id_servico, servicos.id))
+                .leftJoin(pacotes, eq(vendas.id_pacote, pacotes.id))
                 .innerJoin(usuarios, eq(atendimentos.id_profissional, usuarios.id))
                 .where(and(...whereParts))
                 .orderBy(atendimentos.data, atendimentos.hora_inicio);

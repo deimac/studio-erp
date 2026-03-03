@@ -15,6 +15,8 @@ import { financeiroRouter } from './trpc/routers/financeiro';
 import { formasPagamentoRouter } from './trpc/routers/formasPagamento';
 import { tecnicasRouter } from './trpc/routers/tecnicas';
 import { unidadesRouter } from './trpc/routers/unidades';
+import { receitasDespesasRouter } from './trpc/routers/receitasDespesas';
+import { publicCatalogoRouter } from './trpc/routers/publicCatalogo';
 import { createTRPCRouter } from './trpc/trpc';
 
 const app = express();
@@ -70,6 +72,8 @@ export const appRouter = createTRPCRouter({
     formasPagamento: formasPagamentoRouter,
     tecnicas: tecnicasRouter,
     unidades: unidadesRouter,
+    receitasDespesas: receitasDespesasRouter,
+    public: publicCatalogoRouter,
 });
 
 export type AppRouter = typeof appRouter;

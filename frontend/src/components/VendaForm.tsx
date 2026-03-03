@@ -20,6 +20,7 @@ import {
     SelectItem,
 } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
+import { maskMoney } from '@/lib/masks';
 
 type Props = { onSuccess: () => void };
 
@@ -78,13 +79,20 @@ export function VendaForm({ onSuccess }: Props) {
         setPacoteSearch('');
     }
 
+    function formatAmountToMask(value: string | number) {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return '';
+        const cents = Math.round(amount * 100);
+        return maskMoney(String(cents));
+    }
+
     /* Auto-preencher ao escolher pacote ou serviço */
     function onSelectServico(id: string) {
         setIdServico(id);
         setIdPacote('');
         const srv = servicosQ.data?.find((s: any) => String(s.id) === id);
         if (srv) {
-            setValor(String(Number(srv.valor)));
+            setValor(formatAmountToMask(srv.valor));
             setSessoes('1');
         }
     }
@@ -94,19 +102,22 @@ export function VendaForm({ onSuccess }: Props) {
         setIdServico('');
         const pkt = pacotesQ.data?.find((p: any) => String(p.id) === id);
         if (pkt) {
-            setValor(String(Number(pkt.valor_total)));
+            setValor(formatAmountToMask(pkt.valor_total));
             setSessoes(String(pkt.quantidade_sessoes));
         }
     }
 
     function handleSubmit() {
+        // Converter valor mascarado (1.234,56) para número
+        const valorNumerico = Number(valor.replace(/\./g, '').replace(',', '.'));
+
         createMut.mutate({
             id_pessoa: Number(idPessoa),
             id_servico: tipoItem === 'servico' ? Number(idServico) : undefined,
             id_pacote: tipoItem === 'pacote' ? Number(idPacote) : undefined,
             id_forma_pagamento: Number(idFormaPagamento),
             quantidade_sessoes: Number(sessoes),
-            valor: Number(valor),
+            valor: valorNumerico,
             data_venda: dataVenda,
             data_primeiro_vencimento: dataPrimVenc,
             quantidade_parcelas: Number(parcelas),
@@ -127,12 +138,15 @@ export function VendaForm({ onSuccess }: Props) {
             (!pacoteSearch || p.nome.toLowerCase().includes(pacoteSearch.toLowerCase())),
     );
 
+    // Converter valor mascarado para validação
+    const valorNumerico = Number(valor.replace(/\./g, '').replace(',', '.')) || 0;
+
     const isValid =
         idPessoa &&
         (tipoItem === 'servico' ? idServico : idPacote) &&
         idFormaPagamento &&
         Number(sessoes) > 0 &&
-        Number(valor) > 0 &&
+        valorNumerico > 0 &&
         Number(parcelas) > 0 &&
         dataVenda &&
         dataPrimVenc;
@@ -271,13 +285,13 @@ export function VendaForm({ onSuccess }: Props) {
                                 />
                             </div>
                             <div className="space-y-1.5">
-                                <Label>Valor Total (R$)</Label>
+                                <Label>Valor (R$)</Label>
                                 <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
+                                    type="text"
+                                    inputMode="decimal"
                                     value={valor}
-                                    onChange={(e) => setValor(e.target.value)}
+                                    onChange={(e) => setValor(maskMoney(e.target.value))}
+                                    placeholder="0,00"
                                 />
                             </div>
                         </div>

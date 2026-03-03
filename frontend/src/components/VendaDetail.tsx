@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
+import { maskMoney, unmaskMoney } from '@/lib/masks';
 
 /* ── helpers ─── */
 const fmt = (v: string | number) =>
@@ -149,13 +150,13 @@ export function VendaDetail({ venda }: Props) {
             id_financeiro: pgtoId,
             data_pagamento: pgtoData,
             parcial: pgtoParcial,
-            valor_pago: pgtoParcial ? Number(pgtoValorPago) : undefined,
+            valor_pago: pgtoParcial ? unmaskMoney(pgtoValorPago) : undefined,
             novo_vencimento: pgtoParcial ? pgtoNovoVenc : undefined,
         });
     }
 
     const valorRestante = pgtoParcial
-        ? Math.max(0, pgtoValorParcela - Number(pgtoValorPago || 0))
+        ? Math.max(0, pgtoValorParcela - unmaskMoney(pgtoValorPago))
         : 0;
 
     /* Sessões realizadas (contagem de atendimentos REALIZADO) */
@@ -211,7 +212,7 @@ export function VendaDetail({ venda }: Props) {
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Vencimento</TableHead>
                                     <TableHead>Data Pagamento</TableHead>
-                                    <TableHead className="text-right">Pago</TableHead>
+                                    <TableHead className="text-center">Pago</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -245,8 +246,8 @@ export function VendaDetail({ venda }: Props) {
                                             <TableCell>
                                                 <span className={display.color}>{display.label}</span>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <>
+                                            <TableCell>
+                                                <div className="flex justify-center">
                                                     <Switch
                                                         checked={isPaid}
                                                         disabled={!canToggle || pgtoMut.isPending}
@@ -289,7 +290,7 @@ export function VendaDetail({ venda }: Props) {
                                                             }
                                                         }}
                                                     />
-                                                </>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -387,12 +388,11 @@ export function VendaDetail({ venda }: Props) {
                                 <div className="space-y-1.5">
                                     <Label>Valor Pago (R$)</Label>
                                     <Input
-                                        type="number"
-                                        min={0.01}
-                                        step="0.01"
-                                        max={pgtoValorParcela - 0.01}
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="0,00"
                                         value={pgtoValorPago}
-                                        onChange={(e) => setPgtoValorPago(e.target.value)}
+                                        onChange={(e) => setPgtoValorPago(maskMoney(e.target.value))}
                                     />
                                 </div>
                                 <div>
@@ -435,7 +435,7 @@ export function VendaDetail({ venda }: Props) {
                             disabled={
                                 pgtoMut.isPending ||
                                 !pgtoData ||
-                                (pgtoParcial && (!pgtoValorPago || !pgtoNovoVenc || Number(pgtoValorPago) <= 0))
+                                (pgtoParcial && (!pgtoValorPago || !pgtoNovoVenc || unmaskMoney(pgtoValorPago) <= 0))
                             }
                         >
                             {pgtoMut.isPending ? 'Registrando…' : 'Confirmar'}

@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Trash2, Lock, ChevronDown, ChevronUp, Sparkles, Package } from 'lucide-react';
+import { Search, Trash2, Lock, ChevronDown, ChevronUp, Sparkles, Package, ShoppingCart, TrendingUp, Calendar, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 
@@ -88,6 +88,15 @@ export default function Vendas() {
             (v.pacote_nome ?? '').toLowerCase().includes(search.toLowerCase()),
     );
 
+    // Stats para os cards informativos
+    const stats = {
+        total: vendasQ.data?.length ?? 0,
+        ativas: vendasQ.data?.filter((v) => v.status === 'ATIVA').length ?? 0,
+        encerradas: vendasQ.data?.filter((v) => v.status === 'ENCERRADA').length ?? 0,
+        valorTotal: vendasQ.data?.reduce((sum, v) => sum + Number(v.valor), 0) ?? 0,
+        sessoesTotal: vendasQ.data?.reduce((sum, v) => sum + (v.quantidade_sessoes ?? 0), 0) ?? 0,
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -99,6 +108,65 @@ export default function Vendas() {
                         toast({ title: 'Venda lançada!', variant: 'success' });
                     }}
                 />
+            </div>
+
+            {/* Cards informativos */}
+            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                <Card>
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                            <ShoppingCart className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400">Total</p>
+                            <p className="text-lg font-bold text-blue-600">{stats.total}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-green-200 bg-green-50/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
+                            <CheckCircle className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-green-500">Ativas</p>
+                            <p className="text-lg font-bold text-green-600">{stats.ativas}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-gray-200 bg-gray-50/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
+                            <Lock className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-500">Encerradas</p>
+                            <p className="text-lg font-bold text-gray-600">{stats.encerradas}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-purple-200 bg-purple-50/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
+                            <TrendingUp className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-purple-500">Valor Total</p>
+                            <p className="text-lg font-bold text-purple-600">{fmt(stats.valorTotal)}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="border-amber-200 bg-amber-50/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+                            <Calendar className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-xs text-amber-500">Sessões</p>
+                            <p className="text-lg font-bold text-amber-600">{stats.sessoesTotal}</p>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Filtros */}
@@ -140,7 +208,7 @@ export default function Vendas() {
                                 <TableHead className="hidden md:table-cell">Forma Pgto</TableHead>
                                 <TableHead className="hidden sm:table-cell">Valor</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead className="flex justify-end items-center ml-16">Ações</TableHead>
+                                <TableHead className="text-center">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -225,8 +293,8 @@ export default function Vendas() {
                                                     {v.status === 'ATIVA' && v.canDelete && (
                                                         <Button
                                                             variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                            size="sm"
+                                                            className="h-8 w-24 justify-start px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
                                                             onClick={async () => {
                                                                 const ok = await confirm({
                                                                     title: 'Excluir venda',
@@ -237,17 +305,18 @@ export default function Vendas() {
                                                                 if (ok) deleteMut.mutate({ id: v.id });
                                                             }}
                                                         >
-                                                            <Trash2 className="h-4 w-4" />
+                                                            <Trash2 className="mr-1 h-4 w-4" />
+                                                            Excluir
                                                         </Button>
                                                     )}
                                                     {v.status === 'ATIVA' && v.canClose && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            className="text-xs"
+                                                            className="h-8 w-24 justify-start px-2 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                                                             onClick={() => setEncerrarId(v.id)}
                                                         >
-                                                            <Lock className="mr-1 h-3.5 w-3.5" />
+                                                            <Lock className="mr-1 h-4 w-4" />
                                                             Encerrar
                                                         </Button>
                                                     )}

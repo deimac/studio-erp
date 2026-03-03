@@ -117,4 +117,14 @@ export const pacotesRouter = createTRPCRouter({
             await ctx.db.update(pacotes).set(set).where(eq(pacotes.id, input.id));
             return { ok: true };
         }),
+
+    delete: adminProcedure
+        .input(z.object({ id: z.number().int().positive() }))
+        .mutation(async ({ ctx, input }) => {
+            const [row] = await ctx.db.select({ id: pacotes.id }).from(pacotes).where(eq(pacotes.id, input.id)).limit(1);
+            if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
+
+            await ctx.db.delete(pacotes).where(eq(pacotes.id, input.id));
+            return { ok: true };
+        }),
 });

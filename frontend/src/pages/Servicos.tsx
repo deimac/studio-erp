@@ -12,13 +12,26 @@ import { Search } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { hasVendasVinculadasPacote } from '@/services/hasVendasVinculadasPacote';
 
 export default function Servicos() {
     const { toast } = useToast();
+    const confirm = useConfirm();
     const utils = trpc.useUtils();
+    const trpcClient = utils.client;
     const [search, setSearch] = useState('');
     const servicosQ = trpc.servicos.list.useQuery(search ? { search } : undefined);
     const pacotesQ = trpc.pacotes.list.useQuery();
+
+    const deletePacoteMut = trpc.pacotes.delete.useMutation({
+        onSuccess: () => {
+            utils.pacotes.list.invalidate();
+            toast({ title: 'Pacote removido!', variant: 'success' });
+        },
+        onError: (error) => {
+            toast({ title: 'Erro ao remover pacote', description: error.message, variant: 'error' });
+        },
+    });
 
     const fmt = (v: string) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const handleServicoSaved = () => {
@@ -139,9 +152,9 @@ export default function Servicos() {
                                                                                 <div className="font-bold text-primary text-sm mb-1">{p.nome}</div>
                                                                                 {p.descricao && <div className="text-gray-500 mb-1">{p.descricao}</div>}
                                                                                 <div><b>Sessões:</b> {p.quantidade_sessoes}</div>
-                                                                                <div><b>Valor total:</b> R$ {Number(p.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                                                                                <div><b>Valor R$:</b> {fmt(p.valor_total)}</div>
                                                                                 <div><b>Status:</b> <Badge variant={p.status === 'ATIVO' ? 'success' : 'destructive'}>{p.status === 'ATIVO' ? 'Ativo' : 'Inativo'}</Badge></div>
-                                                                                <div className="flex gap-2 justify-end mt-2">
+                                                                                <div className="flex gap-1 justify-center mt-2">
                                                                                     <PacoteForm
                                                                                         pacote={{
                                                                                             id: p.id,
@@ -155,10 +168,35 @@ export default function Servicos() {
                                                                                         onSuccess={() => {
                                                                                             utils.pacotes.list.invalidate();
                                                                                         }}
-                                                                                        trigger={<SquarePen className="w-4 h-4 text-blue-600" />}
+                                                                                        trigger={<SquarePen className="h-4 w-4 text-blue-600" />}
                                                                                     />
-                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0" title="Excluir pacote" onClick={() => {/* lógica excluir pacote */ }}>
-                                                                                        <Trash2 className="w-4 h-4 text-red-600" />
+                                                                                    <Button
+                                                                                        variant="ghost"
+                                                                                        size="icon"
+                                                                                        className="h-8 w-8 p-0 flex items-center justify-center"
+                                                                                        title="Excluir pacote"
+                                                                                        onClick={async () => {
+                                                                                            const hasVendas = await hasVendasVinculadasPacote(p.id, trpcClient);
+                                                                                            if (hasVendas) {
+                                                                                                toast({
+                                                                                                    title: 'Não é possível excluir',
+                                                                                                    description: 'Este pacote possui vendas vinculadas.',
+                                                                                                    variant: 'error',
+                                                                                                });
+                                                                                                return;
+                                                                                            }
+                                                                                            const ok = await confirm({
+                                                                                                title: 'Excluir pacote',
+                                                                                                description: `Tem certeza que deseja excluir o pacote "${p.nome}"? Essa ação não pode ser desfeita.`,
+                                                                                                confirmLabel: 'Excluir',
+                                                                                                variant: 'danger',
+                                                                                            });
+                                                                                            if (ok) {
+                                                                                                deletePacoteMut.mutate({ id: p.id });
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        <Trash2 className="h-4 w-4 text-red-600" />
                                                                                     </Button>
                                                                                 </div>
                                                                             </div>
