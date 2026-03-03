@@ -1,7 +1,6 @@
 import * as React from 'react';
 
 const WHATSAPP_URL = 'https://wa.me/5543998468294?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20uma%20sess%C3%A3o';
-const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default function Hero() {
     return (
@@ -17,9 +16,10 @@ export default function Hero() {
                 <div className="flex lg:hidden w-full justify-center animate-fade-in-up">
                     <div className="relative">
                         <img
-                            src={`${API_BASE}/brand/logo_tayna.png`}
+                            src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
                             alt="Tayna Santos"
                             className="w-64 h-80 object-contain"
+                            loading="eager"
                         />
                     </div>
                 </div>
@@ -67,11 +67,10 @@ export default function Hero() {
                 <div className="hidden lg:flex flex-1 justify-end animate-fade-in-up animate-delay-200">
                     <div className="relative">
                         <img
-                            src={`${API_BASE}/brand/logo_tayna.png`}
+                            src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
                             alt="Tayna Santos"
                             className="relative w-[420px] h-[540px] object-contain"
-                            loading="lazy"
-                            decoding="async"
+                            loading="eager"
                         />
                     </div>
                 </div>
