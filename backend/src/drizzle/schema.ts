@@ -88,9 +88,46 @@ export const servicos = mysqlTable('servicos', {
     valor: decimal('valor', { precision: 10, scale: 2 }).notNull(),
     gera_credito: dbBoolean('gera_credito').default(true),
     ativo: dbBoolean('ativo').default(true),
+    // Modalidade dentro de um protocolo (site público)
+    id_protocolo: int('id_protocolo').references(() => protocolos.id, { onDelete: 'set null' }),
+    nome_modalidade: varchar('nome_modalidade', { length: 150 }),
+    regioes: text('regioes'), // JSON string[]
+    ordem_modalidade: int('ordem_modalidade').notNull().default(0),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
 });
+
+/* =========================================================================
+   Protocolos  (agrupam serviços/modalidades para o site público)
+   ========================================================================= */
+export const protocolos = mysqlTable('protocolos', {
+    id: serial('id').primaryKey(),
+    nome: varchar('nome', { length: 150 }).notNull(),
+    slug: varchar('slug', { length: 160 }).notNull().unique(),
+    subtitulo: varchar('subtitulo', { length: 255 }),
+    descricao: text('descricao'),
+    inclui: text('inclui'), // JSON string[]
+    beneficios: text('beneficios'), // JSON string[]
+    aviso: text('aviso'),
+    frase_final: varchar('frase_final', { length: 255 }),
+    icone: varchar('icone', { length: 50 }),
+    imagem_url: varchar('imagem_url', { length: 500 }),
+    ordem: int('ordem').notNull().default(0),
+    permite_vale_presente: dbBoolean('permite_vale_presente').notNull().default(false),
+    ativo: dbBoolean('ativo').notNull().default(true),
+    created_at: timestamp('created_at').defaultNow(),
+    updated_at: timestamp('updated_at').defaultNow(),
+});
+
+/* =========================================================================
+   Site config  (chave/valor: imagens e textos globais do site público)
+   ========================================================================= */
+export const siteConfig = mysqlTable('site_config', {
+    chave: varchar('chave', { length: 100 }).primaryKey(),
+    valor: text('valor'),
+});
+
+export const SITE_CONFIG_CHAVES = ['hero_imagem_url', 'sobre_imagem_url', 'hero_titulo', 'hero_subtitulo'] as const;
 
 /* =========================================================================
    Técnicas  +  servico_tecnica (N:N)
@@ -318,9 +355,14 @@ export const pessoasRelations = relations(pessoas, ({ one, many }) => ({
     vendas: many(vendas),
 }));
 
-export const servicosRelations = relations(servicos, ({ many }) => ({
+export const servicosRelations = relations(servicos, ({ one, many }) => ({
     servicoTecnicas: many(servicoTecnica),
     pacotes: many(pacotes),
+    protocolo: one(protocolos, { fields: [servicos.id_protocolo], references: [protocolos.id] }),
+}));
+
+export const protocolosRelations = relations(protocolos, ({ many }) => ({
+    servicos: many(servicos),
 }));
 
 export const tecnicasRelations = relations(tecnicas, ({ many }) => ({
