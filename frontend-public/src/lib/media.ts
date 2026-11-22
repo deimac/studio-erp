@@ -11,3 +11,11 @@ export function resolveImageUrl(url?: string | null): string {
 export function imagemProtocolo(p: { slug: string; imagem_url?: string | null }): string {
     return resolveImageUrl(p.imagem_url) || `/images/protocolos/${p.slug}.jpg`;
 }
+
+/** onError de <img>: troca por uma imagem genérica (uma única vez). */
+export function imagemReserva(e: { currentTarget: HTMLImageElement }) {
+    const img = e.currentTarget;
+    if (img.dataset.reserva) return;
+    img.dataset.reserva = '1';
+    img.src = '/images/site/hero.jpg';
+}

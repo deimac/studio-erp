@@ -207,8 +207,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 .reel figcaption { position: absolute; z-index: 2; left: 18px; right: 18px; bottom: 18px }
 .reel figcaption b { display: block; font: 500 19px/1.2 var(--font-display); color: #fff }
 .reel figcaption small { font-size: 12px; color: rgba(255, 255, 255, .78) }
-.reel .snd { position: absolute; z-index: 3; right: 14px; top: 14px; width: 36px; height: 36px; border-radius: 50%; background: rgba(0, 0, 0, .3); display: grid; place-items: center; color: #fff; opacity: 0; transition: opacity .4s }
-.reel.on .snd { opacity: 1 }
+.reel .snd { position: absolute; z-index: 3; right: 14px; top: 14px; width: 36px; height: 36px; border-radius: 50%; background: rgba(0, 0, 0, .3); display: grid; place-items: center; color: #fff; opacity: 0; pointer-events: none; transition: opacity .4s }
+.reel.on .snd { opacity: 1; pointer-events: auto }
 .reel .snd svg { width: 15px; height: 15px }
 .rside { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 0 0 22px; border-left: 1px solid rgba(243, 238, 231, .14) }
 .rside .big { font: 300 64px/1 var(--font-display); color: var(--gold-l); letter-spacing: -.03em }

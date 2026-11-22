@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarDays, Search, X } from 'lucide-react';
 import type { ProtocoloResumo, SiteConfig } from '@/lib/catalogo';
 import { iconeProtocolo } from '@/lib/icons';
-import { imagemProtocolo, resolveImageUrl } from '@/lib/media';
+import { imagemProtocolo, imagemReserva, resolveImageUrl } from '@/lib/media';
 import { formatDuracoes } from '@/lib/format';
 import { whatsappUrl } from '@/lib/whatsapp';
 
@@ -28,13 +28,13 @@ function Busca({ protocolos }: { protocolos: ProtocoloResumo[] }) {
                     value={q}
                     onChange={(e) => { setQ(e.target.value); setAberto(true); }}
                     onFocus={() => setAberto(true)}
-                    placeholder="Buscar protocolo, técnica ou região…"
+                    placeholder="Buscar protocolo…"
                     autoComplete="off"
                 />
                 {q && <button type="button" aria-label="Limpar busca" onClick={() => setQ('')}><X /></button>}
             </label>
             {aberto && q.trim() && (
-                <div className="results-list" role="listbox">
+                <div className="results-list" onMouseDown={(e) => e.preventDefault()}>
                     {achados.length ? achados.map((p) => {
                         const Icone = iconeProtocolo(p.icone);
                         return <Link key={p.id} to={`/protocolos/${p.slug}`}><Icone />{p.nome}</Link>;
@@ -66,7 +66,7 @@ export default function Hero({ protocolos, config }: { protocolos?: ProtocoloRes
                                 <span><b>{p.nome}</b>{p.subtitulo && <small>{p.subtitulo}</small>}</span>
                                 <span className="min">{formatDuracoes(p.duracoes)}</span>
                                 <span className="circle-btn" aria-hidden="true"><ArrowRight /></span>
-                                <span className="peek" aria-hidden="true"><img src={imagemProtocolo(p)} alt="" loading="lazy" /></span>
+                                <span className="peek" aria-hidden="true"><img src={imagemProtocolo(p)} alt="" loading="lazy" onError={imagemReserva} /></span>
                             </Link>
                         );
                     })}

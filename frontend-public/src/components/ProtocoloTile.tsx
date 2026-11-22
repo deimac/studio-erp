@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import type { ProtocoloResumo } from '@/lib/catalogo';
-import { imagemProtocolo } from '@/lib/media';
+import { imagemProtocolo, imagemReserva } from '@/lib/media';
 import { formatBRL, formatDuracoes } from '@/lib/format';
 
 export default function ProtocoloTile({ p, num, area, seal }: { p: ProtocoloResumo; num?: number; area?: string; seal?: string }) {
@@ -11,7 +11,7 @@ export default function ProtocoloTile({ p, num, area, seal }: { p: ProtocoloResu
         : duracao;
     return (
         <Link className={`tile ${area ?? ''}`} to={`/protocolos/${p.slug}`}>
-            <img src={imagemProtocolo(p)} alt="" loading="lazy" />
+            <img src={imagemProtocolo(p)} alt="" loading="lazy" onError={imagemReserva} />
             <span className="txt">
                 {num != null && <span className="num">{String(num).padStart(2, '0')}</span>}
                 <b>{p.nome}</b>

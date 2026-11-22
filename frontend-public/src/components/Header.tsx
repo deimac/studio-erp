@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Instagram, Menu, MessageCircle, X } from 'lucide-react';
 import Brand from './Brand';
@@ -16,8 +16,16 @@ const LINKS = [
 
 export default function Header() {
     const [open, setOpen] = useState(false);
-    const { pathname, hash } = useLocation();
-    useEffect(() => setOpen(false), [pathname, hash]);
+    const { pathname, hash, key } = useLocation();
+    const menuRef = useRef<HTMLButtonElement>(null);
+    const closeRef = useRef<HTMLButtonElement>(null);
+    const aberto = useRef(false);
+    useEffect(() => setOpen(false), [pathname, hash, key]);
+    useEffect(() => {
+        if (open) closeRef.current?.focus();
+        else if (aberto.current) menuRef.current?.focus({ preventScroll: true });
+        aberto.current = open;
+    }, [open]);
     useEffect(() => {
         if (!open) return;
         const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
@@ -37,11 +45,11 @@ export default function Header() {
                 <a className="circle-btn soc" href={INSTAGRAM_URL} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram /></a>
                 <a className="circle-btn soc" href={whatsappUrl({})} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle /></a>
                 <a className="pill" href={whatsappUrl({})} target="_blank" rel="noreferrer">Agendar</a>
-                <button className="circle-btn menu-btn" aria-label="Abrir menu" aria-expanded={open} onClick={() => setOpen(true)}><Menu /></button>
+                <button ref={menuRef} className="circle-btn menu-btn" aria-label="Abrir menu" aria-expanded={open} onClick={() => setOpen(true)}><Menu /></button>
             </div>
             <div className={`drawer${open ? ' open' : ''}`} onClick={() => setOpen(false)} aria-hidden={!open}>
-                <div className="panel" role="dialog" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
-                    <button className="circle-btn close" aria-label="Fechar menu" onClick={() => setOpen(false)} tabIndex={open ? 0 : -1}><X /></button>
+                <div className="panel" role="dialog" aria-modal="true" aria-label="Menu" onClick={(e) => e.stopPropagation()}>
+                    <button ref={closeRef} className="circle-btn close" aria-label="Fechar menu" onClick={() => setOpen(false)} tabIndex={open ? 0 : -1}><X /></button>
                     {LINKS.map((l) => <Link key={l.to} className="lk" to={l.to} tabIndex={open ? 0 : -1}>{l.label}</Link>)}
                     <a className="pill" href={whatsappUrl({})} target="_blank" rel="noreferrer" tabIndex={open ? 0 : -1}>Agendar pelo WhatsApp</a>
                 </div>

@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, Check, ChevronRight, Clock, Gift, HandHeart, Info, ListChecks, MessageCircle, Sparkles, Wallet } from 'lucide-react';
 import { useProtocolo, useProtocolos, type Modalidade, type ProtocoloDetalhe } from '@/lib/catalogo';
 import { iconeProtocolo } from '@/lib/icons';
-import { imagemProtocolo } from '@/lib/media';
+import { imagemProtocolo, imagemReserva } from '@/lib/media';
 import { calcularEconomia, formatBRL, formatDuracoes } from '@/lib/format';
 import { whatsappUrl } from '@/lib/whatsapp';
 import { useReveal } from '@/lib/useReveal';
@@ -11,7 +11,9 @@ import ProtocoloTile from '@/components/ProtocoloTile';
 import NotFound from './NotFound';
 
 function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
-    const nome = m.nome_modalidade || (p.modalidades.length === 1 ? 'Sessão' : m.nome);
+    const unica = p.modalidades.length === 1;
+    const nome = m.nome_modalidade || (unica ? 'Sessão' : m.nome);
+    const modalidadeMsg = m.nome_modalidade || (unica ? undefined : m.nome);
     const avulso = Number(m.valor);
     const pacotes = [...m.pacotes].sort((a, b) => a.quantidade_sessoes - b.quantidade_sessoes);
     return (
@@ -31,7 +33,7 @@ function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
                         const economia = calcularEconomia(avulso, pk.quantidade_sessoes, total);
                         return (
                             <a key={pk.id} className="pack" target="_blank" rel="noreferrer"
-                                href={whatsappUrl({ protocolo: p.nome, modalidade: m.nome_modalidade ?? undefined, pacote: { sessoes: pk.quantidade_sessoes } })}>
+                                href={whatsappUrl({ protocolo: modalidadeMsg && !m.nome_modalidade ? undefined : p.nome, modalidade: modalidadeMsg, pacote: { sessoes: pk.quantidade_sessoes } })}>
                                 <b>Pacote {pk.quantidade_sessoes} sessões</b>
                                 <span className="tot">{formatBRL(total)}</span>
                                 <small>{formatBRL(total / pk.quantidade_sessoes)} por sessão</small>
@@ -41,7 +43,7 @@ function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
                     })}
                 </div>
             )}
-            <a className="pill" target="_blank" rel="noreferrer" href={whatsappUrl({ protocolo: p.nome, modalidade: m.nome_modalidade ?? undefined })}>
+            <a className="pill" target="_blank" rel="noreferrer" href={whatsappUrl({ protocolo: modalidadeMsg && !m.nome_modalidade ? undefined : p.nome, modalidade: modalidadeMsg })}>
                 Agendar {m.nome_modalidade ? nome.toLowerCase() : 'sessão'}<ArrowRight />
             </a>
         </article>
@@ -96,7 +98,7 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                     </div>
                 </div>
                 <div className="visual">
-                    <img src={imagemProtocolo(p)} alt={p.nome} fetchPriority="high" />
+                    <img src={imagemProtocolo(p)} alt={p.nome} fetchPriority="high" onError={imagemReserva} />
                     {aPartir != null && <span className="glass price-chip"><small>a partir de</small><b>{formatBRL(aPartir)}</b></span>}
                 </div>
             </section>
@@ -170,7 +172,7 @@ export default function ProtocoloPage() {
             </section>
         );
     }
-    if (isError) return <NotFound titulo="Não foi possível carregar" />;
+    if (isError) return <NotFound titulo="Não foi possível carregar" texto="Verifique sua conexão e tente novamente em instantes." />;
     if (!data) return <NotFound titulo="Protocolo não encontrado" />;
     return <Conteudo key={data.slug} p={data} />;
 }

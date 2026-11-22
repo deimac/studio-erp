@@ -14,12 +14,13 @@ function Reel({ v }: { v: (typeof VIDEOS)[number] }) {
     const [on, setOn] = useState(false);
     const [mudo, setMudo] = useState(true);
     useEffect(() => { if (ref.current) ref.current.muted = mudo; }, [mudo]);
-    const play = () => { ref.current?.play().catch(() => {}); setOn(true); };
+    const hover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
+    const play = () => { ref.current?.play().then(() => setOn(true), () => setOn(false)); setOn(true); };
     const stop = () => { ref.current?.pause(); setMudo(true); setOn(false); };
     return (
         <figure className={`reel${on ? ' on' : ''}`} tabIndex={0} role="button" aria-label={`Assistir: ${v.titulo}`}
-            onMouseEnter={play} onMouseLeave={stop} onClick={() => (on ? stop() : play())}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); on ? stop() : play(); } }}>
+            onMouseEnter={hover ? play : undefined} onMouseLeave={hover ? stop : undefined} onClick={() => (on ? stop() : play())}
+            onKeyDown={(e) => { if (e.target !== e.currentTarget) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); on ? stop() : play(); } }}>
             <video ref={ref} src={v.src} poster={v.poster} muted loop playsInline preload="none" />
             <span className="chip">{v.chip}</span>
             <span className="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" /></svg></span>
