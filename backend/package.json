@@ -8,7 +8,8 @@
     "start": "tsx src/server.ts",
     "build": "tsc",
     "test": "vitest run",
-    "migrate": "tsx src/migrate.ts"
+    "migrate": "tsx src/migrate.ts",
+    "seed:protocolos": "tsx src/seed-protocolos.ts"
   },
   "keywords": [],
   "author": "",
