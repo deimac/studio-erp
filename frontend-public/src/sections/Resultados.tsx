@@ -1,116 +1,52 @@
-import { useRef, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, Volume2, VolumeX } from 'lucide-react';
+import { useReveal } from '@/lib/useReveal';
+import { whatsappUrl } from '@/lib/whatsapp';
 
 const VIDEOS = [
-    {
-        src: '/images/massagem01.mp4',
-        poster: '/images/resultado_1_thumb.jpg',
-        label: 'Massagem Modeladora',
-    },
-    {
-        src: '/images/massagem02.mp4',
-        poster: '/images/resultado_2_thumb.jpg',
-        label: 'Drenagem Linfática',
-    },
-    {
-        src: '/images/massagem03.mp4',
-        poster: '/images/resultado_3_thumb.jpg',
-        label: 'Massagem Modeladora',
-    },
+    { src: '/images/massagem01.mp4', poster: '/images/site/video-01.jpg', chip: 'Modeladora', titulo: 'Método TS', texto: 'Contorno e firmeza' },
+    { src: '/images/massagem02.mp4', poster: '/images/site/video-02.jpg', chip: 'Drenagem', titulo: 'Drenagem Linfática', texto: 'Leveza e menos inchaço' },
+    { src: '/images/massagem03.mp4', poster: '/images/site/video-03.jpg', chip: 'Resultado', titulo: 'Ao final da sessão', texto: 'Corpo desinchado' },
 ];
 
-function ReelCard({ src, poster, label }: { src: string; poster: string; label: string }) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [playing, setPlaying] = useState(false);
-    const [muted, setMuted] = useState(true);
-
-    const togglePlay = () => {
-        const v = videoRef.current;
-        if (!v) return;
-        if (v.paused) {
-            v.play();
-            setPlaying(true);
-        } else {
-            v.pause();
-            setPlaying(false);
-        }
-    };
-
-    const toggleMute = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const v = videoRef.current;
-        if (!v) return;
-        v.muted = !v.muted;
-        setMuted(v.muted);
-    };
-
+function Reel({ v }: { v: (typeof VIDEOS)[number] }) {
+    const ref = useRef<HTMLVideoElement>(null);
+    const [on, setOn] = useState(false);
+    const [mudo, setMudo] = useState(true);
+    useEffect(() => { if (ref.current) ref.current.muted = mudo; }, [mudo]);
+    const play = () => { ref.current?.play().catch(() => {}); setOn(true); };
+    const stop = () => { ref.current?.pause(); setMudo(true); setOn(false); };
     return (
-        <div className="reel-card" onClick={togglePlay}>
-            <video
-                ref={videoRef}
-                src={src}
-                poster={poster}
-                muted
-                playsInline
-                loop
-                preload="metadata"
-                className="reel-video"
-            />
-
-            {/* Gradiente inferior */}
-            <div className="reel-gradient" />
-
-            {/* Label */}
-            <p className="reel-label">{label}</p>
-
-            {/* Botão mute */}
-            <button className="reel-mute-btn" onClick={toggleMute} aria-label="Mudo">
-                {muted
-                    ? <VolumeX style={{ width: '16px', height: '16px' }} />
-                    : <Volume2 style={{ width: '16px', height: '16px' }} />
-                }
-            </button>
-
-            {/* Botão play central (visível quando pausado) */}
-            {!playing && (
-                <div className="reel-play-overlay">
-                    <div className="reel-play-btn">
-                        <Play style={{ width: '28px', height: '28px', marginLeft: '3px' }} />
-                    </div>
-                </div>
-            )}
-        </div>
+        <figure className={`reel${on ? ' on' : ''}`} tabIndex={0} role="button" aria-label={`Assistir: ${v.titulo}`}
+            onMouseEnter={play} onMouseLeave={stop} onClick={() => (on ? stop() : play())}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); on ? stop() : play(); } }}>
+            <video ref={ref} src={v.src} poster={v.poster} muted loop playsInline preload="none" />
+            <span className="chip">{v.chip}</span>
+            <span className="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" /></svg></span>
+            <button className="snd" aria-label={mudo ? 'Ativar som' : 'Desativar som'} tabIndex={on ? 0 : -1}
+                onClick={(e) => { e.stopPropagation(); setMudo((m) => !m); }}>{mudo ? <VolumeX /> : <Volume2 />}</button>
+            <figcaption><b>{v.titulo}</b><small>{v.texto}</small></figcaption>
+        </figure>
     );
 }
 
 export default function Resultados() {
+    const ref = useReveal<HTMLElement>();
     return (
-        <section id="resultados" className="relative section-pad bg-section-navy">
-            <div className="container-page">
-
-                {/* Cabeçalho */}
-                <div className="reel-header animate-fade-in-up">
-                    <p className="eyebrow text-gold-accent mb-4">Na prática</p>
-                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-semibold text-text-light">
-                        Veja os resultados
-                    </h2>
-                    <p className="reel-subtitle">
-                        Momentos reais de cuidado e transformação no estúdio
-                    </p>
+        <section className="results reveal" id="resultados" ref={ref}>
+            <div className="sh">
+                <div><span className="eyebrow">Resultados na prática</span><h2>O cuidado,<br /><em>em movimento.</em></h2></div>
+                <p>Trechos reais de atendimentos no estúdio. Passe o mouse ou toque para assistir.</p>
+            </div>
+            <div className="reels">
+                {VIDEOS.map((v) => <Reel key={v.src} v={v} />)}
+                <div className="rside">
+                    <div><div className="big">+ leveza</div><p>Cada protocolo começa com uma avaliação, para escolher a técnica certa para o seu corpo.</p></div>
+                    <div>
+                        <a className="pill" href={whatsappUrl({})} target="_blank" rel="noreferrer">Quero agendar<ArrowRight /></a>
+                        <p className="fine">Resultados variam de pessoa para pessoa. Os protocolos não substituem acompanhamento médico.</p>
+                    </div>
                 </div>
-
-                {/* Separador */}
-                <div className="hairline-section-wrap">
-                    <div className="hairline-gold" />
-                </div>
-
-                {/* Grid de reels */}
-                <div className="reel-grid">
-                    {VIDEOS.map((v, i) => (
-                        <ReelCard key={i} {...v} />
-                    ))}
-                </div>
-
             </div>
         </section>
     );

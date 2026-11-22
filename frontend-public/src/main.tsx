@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { httpBatchLink } from '@trpc/client';
 import { trpc } from '@/services/trpc';
+import { BrowserRouter } from 'react-router-dom';
 import App from '@/App';
 import '@/styles/globals.css';
 
@@ -38,7 +39,9 @@ function Root() {
         // @ts-ignore - tRPC Provider type inference issue
         <trpc.Provider client={trpcClient} queryClient={queryClient}>
             <QueryClientProvider client={queryClient}>
-                <App />
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
             </QueryClientProvider>
             {/* @ts-ignore - tRPC Provider type inference issue */}
         </trpc.Provider>

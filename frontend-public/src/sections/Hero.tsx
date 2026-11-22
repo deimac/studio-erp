@@ -1,81 +1,83 @@
-import * as React from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, CalendarDays, Search, X } from 'lucide-react';
+import type { ProtocoloResumo, SiteConfig } from '@/lib/catalogo';
+import { iconeProtocolo } from '@/lib/icons';
+import { imagemProtocolo, resolveImageUrl } from '@/lib/media';
+import { formatDuracoes } from '@/lib/format';
+import { whatsappUrl } from '@/lib/whatsapp';
 
-const WHATSAPP_URL = 'https://wa.me/5543998468294?text=Ol%C3%A1%2C%20gostaria%20de%20agendar%20uma%20sess%C3%A3o';
+const sem = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-export default function Hero() {
+function Busca({ protocolos }: { protocolos: ProtocoloResumo[] }) {
+    const [q, setQ] = useState('');
+    const [aberto, setAberto] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    const achados = useMemo(() => {
+        const t = sem(q.trim());
+        if (!t) return [];
+        return protocolos.filter((p) => sem(`${p.nome} ${p.subtitulo ?? ''}`).includes(t)).slice(0, 5);
+    }, [q, protocolos]);
+
     return (
-        <section
-            id="inicio"
-            className="relative min-h-screen flex items-center overflow-hidden bg-section-navy"
-        >
-            {/* Subtle radial glow */}
-            <div className="absolute inset-0 pointer-events-none hero-glow" />
-
-            <div className="container-page flex flex-col lg:flex-row w-full items-center gap-12 py-28 lg:py-32 lg:gap-20">
-                {/* Image — top on mobile, right on desktop */}
-                <div className="flex lg:hidden w-full justify-center">
-                    <div className="relative">
-                        <img
-                            src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
-                            alt="Tayna Santos"
-                            className="w-64 h-80 object-contain"
-                        />
-                    </div>
+        <div className="glass search" ref={ref} onBlur={(e) => !ref.current?.contains(e.relatedTarget as Node) && setAberto(false)}>
+            <label className="field">
+                <Search aria-hidden="true" />
+                <span className="sr-only">Buscar protocolo</span>
+                <input
+                    value={q}
+                    onChange={(e) => { setQ(e.target.value); setAberto(true); }}
+                    onFocus={() => setAberto(true)}
+                    placeholder="Buscar protocolo, técnica ou região…"
+                    autoComplete="off"
+                />
+                {q && <button type="button" aria-label="Limpar busca" onClick={() => setQ('')}><X /></button>}
+            </label>
+            {aberto && q.trim() && (
+                <div className="results-list" role="listbox">
+                    {achados.length ? achados.map((p) => {
+                        const Icone = iconeProtocolo(p.icone);
+                        return <Link key={p.id} to={`/protocolos/${p.slug}`}><Icone />{p.nome}</Link>;
+                    }) : <span className="empty">Nada encontrado. Que tal perguntar pelo WhatsApp?</span>}
                 </div>
+            )}
+        </div>
+    );
+}
 
-                {/* Text — bottom on mobile, left on desktop */}
-                <div className="flex-1 max-w-xl w-full lg:w-auto text-center lg:text-left">
-                    <p className="eyebrow text-gold mb-6">
-                        Tayna Santos • Massoterapeuta
-                    </p>
+export default function Hero({ protocolos, config }: { protocolos?: ProtocoloResumo[]; config: SiteConfig }) {
+    const [l1, ...resto] = (config.hero_titulo || 'Seu bem-estar\ncomeça aqui.').split(/\n|\|/);
+    const destaque = (protocolos ?? []).slice(0, 4);
+    const heroImg = resolveImageUrl(config.hero_imagem_url) || '/images/site/hero.jpg';
 
-                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-semibold leading-[1.05] text-text-light">
-                        Uma experiência de cuidados
-                        <span className="text-gold"> sofisticados</span>,
-                        <br />pensado para você.
-                    </h1>
-
-                    <div className="h-6 lg:h-8" aria-hidden="true" />
-
-                    <p className="lead text-text-muted max-w-md mx-auto lg:mx-0">
-                        Atendimento personalizado, técnicas especializadas em um ambiente acolhedor —
-                        para você relaxar, se recuperar e ter uma verdadeira conexão.
-                    </p>
-
-                    <div className="h-5 lg:h-7" aria-hidden="true" />
-
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-                        <a
-                            href={WHATSAPP_URL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex w-full sm:w-auto min-w-[240px] items-center justify-center gap-2 rounded-md border-2 border-gold bg-gold px-10 py-4 h-14 text-base font-semibold tracking-wide text-navy whitespace-nowrap transition-all duration-200 hover:bg-gold-light hover:border-gold-light"
-                        >
-                            Agendar sessão
-                        </a>
-                        <a
-                            href="#servicos"
-                            className="inline-flex w-full sm:w-auto min-w-[240px] items-center justify-center gap-2 rounded-md border border-gold/35 bg-white/5 px-10 py-4 h-14 text-base font-semibold tracking-wide text-text-light/90 whitespace-nowrap transition-all duration-200 hover:border-gold/55 hover:bg-white/10 hover:text-text-light"
-                        >
-                            Conheça os serviços
-                        </a>
-                    </div>
-                </div>
-
-                {/* Image — hidden on mobile, right on desktop */}
-                <div className="hidden lg:flex flex-1 justify-end">
-                    <div className="relative">
-                        <img
-                            src="https://tsmassoterapeuta.com.br/brand/logo_tayna.png"
-                            alt="Tayna Santos"
-                            className="relative w-[420px] h-[540px] object-contain"
-                        />
-                    </div>
+    return (
+        <section className="hero">
+            <div>
+                <h1>{l1.trim()}{resto.length > 0 && <span>{resto.join(' ').trim()}</span>}</h1>
+                <p className="lead">{config.hero_subtitulo || 'Massoterapia e estética em Maringá, com protocolos personalizados para leveza, alívio e relaxamento profundo.'}</p>
+                <div className="classes">
+                    <div className="h"><b>Protocolos em destaque</b>{protocolos && <span className="tag">{protocolos.length} opções</span>}</div>
+                    {!protocolos && [0, 1, 2, 3].map((i) => <div key={i} className="row"><span className="ico skel" /><span className="skel" style={{ height: 14, borderRadius: 8 }} /></div>)}
+                    {destaque.map((p) => {
+                        const Icone = iconeProtocolo(p.icone);
+                        return (
+                            <Link key={p.id} className="row" to={`/protocolos/${p.slug}`}>
+                                <span className="ico"><Icone /></span>
+                                <span><b>{p.nome}</b>{p.subtitulo && <small>{p.subtitulo}</small>}</span>
+                                <span className="min">{formatDuracoes(p.duracoes)}</span>
+                                <span className="circle-btn" aria-hidden="true"><ArrowRight /></span>
+                                <span className="peek" aria-hidden="true"><img src={imagemProtocolo(p)} alt="" loading="lazy" /></span>
+                            </Link>
+                        );
+                    })}
+                    <Link className="all" to="/#protocolos">Ver todos os protocolos</Link>
                 </div>
             </div>
-
-            {/* Gold divider at bottom (key point) */}
-            <div className="absolute bottom-0 left-0 right-0 divider-gold" />
+            <div className="visual">
+                <img src={heroImg} alt="Massagem corporal com óleo aquecido" fetchPriority="high" />
+                {protocolos && protocolos.length > 0 && <Busca protocolos={protocolos} />}
+                <a className="glass book" href={whatsappUrl({})} target="_blank" rel="noreferrer"><span className="i"><CalendarDays /></span>Agendar sessão</a>
+            </div>
         </section>
     );
 }
