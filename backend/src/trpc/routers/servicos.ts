@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, like } from 'drizzle-orm';
 import { z } from 'zod';
 import { servicoTecnica, servicos, tecnicas } from '../../drizzle/schema';
+import { parseLista } from '../../lib/protocolos';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 
 export const servicosRouter = createTRPCRouter({
@@ -27,6 +28,10 @@ export const servicosRouter = createTRPCRouter({
                     valor: servicos.valor,
                     gera_credito: servicos.gera_credito,
                     ativo: servicos.ativo,
+                    id_protocolo: servicos.id_protocolo,
+                    nome_modalidade: servicos.nome_modalidade,
+                    regioes: servicos.regioes,
+                    ordem_modalidade: servicos.ordem_modalidade,
                     created_at: servicos.created_at,
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
@@ -51,6 +56,10 @@ export const servicosRouter = createTRPCRouter({
                         valor: r.valor,
                         gera_credito: r.gera_credito,
                         ativo: r.ativo,
+                        id_protocolo: r.id_protocolo,
+                        nome_modalidade: r.nome_modalidade,
+                        regioes: parseLista(r.regioes),
+                        ordem_modalidade: r.ordem_modalidade,
                         created_at: r.created_at,
                         updated_at: r.updated_at,
                         tecnicas: [] as Array<{ id: number; nome: string }>,
@@ -76,6 +85,10 @@ export const servicosRouter = createTRPCRouter({
                     valor: servicos.valor,
                     gera_credito: servicos.gera_credito,
                     ativo: servicos.ativo,
+                    id_protocolo: servicos.id_protocolo,
+                    nome_modalidade: servicos.nome_modalidade,
+                    regioes: servicos.regioes,
+                    ordem_modalidade: servicos.ordem_modalidade,
                     created_at: servicos.created_at,
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
@@ -98,6 +111,10 @@ export const servicosRouter = createTRPCRouter({
                 valor: base.valor,
                 gera_credito: base.gera_credito,
                 ativo: base.ativo,
+                id_protocolo: base.id_protocolo,
+                nome_modalidade: base.nome_modalidade,
+                regioes: parseLista(base.regioes),
+                ordem_modalidade: base.ordem_modalidade,
                 created_at: base.created_at,
                 updated_at: base.updated_at,
                 tecnicas: rows
@@ -117,6 +134,10 @@ export const servicosRouter = createTRPCRouter({
                 gera_credito: z.boolean().optional(),
                 ativo: z.boolean().optional(),
                 tecnica_ids: z.array(z.number().int().positive()).optional(),
+                id_protocolo: z.number().int().positive().nullable().optional(),
+                nome_modalidade: z.string().nullable().optional(),
+                regioes: z.array(z.string()).optional(),
+                ordem_modalidade: z.number().int().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -130,6 +151,10 @@ export const servicosRouter = createTRPCRouter({
                     valor: String(input.valor) as any,
                     gera_credito: input.gera_credito ?? true,
                     ativo: input.ativo ?? true,
+                    id_protocolo: input.id_protocolo ?? null,
+                    nome_modalidade: input.nome_modalidade ?? null,
+                    regioes: input.regioes ? JSON.stringify(input.regioes) : null,
+                    ordem_modalidade: input.ordem_modalidade ?? 0,
                 })
                 .$returningId();
             const servicoId = ids[0]?.id;
@@ -154,6 +179,10 @@ export const servicosRouter = createTRPCRouter({
                 gera_credito: z.boolean().optional(),
                 ativo: z.boolean().optional(),
                 tecnica_ids: z.array(z.number().int().positive()).optional(),
+                id_protocolo: z.number().int().positive().nullable().optional(),
+                nome_modalidade: z.string().nullable().optional(),
+                regioes: z.array(z.string()).optional(),
+                ordem_modalidade: z.number().int().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -168,6 +197,10 @@ export const servicosRouter = createTRPCRouter({
             if (input.valor !== undefined) set.valor = String(input.valor);
             if (input.gera_credito !== undefined) set.gera_credito = input.gera_credito;
             if (input.ativo !== undefined) set.ativo = input.ativo;
+            if (input.id_protocolo !== undefined) set.id_protocolo = input.id_protocolo;
+            if (input.nome_modalidade !== undefined) set.nome_modalidade = input.nome_modalidade;
+            if (input.regioes !== undefined) set.regioes = JSON.stringify(input.regioes);
+            if (input.ordem_modalidade !== undefined) set.ordem_modalidade = input.ordem_modalidade;
 
             await ctx.db.update(servicos).set(set).where(eq(servicos.id, input.id));
 

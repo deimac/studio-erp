@@ -246,3 +246,12 @@ curl -X POST http://localhost:4000/trpc/financeiro.updateStatus \
   -H 'Content-Type: application/json' \
   -d '{"id":1,"status":"PAGO"}'
 ```
+
+## Protocolos (site público)
+
+```bash
+curl -s "http://localhost:4000/trpc/public.listProtocolos"
+curl -s "http://localhost:4000/trpc/public.getProtocoloBySlug?input=%7B%22slug%22%3A%22metodo-ts%22%7D"
+curl -s "http://localhost:4000/trpc/public.getProtocoloBySlug?input=%7B%22slug%22%3A%22nao-existe%22%7D"   # → result.data = null
+curl -s "http://localhost:4000/trpc/public.getSiteConfig"
+```

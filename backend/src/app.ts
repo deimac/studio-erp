@@ -17,6 +17,8 @@ import { tecnicasRouter } from './trpc/routers/tecnicas';
 import { unidadesRouter } from './trpc/routers/unidades';
 import { receitasDespesasRouter } from './trpc/routers/receitasDespesas';
 import { publicCatalogoRouter } from './trpc/routers/publicCatalogo';
+import { protocolosRouter } from './trpc/routers/protocolos';
+import { siteConfigRouter } from './trpc/routers/siteConfig';
 import { createTRPCRouter } from './trpc/trpc';
 
 const app = express();
@@ -79,6 +81,8 @@ export const appRouter = createTRPCRouter({
     tecnicas: tecnicasRouter,
     unidades: unidadesRouter,
     receitasDespesas: receitasDespesasRouter,
+    protocolos: protocolosRouter,
+    siteConfig: siteConfigRouter,
     public: publicCatalogoRouter,
 });
 
