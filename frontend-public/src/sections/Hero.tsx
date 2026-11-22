@@ -35,6 +35,7 @@ export default function Hero({ protocolos, config }: { protocolos?: ProtocoloRes
             </div>
             <div className="visual">
                 <img src={heroImg} alt="Massagem corporal com óleo aquecido" fetchPriority="high" />
+                <p className="hero-quote">Em meio à correria da vida, <em>abrace um momento de tranquilidade.</em></p>
             </div>
         </section>
     );
