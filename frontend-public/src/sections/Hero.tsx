@@ -8,7 +8,7 @@ import { formatDuracoes } from '@/lib/format';
 export default function Hero({ protocolos, config }: { protocolos?: ProtocoloResumo[]; config: SiteConfig }) {
     const [l1, ...resto] = (config.hero_titulo || 'Seu bem-estar\ncomeça aqui.').split(/\n|\|/);
     const destaque = (protocolos ?? []).slice(0, 3);
-    const heroImg = resolveImageUrl(config.hero_imagem_url) || '/images/site/hero.jpg?v=2';
+    const heroImg = resolveImageUrl(config.hero_imagem_url) || '/images/site/hero.jpg?v=3';
 
     return (
         <section className="hero">
