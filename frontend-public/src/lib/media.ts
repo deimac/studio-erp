@@ -9,7 +9,7 @@ export function resolveImageUrl(url?: string | null): string {
 
 /** Imagem padrão de cada protocolo enquanto nenhuma é enviada pelo admin. */
 export function imagemProtocolo(p: { slug: string; imagem_url?: string | null }): string {
-    return resolveImageUrl(p.imagem_url) || `/images/protocolos/${p.slug}.jpg?v=2`;
+    return resolveImageUrl(p.imagem_url) || `/images/protocolos/${p.slug}.jpg?v=3`;
 }
 
 /** onError de <img>: troca por uma imagem genérica (uma única vez). */
@@ -17,5 +17,5 @@ export function imagemReserva(e: { currentTarget: HTMLImageElement }) {
     const img = e.currentTarget;
     if (img.dataset.reserva) return;
     img.dataset.reserva = '1';
-    img.src = '/images/site/hero.jpg';
+    img.src = '/images/site/hero.jpg?v=2';
 }
