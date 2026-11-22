@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/useToast';
-import { Upload, ImagePlus } from 'lucide-react';
+import { ImageUpload } from '@/components/ImageUpload';
+import { ListEditor } from '@/components/ui/list-editor';
+import { resolveImageUrl } from '@/lib/media';
 import { maskMoney } from '@/lib/masks';
 
 type Servico = {
@@ -19,17 +21,11 @@ type Servico = {
     gera_credito: boolean;
     ativo: boolean;
     tecnicas?: { id: number; nome: string }[];
+    id_protocolo?: number | null;
+    nome_modalidade?: string | null;
+    regioes?: string[];
+    ordem_modalidade?: number;
 };
-
-const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
-const UPLOAD_URL = API_URL ? `${API_URL}/api/upload` : '/api/upload';
-
-function resolveImageUrl(url?: string | null) {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    if (url.startsWith('/')) return API_URL ? `${API_URL}${url}` : url;
-    return API_URL ? `${API_URL}/${url}` : `/${url}`;
-}
 
 export function ServicoForm({
     servico,
@@ -50,11 +46,13 @@ export function ServicoForm({
     const [geraCredito, setGeraCredito] = useState(true);
     const [ativo, setAtivo] = useState(true);
     const [tecnicaIds, setTecnicaIds] = useState<number[]>([]);
-    const [uploading, setUploading] = useState(false);
-    const [dragging, setDragging] = useState(false);
-    const fileRef = useRef<HTMLInputElement>(null);
+    const [idProtocolo, setIdProtocolo] = useState('');
+    const [nomeModalidade, setNomeModalidade] = useState('');
+    const [regioes, setRegioes] = useState<string[]>([]);
+    const [ordemModalidade, setOrdemModalidade] = useState('0');
 
     const tecnicasQ = trpc.tecnicas.list.useQuery();
+    const protocolosQ = trpc.protocolos.list.useQuery(undefined, { enabled: open });
 
     const createMut = trpc.servicos.create.useMutation({
         onSuccess: () => { setOpen(false); onSuccess?.(); },
@@ -82,52 +80,16 @@ export function ServicoForm({
             setGeraCredito(servico.gera_credito);
             setAtivo(servico.ativo);
             setTecnicaIds(servico.tecnicas?.map((t) => t.id) ?? []);
+            setIdProtocolo(servico.id_protocolo ? String(servico.id_protocolo) : '');
+            setNomeModalidade(servico.nome_modalidade ?? '');
+            setRegioes(servico.regioes ?? []);
+            setOrdemModalidade(String(servico.ordem_modalidade ?? 0));
         } else {
             setNome(''); setDescricao(''); setImagemUrl(''); setDuracao('60'); setValor(''); setGeraCredito(true); setAtivo(true); setTecnicaIds([]);
+            setIdProtocolo(''); setNomeModalidade(''); setRegioes([]); setOrdemModalidade('0');
         }
         setOpen(true);
     }
-
-    async function handleUpload(file: File) {
-        if (!file.type.startsWith('image/')) {
-            toast({ title: 'Apenas imagens são permitidas', variant: 'error' });
-            return;
-        }
-        if (file.size > 5 * 1024 * 1024) {
-            toast({ title: 'Imagem deve ter no máximo 5 MB', variant: 'error' });
-            return;
-        }
-        setUploading(true);
-        try {
-            const fd = new FormData();
-            fd.append('image', file);
-            const res = await fetch(UPLOAD_URL, {
-                method: 'POST',
-                body: fd,
-                headers: { Authorization: `Bearer ${localStorage.getItem('studio_erp_token')}` },
-            });
-            if (!res.ok) {
-                const err = await res.json().catch(() => null);
-                throw new Error(err?.error ?? 'Upload falhou');
-            }
-            const data = await res.json();
-            setImagemUrl(resolveImageUrl(data.url));
-            toast({ title: 'Imagem enviada!', variant: 'success' });
-        } catch (e: any) {
-            toast({ title: e?.message ?? 'Erro ao enviar imagem', variant: 'error' });
-        } finally {
-            setUploading(false);
-        }
-    }
-
-    const onDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragging(true); }, []);
-    const onDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); setDragging(false); }, []);
-    const onDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setDragging(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) handleUpload(file);
-    }, []);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -157,6 +119,10 @@ export function ServicoForm({
             gera_credito: geraCredito,
             ativo,
             tecnica_ids: tecnicaIds,
+            id_protocolo: idProtocolo ? Number(idProtocolo) : null,
+            nome_modalidade: nomeModalidade.trim() || null,
+            regioes: regioes.map((r) => r.trim()).filter(Boolean),
+            ordem_modalidade: Number(ordemModalidade) || 0,
         };
         if (servico) {
             updateMut.mutate({ id: servico.id, ...data });
@@ -187,55 +153,43 @@ export function ServicoForm({
                             <Textarea rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
                         </div>
 
-                        {/* Image upload with drag & drop */}
                         <div>
                             <Label>Imagem</Label>
-                            <div
-                                className={`mt-1 rounded-lg border-2 border-dashed p-4 transition-colors text-center cursor-pointer ${dragging
-                                    ? 'border-[hsl(var(--primary))] bg-blue-50'
-                                    : imagemUrl
-                                        ? 'border-transparent bg-gray-50'
-                                        : 'border-gray-200 hover:border-gray-300'
-                                    }`}
-                                onDragOver={onDragOver}
-                                onDragLeave={onDragLeave}
-                                onDrop={onDrop}
-                                onClick={() => !uploading && fileRef.current?.click()}
-                            >
-                                {imagemUrl ? (
-                                    <div className="flex items-center gap-4">
-                                        <img src={imagemUrl} alt="Preview" className="h-20 w-20 rounded-lg object-cover border shadow-sm" />
-                                        <div className="flex flex-col gap-1 text-left">
-                                            <p className="text-sm font-medium text-gray-700">Imagem selecionada</p>
-                                            <p className="text-xs text-gray-400">Clique ou arraste para trocar</p>
-                                            <Button
-                                                type="button" size="sm" variant="ghost"
-                                                className="text-xs text-red-500 w-fit px-0 h-auto"
-                                                onClick={(e) => { e.stopPropagation(); setImagemUrl(''); }}
-                                            >
-                                                Remover imagem
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col items-center gap-2 py-2">
-                                        {uploading ? (
-                                            <>
-                                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-[hsl(var(--primary))]" />
-                                                <p className="text-sm text-gray-500">Enviando…</p>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ImagePlus className="h-8 w-8 text-gray-300" />
-                                                <p className="text-sm text-gray-500">Arraste uma imagem aqui ou <span className="text-[hsl(var(--primary))] font-medium">clique para selecionar</span></p>
-                                                <p className="text-xs text-gray-400">PNG, JPG ou WEBP • Máx. 5 MB</p>
-                                            </>
-                                        )}
-                                    </div>
-                                )}
+                            <ImageUpload value={imagemUrl} onChange={setImagemUrl} />
+                        </div>
+
+                        {/* Modalidade de protocolo (site público) */}
+                        <div className="rounded-lg border border-dashed p-3 space-y-3">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Site público — modalidade de protocolo</p>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                    <Label>Protocolo</Label>
+                                    <select
+                                        className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                                        value={idProtocolo}
+                                        onChange={(e) => setIdProtocolo(e.target.value)}
+                                    >
+                                        <option value="">— Nenhum —</option>
+                                        {protocolosQ.data?.map((p: any) => (
+                                            <option key={p.id} value={p.id}>{p.nome}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <Label>Nome da modalidade</Label>
+                                    <Input value={nomeModalidade} onChange={(e) => setNomeModalidade(e.target.value)} placeholder="Ex.: Pernas, Foco Regional" />
+                                </div>
                             </div>
-                            <input ref={fileRef} type="file" accept="image/*" className="hidden" aria-label="Upload de imagem"
-                                onChange={(e) => { if (e.target.files?.[0]) handleUpload(e.target.files[0]); e.target.value = ''; }} />
+                            <div className="grid gap-3 sm:grid-cols-[1fr_120px]">
+                                <div>
+                                    <Label>Regiões / observações</Label>
+                                    <ListEditor value={regioes} onChange={setRegioes} placeholder="Ex.: Pescoço e cervical." />
+                                </div>
+                                <div>
+                                    <Label>Ordem</Label>
+                                    <Input type="number" value={ordemModalidade} onChange={(e) => setOrdemModalidade(e.target.value)} />
+                                </div>
+                            </div>
                         </div>
 
                         <div className="grid gap-4 grid-cols-2 px-1">

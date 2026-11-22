@@ -9,6 +9,8 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
 import { SquarePen, Trash2 } from 'lucide-react';
+import { ImageUpload } from '@/components/ImageUpload';
+import { Label } from '@/components/ui/label';
 
 export default function Configuracoes() {
     return (
@@ -20,10 +22,14 @@ export default function Configuracoes() {
                     <TabsTrigger value="unidades">Unidades</TabsTrigger>
                     <TabsTrigger value="categorias">Categorias</TabsTrigger>
                     <TabsTrigger value="usuarios">Profissionais</TabsTrigger>
+                    <TabsTrigger value="site">Site</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="formas" className="mt-4">
                     <FormasPagamentoPanel />
+                </TabsContent>
+                <TabsContent value="site" className="mt-4">
+                    <SitePanel />
                 </TabsContent>
                 <TabsContent value="unidades" className="mt-4">
                     <UnidadesPanel />
@@ -437,6 +443,60 @@ function CategoriasReceitasDespesasPanel() {
                         )}
                     </TableBody>
                 </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+/* ━━━ Site público: imagens e textos globais ━━━ */
+function SitePanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const configQ = trpc.siteConfig.getAll.useQuery();
+    const setMut = trpc.siteConfig.set.useMutation({
+        onSuccess: () => { utils.siteConfig.getAll.invalidate(); toast({ title: 'Site atualizado!', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const cfg = (configQ.data ?? {}) as Record<string, string>;
+    const [titulo, setTitulo] = useState<string | null>(null);
+    const [subtitulo, setSubtitulo] = useState<string | null>(null);
+
+    const salvar = (chave: string, valor: string) => setMut.mutate({ chave: chave as any, valor: valor || null });
+
+    return (
+        <Card>
+            <CardHeader><CardTitle className="text-base">Site público</CardTitle></CardHeader>
+            <CardContent className="space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                        <Label>Imagem principal (topo do site)</Label>
+                        <ImageUpload value={cfg.hero_imagem_url} onChange={(url) => salvar('hero_imagem_url', url)} hint="Vertical (4:5), alta qualidade • Máx. 5 MB" />
+                    </div>
+                    <div>
+                        <Label>Imagem da seção Sobre</Label>
+                        <ImageUpload value={cfg.sobre_imagem_url} onChange={(url) => salvar('sobre_imagem_url', url)} hint="Vertical (4:5) • Máx. 5 MB" />
+                    </div>
+                </div>
+                <div className="space-y-3">
+                    <div>
+                        <Label>Título do topo (opcional)</Label>
+                        <Input value={titulo ?? cfg.hero_titulo ?? ''} onChange={(e) => setTitulo(e.target.value)} placeholder="Deixe vazio para usar o texto padrão" />
+                    </div>
+                    <div>
+                        <Label>Subtítulo do topo (opcional)</Label>
+                        <Input value={subtitulo ?? cfg.hero_subtitulo ?? ''} onChange={(e) => setSubtitulo(e.target.value)} />
+                    </div>
+                    <Button
+                        size="sm"
+                        disabled={setMut.isPending}
+                        onClick={() => {
+                            if (titulo !== null) salvar('hero_titulo', titulo.trim());
+                            if (subtitulo !== null) salvar('hero_subtitulo', subtitulo.trim());
+                        }}
+                    >
+                        Salvar textos
+                    </Button>
+                </div>
             </CardContent>
         </Card>
     );
