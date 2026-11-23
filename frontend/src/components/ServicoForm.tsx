@@ -13,6 +13,7 @@ import { resolveImageUrl } from '@/lib/media';
 import { maskMoney } from '@/lib/masks';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TecnicasSelect } from '@/components/TecnicasSelect';
 
 /**
  * Formulário do SERVIÇO: o que se vende e agenda (nome, duração, preço da sessão)
@@ -389,17 +390,8 @@ export function ServicoForm({
                         {tecnicasQ.data && (tecnicasQ.data as any[]).length > 0 && (
                             <div>
                                 <Label>Técnicas</Label>
-                                <div className="mt-1 flex flex-wrap gap-2">
-                                    {(tecnicasQ.data as any[]).map((t) => {
-                                        const marcada = tecnicaIds.includes(t.id);
-                                        return (
-                                            <label key={t.id} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors ${marcada ? 'border-transparent bg-[hsl(var(--primary))] text-white' : 'hover:bg-gray-50'}`}>
-                                                <input type="checkbox" className="sr-only" checked={marcada}
-                                                    onChange={() => setTecnicaIds((prev) => (marcada ? prev.filter((id) => id !== t.id) : [...prev, t.id]))} />
-                                                {t.nome}
-                                            </label>
-                                        );
-                                    })}
+                                <div className="mt-1.5">
+                                    <TecnicasSelect tecnicas={tecnicasQ.data as any[]} value={tecnicaIds} onChange={setTecnicaIds} />
                                 </div>
                             </div>
                         )}

@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ListEditor } from '@/components/ui/list-editor';
 import { ImageUpload } from '@/components/ImageUpload';
 import { useToast } from '@/hooks/useToast';
+import { cn } from '@/lib/utils';
+import { Droplets, Feather, Flower2, Gem, HandHeart, Heart, Leaf, Moon, Sparkles, Sun, type LucideIcon } from 'lucide-react';
 
 export type Protocolo = {
     id: number;
@@ -28,7 +30,20 @@ export type Protocolo = {
 };
 
 /** Ícones disponíveis no site (nomes do lucide-react). */
-export const ICONES_PROTOCOLO = ['Sparkles', 'Feather', 'HandHeart', 'Droplets', 'Flower2', 'Leaf', 'Heart', 'Sun', 'Moon', 'Gem'];
+export const ICONES_PROTOCOLO = ['Sparkles', 'Feather', 'HandHeart', 'Droplets', 'Flower2', 'Leaf', 'Heart', 'Sun', 'Moon', 'Gem'] as const;
+
+const ICONES_INFO: Record<(typeof ICONES_PROTOCOLO)[number], { Icone: LucideIcon; rotulo: string }> = {
+    Sparkles: { Icone: Sparkles, rotulo: 'Brilho' },
+    Feather: { Icone: Feather, rotulo: 'Pena' },
+    HandHeart: { Icone: HandHeart, rotulo: 'Mão com coração' },
+    Droplets: { Icone: Droplets, rotulo: 'Gotas' },
+    Flower2: { Icone: Flower2, rotulo: 'Flor' },
+    Leaf: { Icone: Leaf, rotulo: 'Folha' },
+    Heart: { Icone: Heart, rotulo: 'Coração' },
+    Sun: { Icone: Sun, rotulo: 'Sol' },
+    Moon: { Icone: Moon, rotulo: 'Lua' },
+    Gem: { Icone: Gem, rotulo: 'Joia' },
+};
 
 export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: Protocolo; onSuccess?: () => void; trigger?: React.ReactNode }) {
     const { toast } = useToast();
@@ -141,16 +156,24 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
                             <Label>Frase final</Label>
                             <Input value={f.frase_final} onChange={(e) => set('frase_final', e.target.value)} />
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <Label>Ícone</Label>
-                                <select
-                                    className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
-                                    value={f.icone}
-                                    onChange={(e) => set('icone', e.target.value)}
-                                >
-                                    {ICONES_PROTOCOLO.map((i) => <option key={i} value={i}>{i}</option>)}
-                                </select>
+                                <div role="radiogroup" aria-label="Ícone" className="mt-1.5 grid grid-cols-5 gap-2">
+                                    {ICONES_PROTOCOLO.map((nome) => {
+                                        const { Icone, rotulo } = ICONES_INFO[nome];
+                                        const ativo = f.icone === nome;
+                                        return (
+                                            <button key={nome} type="button" role="radio" aria-checked={ativo} aria-label={rotulo} title={rotulo}
+                                                onClick={() => set('icone', nome)}
+                                                className={cn('flex aspect-square items-center justify-center rounded-lg border transition-colors',
+                                                    ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] ring-1 ring-[hsl(var(--primary))]' : 'text-gray-600 hover:bg-gray-50')}>
+                                                <Icone className="h-5 w-5" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">{ICONES_INFO[f.icone as keyof typeof ICONES_INFO]?.rotulo ?? ''}</p>
                             </div>
                             <div className="flex flex-col justify-end gap-2 pb-1">
                                 <label className="flex items-center gap-2 text-sm">
@@ -164,7 +187,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
                             </div>
                         </div>
                         <p className="text-xs text-gray-500">
-                            Modalidades, preços e pacotes ficam logo abaixo do protocolo, na tela de Serviços (botão "+ Modalidade").
+                            Serviços, preços e pacotes ficam logo abaixo da página, na tela de Serviços (botão "+ Serviço").
                         </p>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
