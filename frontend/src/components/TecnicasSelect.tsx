@@ -2,14 +2,31 @@ import { useState } from 'react';
 import { Check, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Tecnica = { id: number; nome: string };
+type Item = { id: number; nome: string };
+
+type Props = {
+    itens: Item[];
+    value: number[];
+    onChange: (ids: number[]) => void;
+    /** Texto do botão quando nada foi escolhido. */
+    rotuloEscolher?: string;
+    placeholder?: string;
+    vazio?: string;
+    /** Informação curta ao lado do nome (ex.: "60 min"). */
+    detalhe?: (item: Item) => string | undefined;
+    /** Abre a busca já de início (ex.: nada escolhido ainda). */
+    abertoInicial?: boolean;
+    /** Fecha a busca depois de escolher um item (quando o comum é escolher só um). */
+    fecharAoEscolher?: boolean;
+};
 
 /**
- * Técnicas do serviço: mostra só as escolhidas; as demais ficam numa busca
- * que abre sob demanda (a lista completa ocupava o modal inteiro).
+ * Seleção múltipla compacta: mostra só os itens escolhidos; os demais ficam
+ * numa busca que abre sob demanda (a lista completa ocupava o modal inteiro).
  */
-export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Tecnica[]; value: number[]; onChange: (ids: number[]) => void }) {
-    const [aberto, setAberto] = useState(false);
+export function SeletorBusca({ itens, value, onChange, rotuloEscolher = 'Escolher', placeholder = 'Buscar…', vazio = 'Nada encontrado.', detalhe, abertoInicial = false, fecharAoEscolher = false }: Props) {
+    const tecnicas = itens;
+    const [aberto, setAberto] = useState(abertoInicial);
     const [busca, setBusca] = useState('');
 
     const escolhidas = tecnicas.filter((t) => value.includes(t.id));
@@ -23,6 +40,7 @@ export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Tecnic
                 {escolhidas.map((t) => (
                     <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-[hsl(var(--primary))]/10 py-1 pl-3 pr-1 text-sm text-[hsl(var(--primary))]">
                         {t.nome}
+                        {detalhe?.(t) && <span className="opacity-70">· {detalhe(t)}</span>}
                         <button type="button" aria-label={`Tirar ${t.nome}`} onClick={() => alternar(t.id)}
                             className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-[hsl(var(--primary))]/15">
                             <X className="h-3.5 w-3.5" />
@@ -32,7 +50,7 @@ export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Tecnic
                 <button type="button" onClick={() => setAberto((v) => !v)} aria-expanded={aberto}
                     className="inline-flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-sm text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]">
                     {aberto ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                    {aberto ? 'Fechar' : escolhidas.length ? 'Adicionar' : 'Escolher técnicas'}
+                    {aberto ? 'Fechar' : escolhidas.length ? 'Adicionar' : rotuloEscolher}
                 </button>
             </div>
 
@@ -40,7 +58,7 @@ export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Tecnic
                 <div className="rounded-lg border">
                     <div className="flex items-center gap-2 border-b px-3">
                         <Search className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" />
-                        <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar técnica…"
+                        <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder={placeholder}
                             className="h-10 w-full bg-transparent text-sm outline-none" />
                     </div>
                     <ul className="max-h-48 overflow-y-auto py-1">
@@ -48,21 +66,27 @@ export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Tecnic
                             const marcada = value.includes(t.id);
                             return (
                                 <li key={t.id}>
-                                    <button type="button" onClick={() => alternar(t.id)}
+                                    <button type="button" onClick={() => { alternar(t.id); if (fecharAoEscolher && !marcada) { setAberto(false); setBusca(''); } }}
                                         className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-[hsl(var(--accent))]">
                                         <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded border',
                                             marcada && 'border-transparent bg-[hsl(var(--primary))] text-white')}>
                                             {marcada && <Check className="h-3.5 w-3.5" />}
                                         </span>
-                                        {t.nome}
+                                        <span className="min-w-0 flex-1">{t.nome}</span>
+                                        {detalhe?.(t) && <span className="shrink-0 text-xs tabular-nums text-[hsl(var(--muted-foreground))]">{detalhe(t)}</span>}
                                     </button>
                                 </li>
                             );
                         })}
-                        {filtradas.length === 0 && <li className="px-3 py-3 text-sm text-[hsl(var(--muted-foreground))]">Nenhuma técnica com esse nome.</li>}
+                        {filtradas.length === 0 && <li className="px-3 py-3 text-sm text-[hsl(var(--muted-foreground))]">{vazio}</li>}
                     </ul>
                 </div>
             )}
         </div>
     );
+}
+
+/** Técnicas do serviço. */
+export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Item[]; value: number[]; onChange: (ids: number[]) => void }) {
+    return <SeletorBusca itens={tecnicas} value={value} onChange={onChange} rotuloEscolher="Escolher técnicas" placeholder="Buscar técnica…" vazio="Nenhuma técnica com esse nome." />;
 }

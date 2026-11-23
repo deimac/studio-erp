@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertTriangle, Check, Repeat, UserPlus } from 'lucide-react';
+import { AlertTriangle, Repeat, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SeletorBusca } from '@/components/TecnicasSelect';
 import { somarMinutos } from '@/lib/agenda';
 
 export type AgendamentoInicial = {
@@ -192,8 +193,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         }
     }
 
-    const toggleServico = (id: number) =>
-        setServicosSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
     const vendas = (vendasQ.data ?? []) as any[];
     // Salas só aparecem se cadastradas (studio com um espaço usa a agenda compartilhada)
@@ -280,26 +279,25 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     {/* Serviços */}
                     <div className="space-y-1.5">
                         <Label>Serviços * {duracaoTotal > 0 && <span className="font-normal text-[hsl(var(--muted-foreground))]">· {duracaoTotal} min</span>}</Label>
-                        <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-[hsl(var(--input))] p-2">
-                            {servicosDisponiveis.map((s: any) => {
-                                const ativo = servicosSel.includes(s.id);
-                                return (
-                                    <button key={s.id} type="button" onClick={() => toggleServico(s.id)}
-                                        className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors',
-                                            ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
-                                        {ativo && <Check className="h-3 w-3" />}
-                                        {s.nome}{s.nome_modalidade && !s.nome.includes(s.nome_modalidade) ? ` · ${s.nome_modalidade}` : ''}
-                                        <span className={ativo ? 'text-white/80' : 'text-[hsl(var(--muted-foreground))]'}>{s.duracao_minutos}′</span>
-                                    </button>
-                                );
-                            })}
-                            {!servicosDisponiveis.length && <span className="text-xs text-[hsl(var(--muted-foreground))]">Nenhum serviço ativo</span>}
-                        </div>
+                        {servicosDisponiveis.length ? (
+                            <SeletorBusca
+                                itens={servicosDisponiveis.map((x: any) => ({ id: x.id, nome: x.nome, duracao: x.duracao_minutos }))}
+                                value={servicosSel}
+                                onChange={setServicosSel}
+                                rotuloEscolher="Escolher serviço"
+                                placeholder="Buscar serviço…"
+                                vazio="Nenhum serviço com esse nome."
+                                detalhe={(x: any) => `${x.duracao} min`}
+                                fecharAoEscolher
+                            />
+                        ) : (
+                            <p className="text-sm text-[hsl(var(--muted-foreground))]">Nenhum serviço ativo para este profissional.</p>
+                        )}
                     </div>
 
                     {/* Data e hora */}
-                    <div className="grid gap-4 sm:grid-cols-3">
-                        <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        <div className="col-span-2 space-y-1.5 sm:col-span-1">
                             <Label>Data *</Label>
                             <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
                         </div>
