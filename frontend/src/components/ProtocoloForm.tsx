@@ -30,7 +30,7 @@ export type Protocolo = {
 /** Ícones disponíveis no site (nomes do lucide-react). */
 export const ICONES_PROTOCOLO = ['Sparkles', 'Feather', 'HandHeart', 'Droplets', 'Flower2', 'Leaf', 'Heart', 'Sun', 'Moon', 'Gem'];
 
-export function ProtocoloForm({ protocolo, onSuccess }: { protocolo?: Protocolo; onSuccess?: () => void }) {
+export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: Protocolo; onSuccess?: () => void; trigger?: React.ReactNode }) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [f, setF] = useState(() => vazio());
@@ -90,8 +90,8 @@ export function ProtocoloForm({ protocolo, onSuccess }: { protocolo?: Protocolo;
 
     return (
         <>
-            <Button size="sm" variant={protocolo ? 'ghost' : 'default'} onClick={handleOpen}>
-                {protocolo ? 'Editar' : 'Novo Protocolo'}
+            <Button size="sm" variant={protocolo ? 'ghost' : 'outline'} onClick={handleOpen}>
+                {trigger ?? (protocolo ? 'Editar' : 'Novo Protocolo')}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="w-full max-w-2xl px-6">
@@ -164,7 +164,7 @@ export function ProtocoloForm({ protocolo, onSuccess }: { protocolo?: Protocolo;
                             </div>
                         </div>
                         <p className="text-xs text-gray-500">
-                            Modalidades, preços e pacotes são os <strong>Serviços</strong> vinculados a este protocolo (menu Serviços → campo "Protocolo").
+                            Modalidades, preços e pacotes ficam logo abaixo do protocolo, na tela de Serviços (botão "+ Modalidade").
                         </p>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

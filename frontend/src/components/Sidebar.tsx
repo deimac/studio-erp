@@ -8,7 +8,6 @@ import {
     CalendarCheck,
     DollarSign,
     Settings,
-    Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,7 +17,6 @@ const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/pessoas', label: 'Pessoas', icon: Users },
     { to: '/servicos', label: 'Serviços', icon: Scissors },
-    { to: '/protocolos', label: 'Protocolos (site)', icon: Sparkles, adminOnly: true },
     { to: '/vendas', label: 'Vendas', icon: ShoppingCart },
     { to: '/atendimentos', label: 'Atendimentos', icon: CalendarCheck },
     { to: '/financeiro', label: 'Financeiro', icon: DollarSign, adminOnly: true },

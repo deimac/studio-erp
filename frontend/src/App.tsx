@@ -9,7 +9,6 @@ import Vendas from '@/pages/Vendas';
 import Atendimentos from '@/pages/Atendimentos';
 import Financeiro from '@/pages/Financeiro';
 import Configuracoes from '@/pages/Configuracoes';
-import Protocolos from '@/pages/Protocolos';
 
 function ProtectedRoute({ children, adminOnly = false }: { children?: React.ReactNode; adminOnly?: boolean }) {
     const { user } = useAuth();
@@ -34,11 +33,11 @@ export default function App() {
                     <Route index element={<Dashboard />} />
                     <Route path="pessoas" element={<Pessoas />} />
                     <Route path="servicos" element={<Servicos />} />
+                    <Route path="protocolos" element={<Navigate to="/servicos" replace />} />
                     <Route path="vendas" element={<Vendas />} />
                     <Route path="atendimentos" element={<Atendimentos />} />
                     <Route element={<AdminRoute />}>
                         <Route path="financeiro" element={<Financeiro />} />
-                        <Route path="protocolos" element={<Protocolos />} />
                         <Route path="configuracoes" element={<Configuracoes />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/" replace />} />

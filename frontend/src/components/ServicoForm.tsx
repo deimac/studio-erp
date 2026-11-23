@@ -31,10 +31,15 @@ export function ServicoForm({
     servico,
     onSuccess,
     trigger,
+    idProtocoloPadrao,
+    variant,
 }: {
     servico?: Servico;
     onSuccess?: () => void;
     trigger?: React.ReactNode;
+    /** Ao criar dentro de um protocolo, já vem selecionado. */
+    idProtocoloPadrao?: number;
+    variant?: 'default' | 'ghost' | 'outline';
 }) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
@@ -86,18 +91,25 @@ export function ServicoForm({
             setOrdemModalidade(String(servico.ordem_modalidade ?? 0));
         } else {
             setNome(''); setDescricao(''); setImagemUrl(''); setDuracao('60'); setValor(''); setGeraCredito(true); setAtivo(true); setTecnicaIds([]);
-            setIdProtocolo(''); setNomeModalidade(''); setRegioes([]); setOrdemModalidade('0');
+            setIdProtocolo(idProtocoloPadrao ? String(idProtocoloPadrao) : ''); setNomeModalidade(''); setRegioes([]); setOrdemModalidade('0');
         }
         setOpen(true);
     }
 
+    const protocoloSelecionado = protocolosQ.data?.find((p: any) => String(p.id) === idProtocolo) as { nome: string } | undefined;
+
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
-        if (!nome.trim()) {
+        // Dentro de um protocolo, o nome usado em vendas/financeiro pode ser gerado: "Protocolo – Modalidade"
+        let nomeFinal = nome.trim();
+        if (!nomeFinal && protocoloSelecionado && nomeModalidade.trim()) {
+            nomeFinal = `${protocoloSelecionado.nome} – ${nomeModalidade.trim()}`;
+        }
+        if (!nomeFinal) {
             toast({ title: 'Informe o nome do serviço', variant: 'error' });
             return;
         }
-        if (nome.trim().length < 2) {
+        if (nomeFinal.length < 2) {
             toast({ title: 'O nome deve ter pelo menos 2 caracteres', variant: 'error' });
             return;
         }
@@ -111,7 +123,7 @@ export function ServicoForm({
             return;
         }
         const data = {
-            nome: nome.trim(),
+            nome: nomeFinal,
             descricao: descricao.trim() || undefined,
             imagem_url: imagemUrl || undefined,
             duracao_minutos: Number(duracao),
@@ -135,32 +147,20 @@ export function ServicoForm({
 
     return (
         <>
-            <Button size="sm" variant={servico ? 'ghost' : 'default'} onClick={handleOpen}>
+            <Button size="sm" variant={variant ?? (servico ? 'ghost' : 'default')} onClick={handleOpen}>
                 {trigger ?? (servico ? 'Editar' : 'Novo Serviço')}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="w-full max-w-xl px-6">
                     <DialogHeader>
-                        <DialogTitle>{servico ? 'Editar Serviço' : 'Novo Serviço'}</DialogTitle>
+                        <DialogTitle>
+                            {servico ? 'Editar Serviço' : protocoloSelecionado && idProtocoloPadrao ? `Nova modalidade — ${protocoloSelecionado.nome}` : 'Novo Serviço'}
+                        </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4 min-h-[400px] max-h-[80vh] overflow-y-auto pr-1">
-                        <div className="px-1">
-                            <Label>Nome *</Label>
-                            <Input value={nome} onChange={(e) => setNome(e.target.value)} autoFocus />
-                        </div>
-                        <div className="px-1">
-                            <Label>Descrição</Label>
-                            <Textarea rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-                        </div>
-
-                        <div>
-                            <Label>Imagem</Label>
-                            <ImageUpload value={imagemUrl} onChange={setImagemUrl} />
-                        </div>
-
                         {/* Modalidade de protocolo (site público) */}
                         <div className="rounded-lg border border-dashed p-3 space-y-3">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Site público — modalidade de protocolo</p>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Protocolo e modalidade</p>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
                                     <Label>Protocolo</Label>
@@ -169,7 +169,7 @@ export function ServicoForm({
                                         value={idProtocolo}
                                         onChange={(e) => setIdProtocolo(e.target.value)}
                                     >
-                                        <option value="">— Nenhum —</option>
+                                        <option value="">— Sem protocolo (não aparece no site) —</option>
                                         {protocolosQ.data?.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.nome}</option>
                                         ))}
@@ -190,6 +190,25 @@ export function ServicoForm({
                                     <Input type="number" value={ordemModalidade} onChange={(e) => setOrdemModalidade(e.target.value)} />
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="px-1">
+                            <Label>Nome nas vendas{protocoloSelecionado ? '' : ' *'}</Label>
+                            <Input
+                                value={nome}
+                                onChange={(e) => setNome(e.target.value)}
+                                placeholder={protocoloSelecionado && nomeModalidade ? `${protocoloSelecionado.nome} – ${nomeModalidade}` : ''}
+                            />
+                            {protocoloSelecionado && <p className="mt-1 text-xs text-gray-400">Em branco, usa "Protocolo – Modalidade".</p>}
+                        </div>
+                        <div className="px-1">
+                            <Label>Descrição</Label>
+                            <Textarea rows={2} value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+                        </div>
+
+                        <div>
+                            <Label>Imagem</Label>
+                            <ImageUpload value={imagemUrl} onChange={setImagemUrl} />
                         </div>
 
                         <div className="grid gap-4 grid-cols-2 px-1">
