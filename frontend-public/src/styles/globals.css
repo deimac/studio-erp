@@ -278,30 +278,26 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 .crumbs a:hover { color: var(--rose-d) }
 .crumbs svg { width: 13px; height: 13px }
 .p-top { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: stretch }
-.p-top.solo { grid-template-columns: 1fr }
 .p-top[aria-busy] > * { min-height: 560px }
 .p-hero { position: relative; min-height: 560px; border-radius: var(--r-xl); overflow: hidden; background: var(--cocoa); color: #fff; display: flex }
 .p-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 50%; transform: scale(1.04); animation: drift 18s ease-in-out infinite alternate }
-.p-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(0deg, rgba(28, 24, 20, .86) 0%, rgba(28, 24, 20, .55) 42%, rgba(28, 24, 20, .08) 72%), linear-gradient(180deg, rgba(28, 24, 20, .35) 0%, rgba(28, 24, 20, 0) 24%) }
-.p-hero .txt { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; padding: 30px 32px; width: 100% }
-.p-hero .head { display: flex; align-items: center; gap: 16px }
-.p-hero .eyebrow { color: var(--gold-l) }
-.p-hero .ic-lg { width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .28); display: grid; place-items: center; color: #fff; flex: none }
-.p-hero .ic-lg svg { width: 22px; height: 22px; stroke-width: 1.3 }
-.p-hero h1 { font: 400 clamp(38px, 4vw, 58px)/1.02 var(--font-display); letter-spacing: -.03em; margin-bottom: 10px }
-.p-hero .sub { font: 300 20px/1.4 var(--font-display); color: #F1E2DF; max-width: 440px }
-.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px }
+.p-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(0deg, rgba(28, 24, 20, .72) 0%, rgba(28, 24, 20, .3) 30%, rgba(28, 24, 20, 0) 52%) }
+.p-hero .txt { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; gap: 16px; padding: 28px 30px; width: 100% }
+.facts { display: flex; flex-wrap: wrap; gap: 8px }
 .fact { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .22); font-size: 12.5px; color: #fff }
 .fact svg { width: 14px; height: 14px; color: var(--gold-l) }
-.p-hero .meta { display: inline-flex; align-items: baseline; gap: 7px; margin-top: 22px; padding: 9px 16px 9px 15px; border-radius: 999px; background: rgba(255, 255, 255, .94); color: var(--ink); box-shadow: 0 6px 18px rgba(40, 24, 22, .18) }
-.p-hero .meta small { font-size: 11.5px; color: var(--ink-2); letter-spacing: .01em }
-.p-hero .meta b { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--rose-d); line-height: 1 }
-.ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px }
+.ctas { display: flex; flex-wrap: wrap; gap: 10px }
 .p-hero .pill.ghost { color: #fff; border-color: rgba(255, 255, 255, .45) }
 .p-hero .pill.ghost:hover { background: rgba(255, 255, 255, .14) }
 
-.p-info { display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 8px 0 }
-.prose .eyebrow { margin-bottom: 16px }
+.p-info { display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 4px 0 }
+.p-title .head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px }
+.p-title .ic-lg { position: relative; width: 52px; height: 52px; border-radius: 50%; background: var(--rose-xl); display: grid; place-items: center; color: var(--rose-d); flex: none }
+.p-title .ic-lg::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1px dashed rgba(184, 138, 74, .5) }
+.p-title .ic-lg svg { width: 22px; height: 22px; stroke-width: 1.3 }
+.p-title h1 { font: 400 clamp(38px, 4vw, 56px)/1.02 var(--font-display); letter-spacing: -.03em; margin-bottom: 8px }
+.p-title .sub { font: 300 20px/1.4 var(--font-display); color: var(--rose-d) }
+.prose .eyebrow { margin-bottom: 14px }
 .prose p { font: 300 18px/1.65 var(--font-display); color: var(--ink); margin-bottom: 14px }
 .prose p:last-child { margin-bottom: 0 }
 .prose p:first-of-type::first-letter { font: 400 58px/.8 var(--font-display); float: left; margin: 7px 12px 0 0; color: var(--gold) }
@@ -422,8 +418,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
     .foot { grid-template-columns: 1fr; gap: 30px; margin-top: 80px }
     .base { flex-direction: column; gap: 6px }
     .p-top, .p-extra { gap: 28px }
-    .p-hero { min-height: 560px }
-    .p-hero .txt { padding: 24px 22px }
+    .p-top { display: flex; flex-direction: column }
+    .p-info { display: contents }
+    .p-title { order: -1 }
+    .p-hero { min-height: 420px }
+    .p-hero .txt { padding: 22px }
     .p-extra { margin-top: 28px }
     .mods, .others { margin-top: 56px }
     .p-extra.wide .session { grid-template-columns: 1fr; grid-template-areas: "lead" "list" "cta"; gap: 18px; padding: 24px 22px }

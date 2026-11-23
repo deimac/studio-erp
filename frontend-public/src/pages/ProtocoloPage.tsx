@@ -63,10 +63,7 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
     const { data: todos } = useProtocolos();
     const refMods = useReveal<HTMLElement>();
     const Icone = iconeProtocolo(p.icone);
-    const valores = p.modalidades.map((m) => Number(m.valor)).filter((v) => v > 0);
-    const aPartir = valores.length ? Math.min(...valores) : null;
     const duracoes = formatDuracoes(p.modalidades.map((m) => m.duracao_minutos));
-    const prefixoPreco = new Set(p.modalidades.map((m) => m.duracao_minutos)).size > 1 || p.modalidades.length > 1 ? 'a partir de' : duracoes;
     const temPacotes = p.modalidades.some((m) => m.pacotes.length > 0);
     const paragrafos = (p.descricao ?? '').split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     const outros = (todos ?? []).filter((o) => o.slug !== p.slug).slice(0, 3);
@@ -81,43 +78,38 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                 <Link to="/">Início</Link><ChevronRight /><Link to="/#protocolos">Protocolos</Link><ChevronRight /><span aria-current="page">{p.nome}</span>
             </nav>
 
-            <section className={`p-top${paragrafos.length || p.inclui.length ? '' : ' solo'}`}>
+            <section className="p-top">
                 <div className="p-hero">
                     <img src={imagemProtocolo(p)} alt="" fetchPriority="high" onError={imagemReserva} />
                     <div className="txt">
+                        <div className="facts">
+                            {duracoes && <span className="fact"><Clock />{duracoes}</span>}
+                            {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
+                            {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
+                        </div>
+                        <div className="ctas">
+                            <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
+                            {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
+                        </div>
+                    </div>
+                </div>
+                <div className="p-info">
+                    <header className="p-title">
                         <div className="head">
                             <span className="ic-lg"><Icone /></span>
                             <span className="eyebrow">Protocolo</span>
                         </div>
-                        <div className="body">
-                            <h1>{p.nome}</h1>
-                            {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
-                            <div className="facts">
-                                {duracoes && <span className="fact"><Clock />{duracoes}</span>}
-                                {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
-                                {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
-                            </div>
-                            {aPartir != null && (
-                                <span className="meta">{prefixoPreco && <small>{prefixoPreco}</small>}<b>{formatBRL(aPartir)}</b></span>
-                            )}
-                            <div className="ctas">
-                                <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
-                                {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
-                            </div>
+                        <h1>{p.nome}</h1>
+                        {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
+                    </header>
+                    {paragrafos.length > 0 && (
+                        <div className="prose">
+                            <span className="eyebrow">Sobre o protocolo</span>
+                            {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
                         </div>
-                    </div>
+                    )}
+                    {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
                 </div>
-                {(paragrafos.length > 0 || p.inclui.length > 0) && (
-                    <div className="p-info">
-                        {paragrafos.length > 0 && (
-                            <div className="prose">
-                                <span className="eyebrow">Sobre o protocolo</span>
-                                {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
-                            </div>
-                        )}
-                        {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
-                    </div>
-                )}
             </section>
 
             <section className={`p-extra${p.beneficios.length ? '' : ' wide'}`}>
