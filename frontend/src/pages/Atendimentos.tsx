@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { trpc } from '@/services/trpc';
 import { AtendimentoForm } from '@/components/AtendimentoForm';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'success' | 'destructive' | 'secondary' | 'outline'; icon: typeof Calendar }> = {
     AGENDADO: { label: 'Agendado', variant: 'default', icon: Calendar },
+    CONFIRMADO: { label: 'Confirmado', variant: 'success', icon: CheckCircle },
     REALIZADO: { label: 'Realizado', variant: 'success', icon: CheckCircle },
     CANCELADO: { label: 'Cancelado', variant: 'destructive', icon: XCircle },
     FALTOU: { label: 'Faltou', variant: 'secondary', icon: AlertCircle },
@@ -54,7 +56,7 @@ export default function Atendimentos() {
     // Stats para os cards informativos
     const stats = {
         total: atendQ.data?.length ?? 0,
-        agendados: atendQ.data?.filter((a) => a.status === 'AGENDADO').length ?? 0,
+        agendados: atendQ.data?.filter((a) => a.status === 'AGENDADO' || a.status === 'CONFIRMADO').length ?? 0,
         realizados: atendQ.data?.filter((a) => a.status === 'REALIZADO').length ?? 0,
         cancelados: atendQ.data?.filter((a) => a.status === 'CANCELADO').length ?? 0,
         faltas: atendQ.data?.filter((a) => a.status === 'FALTOU').length ?? 0,
@@ -223,7 +225,7 @@ export default function Atendimentos() {
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    {a.status === 'AGENDADO' && (
+                                                    {(a.status === 'AGENDADO' || a.status === 'CONFIRMADO') && (
                                                         <div className="flex justify-end gap-1">
                                                             <Button
                                                                 variant="ghost"
@@ -276,67 +278,14 @@ export default function Atendimentos() {
 }
 
 function AgendaPanel() {
-    const { toast } = useToast();
-    const utils = trpc.useUtils();
-    const agendaQ = trpc.atendimentos.agendaListar.useQuery();
-    const criarSlots = trpc.atendimentos.agendaCriarSlots.useMutation({
-        onSuccess: () => { utils.atendimentos.agendaListar.invalidate(); toast({ title: 'Agenda configurada!', variant: 'success' }); },
-        onError: (e) => toast({ title: e.message, variant: 'error' }),
-    });
-
-    const [horaInicio, setHoraInicio] = useState('08:00');
-    const [horaFim, setHoraFim] = useState('18:00');
-    const [intervalo, setIntervalo] = useState<15 | 30 | 60>(30);
-
-    const cfg = agendaQ.data?.[0];
-
     return (
         <Card>
-            <CardHeader>
-                <CardTitle className="text-sm font-semibold">Configuração da Agenda</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {cfg && (
-                    <div className="rounded-lg bg-blue-50 p-4 text-sm">
-                        <p><strong>Configuração atual:</strong></p>
-                        <p className="flex items-center gap-2 mt-1">
-                            <Clock className="h-4 w-4" />
-                            {(cfg.hora_inicio as string)?.slice(0, 5)} às {(cfg.hora_fim as string)?.slice(0, 5)} • Intervalo: {cfg.intervalo_minutos} min
-                        </p>
-                    </div>
-                )}
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        criarSlots.mutate({ hora_inicio: horaInicio, hora_fim: horaFim, intervalo_minutos: intervalo });
-                    }}
-                    className="grid gap-4 sm:grid-cols-4 items-end"
-                >
-                    <div>
-                        <label className="text-xs font-medium text-gray-500">Hora Início</label>
-                        <Input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500">Hora Fim</label>
-                        <Input type="time" value={horaFim} onChange={(e) => setHoraFim(e.target.value)} />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-gray-500">Intervalo (min)</label>
-                        <select
-                            aria-label="Intervalo"
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            value={intervalo}
-                            onChange={(e) => setIntervalo(Number(e.target.value) as 15 | 30 | 60)}
-                        >
-                            <option value={15}>15</option>
-                            <option value={30}>30</option>
-                            <option value={60}>60</option>
-                        </select>
-                    </div>
-                    <Button type="submit" disabled={criarSlots.isPending}>
-                        {criarSlots.isPending ? 'Salvando…' : 'Salvar Agenda'}
-                    </Button>
-                </form>
+            <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p className="font-semibold">A agenda agora tem tela própria</p>
+                    <p className="text-sm text-gray-500">Calendário por dia/semana/mês, expediente semanal, bloqueios, salas e lembretes por WhatsApp.</p>
+                </div>
+                <Button asChild><Link to="/agenda"><Calendar className="mr-2 h-4 w-4" /> Abrir agenda</Link></Button>
             </CardContent>
         </Card>
     );

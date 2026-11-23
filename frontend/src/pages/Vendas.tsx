@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Search, Trash2, Lock, ChevronDown, ChevronUp, Sparkles, Package, ShoppingCart, TrendingUp, Calendar, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
+import { useAuth } from '@/hooks/useAuth';
 
 const fmt = (v: string | number) =>
     Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -45,6 +46,8 @@ const fmtDate = (v: string | Date | null | undefined) => {
 };
 
 export default function Vendas() {
+    // Encerrar/excluir venda é só do admin (o backend recusa para profissionais)
+    const { isAdmin } = useAuth();
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
@@ -290,7 +293,7 @@ export default function Vendas() {
                                                     className="flex justify-end items-center gap-1"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    {v.status === 'ATIVA' && v.canDelete && (
+                                                    {isAdmin && v.status === 'ATIVA' && v.canDelete && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -309,7 +312,7 @@ export default function Vendas() {
                                                             Excluir
                                                         </Button>
                                                     )}
-                                                    {v.status === 'ATIVA' && v.canClose && (
+                                                    {isAdmin && v.status === 'ATIVA' && v.canClose && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"

@@ -23,6 +23,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { maskMoney, unmaskMoney } from '@/lib/masks';
 
 /* ── helpers ─── */
@@ -75,6 +76,8 @@ type Props = {
 };
 
 export function VendaDetail({ venda }: Props) {
+    // Pagamentos e observação da venda são do admin (o backend recusa para profissionais)
+    const { isAdmin } = useAuth();
     const { mutateAsync: atualizarValorParcelaPrincipalMutateAsync } = trpc.vendas.atualizarValorParcelaPrincipal.useMutation();
     const { mutateAsync: removerParcelaFilhaMutateAsync } = trpc.vendas.removerParcelaFilha.useMutation();
     const { toast } = useToast();
@@ -187,8 +190,9 @@ export function VendaDetail({ venda }: Props) {
                                 onChange={(e) => setObs(e.target.value)}
                                 rows={4}
                                 placeholder="Nenhuma observação"
+                                readOnly={!isAdmin}
                             />
-                            <Button
+                            {isAdmin && <Button
                                 size="sm"
                                 onClick={() =>
                                     updateObsMut.mutate({
@@ -199,7 +203,7 @@ export function VendaDetail({ venda }: Props) {
                                 disabled={updateObsMut.isPending}
                             >
                                 {updateObsMut.isPending ? 'Salvando…' : 'Salvar'}
-                            </Button>
+                            </Button>}
                         </div>
                     </TabsContent>
 
@@ -250,7 +254,7 @@ export function VendaDetail({ venda }: Props) {
                                                 <div className="flex justify-center">
                                                     <Switch
                                                         checked={isPaid}
-                                                        disabled={!canToggle || pgtoMut.isPending}
+                                                        disabled={!isAdmin || !canToggle || pgtoMut.isPending}
                                                         onCheckedChange={async (checked: boolean) => {
                                                             if (checked) {
                                                                 // 1. Set payment date and update grid

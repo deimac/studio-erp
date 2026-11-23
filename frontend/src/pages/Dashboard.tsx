@@ -7,7 +7,13 @@ import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
     const { user, isAdmin } = useAuth();
-    const atendimentos = trpc.atendimentos.list.useQuery({ status: 'AGENDADO' }, { refetchInterval: 30_000 });
+    const hoje = new Date();
+    const hojeISO = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+    const atendimentosQ = trpc.atendimentos.list.useQuery({ de: hojeISO }, { refetchInterval: 30_000 });
+    const atendimentos = {
+        isLoading: atendimentosQ.isLoading,
+        data: atendimentosQ.data?.filter((a: any) => a.status === 'AGENDADO' || a.status === 'CONFIRMADO'),
+    };
     const pessoasList = trpc.pessoas.list.useQuery(undefined);
     const vendasList = trpc.vendas.list.useQuery({ status: 'ATIVA' });
 

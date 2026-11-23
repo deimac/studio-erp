@@ -1,6 +1,7 @@
 import {
     boolean as dbBoolean,
     date,
+    datetime,
     decimal,
     index,
     int,
@@ -40,6 +41,11 @@ export const usuarios = mysqlTable(
         senha: varchar('senha', { length: 255 }).notNull(),
         perfil: mysqlEnum('perfil', ['ADMIN', 'PROFISSIONAL']).notNull(),
         ativo: dbBoolean('ativo').default(true),
+        cor: varchar('cor', { length: 20 }),
+        telefone: varchar('telefone', { length: 20 }),
+        intervalo_agenda_min: int('intervalo_agenda_min').notNull().default(30),
+        /** Divide o espaço com os demais: horário ocupado por um bloqueia o grupo. */
+        agenda_compartilhada: dbBoolean('agenda_compartilhada').notNull().default(true),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
@@ -93,6 +99,8 @@ export const servicos = mysqlTable('servicos', {
     nome_modalidade: varchar('nome_modalidade', { length: 150 }),
     regioes: text('regioes'), // JSON string[]
     ordem_modalidade: int('ordem_modalidade').notNull().default(0),
+    /** Dono: serviço próprio de um profissional (nunca vai ao site). NULL = serviço da clínica. */
+    id_profissional: int('id_profissional'),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
 });
@@ -274,29 +282,131 @@ export const agendaConfiguracao = mysqlTable(
 /* =========================================================================
    Atendimentos
    ========================================================================= */
+export const STATUS_ATENDIMENTO = ['AGENDADO', 'CONFIRMADO', 'REALIZADO', 'CANCELADO', 'FALTOU'] as const;
+
 export const atendimentos = mysqlTable(
     'atendimentos',
     {
         id: serial('id').primaryKey(),
-        id_venda: int('id_venda')
-            .notNull()
-            .references(() => vendas.id, { onDelete: 'cascade' }),
+        id_unidade: int('id_unidade').notNull().references(() => unidades.id),
+        id_pessoa: int('id_pessoa').notNull().references(() => pessoas.id),
+        // Venda/pacote é opcional: quando presente, o atendimento consome uma sessão dela
+        id_venda: int('id_venda').references(() => vendas.id, { onDelete: 'cascade' }),
         id_profissional: int('id_profissional')
             .notNull()
             .references(() => usuarios.id),
+        id_sala: int('id_sala').references(() => salas.id, { onDelete: 'set null' }),
+        id_recorrencia: int('id_recorrencia').references(() => agendaRecorrencias.id, { onDelete: 'set null' }),
         data: date('data').notNull(),
         hora_inicio: time('hora_inicio').notNull(),
         hora_fim: time('hora_fim').notNull(),
-        status: mysqlEnum('status', ['AGENDADO', 'REALIZADO', 'CANCELADO', 'FALTOU']).notNull(),
+        status: mysqlEnum('status', STATUS_ATENDIMENTO).notNull(),
         observacoes: text('observacoes'),
+        criado_por: int('criado_por'),
+        confirmado_em: timestamp('confirmado_em'),
+        lembrete_enviado_em: timestamp('lembrete_enviado_em'),
+        motivo_cancelamento: varchar('motivo_cancelamento', { length: 255 }),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
     (t) => ({
-        vendaIdx: index('fk_atendimento_venda').on(t.id_venda),
+        vendaIdx: index('idx_atendimentos_id_venda').on(t.id_venda),
         profIdx: index('fk_atendimento_profissional').on(t.id_profissional),
+        profDataIdx: index('idx_atend_prof_data').on(t.id_profissional, t.data),
+        salaDataIdx: index('idx_atend_sala_data').on(t.id_sala, t.data),
+        unidadeDataIdx: index('idx_atend_unidade_data').on(t.id_unidade, t.data),
+        pessoaIdx: index('idx_atend_pessoa').on(t.id_pessoa),
     }),
 );
+
+export const atendimentoServicos = mysqlTable(
+    'atendimento_servicos',
+    {
+        id_atendimento: int('id_atendimento')
+            .notNull()
+            .references(() => atendimentos.id, { onDelete: 'cascade' }),
+        id_servico: int('id_servico')
+            .notNull()
+            .references(() => servicos.id),
+        duracao_minutos: int('duracao_minutos').notNull(),
+        valor: decimal('valor', { precision: 10, scale: 2 }).notNull().default('0.00'),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.id_atendimento, t.id_servico] }),
+    }),
+);
+
+/* =========================================================================
+   Agenda: salas, expediente, serviços por profissional, bloqueios, recorrências
+   ========================================================================= */
+export const salas = mysqlTable('salas', {
+    id: serial('id').primaryKey(),
+    id_unidade: int('id_unidade').notNull().references(() => unidades.id),
+    nome: varchar('nome', { length: 100 }).notNull(),
+    cor: varchar('cor', { length: 20 }),
+    ordem: int('ordem').notNull().default(0),
+    ativo: dbBoolean('ativo').notNull().default(true),
+    created_at: timestamp('created_at').defaultNow(),
+    updated_at: timestamp('updated_at').defaultNow(),
+});
+
+export const profissionalHorarios = mysqlTable(
+    'profissional_horarios',
+    {
+        id: serial('id').primaryKey(),
+        id_profissional: int('id_profissional')
+            .notNull()
+            .references(() => usuarios.id, { onDelete: 'cascade' }),
+        dia_semana: int('dia_semana').notNull(), // 0 = domingo … 6 = sábado
+        hora_inicio: time('hora_inicio').notNull(),
+        hora_fim: time('hora_fim').notNull(),
+    },
+    (t) => ({
+        profIdx: index('idx_ph_profissional').on(t.id_profissional, t.dia_semana),
+    }),
+);
+
+export const profissionalServicos = mysqlTable(
+    'profissional_servicos',
+    {
+        id_profissional: int('id_profissional')
+            .notNull()
+            .references(() => usuarios.id, { onDelete: 'cascade' }),
+        id_servico: int('id_servico')
+            .notNull()
+            .references(() => servicos.id, { onDelete: 'cascade' }),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.id_profissional, t.id_servico] }),
+    }),
+);
+
+/** Sem profissional e sem sala = clínica inteira fechada (ex.: feriado). */
+export const agendaBloqueios = mysqlTable(
+    'agenda_bloqueios',
+    {
+        id: serial('id').primaryKey(),
+        id_unidade: int('id_unidade').notNull().references(() => unidades.id),
+        id_profissional: int('id_profissional').references(() => usuarios.id, { onDelete: 'cascade' }),
+        id_sala: int('id_sala').references(() => salas.id, { onDelete: 'cascade' }),
+        inicio: datetime('inicio', { mode: 'string' }).notNull(),
+        fim: datetime('fim', { mode: 'string' }).notNull(),
+        motivo: varchar('motivo', { length: 255 }),
+        criado_por: int('criado_por'),
+        created_at: timestamp('created_at').defaultNow(),
+    },
+    (t) => ({
+        periodoIdx: index('idx_bloqueios_periodo').on(t.id_unidade, t.inicio, t.fim),
+    }),
+);
+
+export const agendaRecorrencias = mysqlTable('agenda_recorrencias', {
+    id: serial('id').primaryKey(),
+    intervalo_semanas: int('intervalo_semanas').notNull().default(1),
+    quantidade: int('quantidade').notNull(),
+    criado_por: int('criado_por'),
+    created_at: timestamp('created_at').defaultNow(),
+});
 
 /* =========================================================================
    Formas de Pagamento
@@ -403,9 +513,17 @@ export const agendaConfiguracaoRelations = relations(agendaConfiguracao, ({ one 
     profissional: one(usuarios, { fields: [agendaConfiguracao.id_profissional], references: [usuarios.id] }),
 }));
 
-export const atendimentosRelations = relations(atendimentos, ({ one }) => ({
+export const atendimentosRelations = relations(atendimentos, ({ one, many }) => ({
     venda: one(vendas, { fields: [atendimentos.id_venda], references: [vendas.id] }),
+    pessoa: one(pessoas, { fields: [atendimentos.id_pessoa], references: [pessoas.id] }),
     profissional: one(usuarios, { fields: [atendimentos.id_profissional], references: [usuarios.id] }),
+    sala: one(salas, { fields: [atendimentos.id_sala], references: [salas.id] }),
+    servicos: many(atendimentoServicos),
+}));
+
+export const atendimentoServicosRelations = relations(atendimentoServicos, ({ one }) => ({
+    atendimento: one(atendimentos, { fields: [atendimentoServicos.id_atendimento], references: [atendimentos.id] }),
+    servico: one(servicos, { fields: [atendimentoServicos.id_servico], references: [servicos.id] }),
 }));
 
 export const formasPagamentoRelations = relations(formasPagamento, ({ many }) => ({
@@ -463,3 +581,8 @@ export type NewFormaPagamento = InferInsertModel<typeof formasPagamento>;
 
 export type Financeiro = InferSelectModel<typeof financeiro>;
 export type NewFinanceiro = InferInsertModel<typeof financeiro>;
+
+export type Sala = InferSelectModel<typeof salas>;
+export type ProfissionalHorario = InferSelectModel<typeof profissionalHorarios>;
+export type AgendaBloqueio = InferSelectModel<typeof agendaBloqueios>;
+export type AtendimentoServico = InferSelectModel<typeof atendimentoServicos>;

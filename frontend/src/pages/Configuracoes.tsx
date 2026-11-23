@@ -11,6 +11,9 @@ import { useToast } from '@/hooks/useToast';
 import { SquarePen, Trash2 } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
 import { Label } from '@/components/ui/label';
+import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
+import { PALETA, corPadrao } from '@/lib/agenda';
+import { CalendarDays } from 'lucide-react';
 
 export default function Configuracoes() {
     return (
@@ -40,6 +43,7 @@ export default function Configuracoes() {
                 <TabsContent value="usuarios" className="mt-4">
                     <ProfissionaisPanel />
                 </TabsContent>
+
             </Tabs>
         </div>
     );
@@ -247,6 +251,8 @@ function ProfissionaisPanel() {
     const [senha, setSenha] = useState('');
 
     const usersQ = trpc.usuarios.list.useQuery();
+    const agendaProfsQ = trpc.agenda.profissionais.list.useQuery();
+    const [agendaDe, setAgendaDe] = useState<any>(null);
     const createMut = trpc.usuarios.createProfissional.useMutation({
         onSuccess: () => { setOpen(false); setNome(''); setEmail(''); setSenha(''); utils.usuarios.list.invalidate(); toast({ title: 'Profissional criado', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
@@ -285,6 +291,11 @@ function ProfissionaisPanel() {
                                     <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
+                                    {u.ativo && (
+                                        <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAgendaDe(((agendaProfsQ.data ?? []) as any[]).find((p) => p.id === u.id) ?? { id: u.id, nome: u.nome })}>
+                                            <CalendarDays className="mr-1 h-3.5 w-3.5" /> Agenda
+                                        </Button>
+                                    )}
                                     <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: u.id, ativo: !u.ativo })}>
                                         {u.ativo ? 'Desativar' : 'Ativar'}
                                     </Button>
@@ -294,6 +305,8 @@ function ProfissionaisPanel() {
                     </TableBody>
                 </Table>
             </CardContent>
+
+            <ExpedienteDialog open={!!agendaDe} onOpenChange={(v) => !v && setAgendaDe(null)} profissional={agendaDe} admin />
 
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
@@ -497,6 +510,91 @@ function SitePanel() {
                         Salvar textos
                     </Button>
                 </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/* ===== Salas / macas (recursos compartilhados da agenda) ===== */
+function SalasPanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const salasQ = trpc.agenda.salas.list.useQuery({ incluirInativas: true });
+    const [editId, setEditId] = useState<number | null>(null);
+    const [nome, setNome] = useState('');
+    const [cor, setCor] = useState(PALETA[0]);
+
+    const ok = (msg: string) => () => { utils.agenda.salas.list.invalidate(); setEditId(null); setNome(''); toast({ title: msg, variant: 'success' }); };
+    const erro = (e: { message: string }) => toast({ title: e.message, variant: 'error' });
+    const createMut = trpc.agenda.salas.create.useMutation({ onSuccess: ok('Sala criada'), onError: erro });
+    const updateMut = trpc.agenda.salas.update.useMutation({ onSuccess: ok('Sala atualizada'), onError: erro });
+    const deleteMut = trpc.agenda.salas.delete.useMutation({ onSuccess: ok('Sala excluída'), onError: erro });
+
+    const salas = (salasQ.data ?? []) as { id: number; nome: string; cor: string | null; ativo: boolean }[];
+
+    return (
+        <Card>
+            <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Salas e macas</CardTitle>
+                <p className="text-xs text-gray-500">Dois profissionais não podem usar a mesma sala no mesmo horário.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <form
+                    className="flex flex-wrap items-end gap-2"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!nome.trim()) return;
+                        if (editId) updateMut.mutate({ id: editId, nome: nome.trim(), cor });
+                        else createMut.mutate({ nome: nome.trim(), cor, ordem: salas.length });
+                    }}
+                >
+                    <div className="min-w-48 flex-1 space-y-1.5">
+                        <Label>Nome</Label>
+                        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Sala 1, Maca de drenagem…" />
+                    </div>
+                    <div className="flex gap-1 pb-2">
+                        {PALETA.slice(0, 6).map((c) => (
+                            <button key={c} type="button" aria-label={`Cor ${c}`} onClick={() => setCor(c)}
+                                className={`h-6 w-6 rounded-full ring-offset-2 ${cor === c ? 'ring-2 ring-gray-900' : ''}`} style={{ background: c }} />
+                        ))}
+                    </div>
+                    <Button type="submit" size="sm" disabled={createMut.isPending || updateMut.isPending}>{editId ? 'Salvar' : 'Adicionar'}</Button>
+                    {editId && <Button type="button" size="sm" variant="ghost" onClick={() => { setEditId(null); setNome(''); }}>Cancelar</Button>}
+                </form>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Sala</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {salas.map((s) => (
+                            <TableRow key={s.id}>
+                                <TableCell className="font-medium">
+                                    <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: corPadrao(s.id, s.cor) }} />
+                                    {s.nome}
+                                </TableCell>
+                                <TableCell><Badge variant={s.ativo ? 'success' : 'secondary'}>{s.ativo ? 'Ativa' : 'Inativa'}</Badge></TableCell>
+                                <TableCell className="space-x-1 text-right">
+                                    <Button variant="ghost" size="sm" aria-label="Editar" onClick={() => { setEditId(s.id); setNome(s.nome); setCor(s.cor ?? PALETA[0]); }}>
+                                        <SquarePen className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: s.id, ativo: !s.ativo })}>
+                                        {s.ativo ? 'Desativar' : 'Ativar'}
+                                    </Button>
+                                    <Button variant="ghost" size="sm" aria-label="Excluir" className="text-red-500" onClick={() => deleteMut.mutate({ id: s.id })}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                        {!salasQ.isLoading && !salas.length && (
+                            <TableRow><TableCell colSpan={3} className="py-6 text-center text-gray-400">Nenhuma sala cadastrada. Sem salas, só o profissional é verificado no conflito.</TableCell></TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
     );

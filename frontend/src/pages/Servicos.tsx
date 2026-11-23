@@ -73,7 +73,12 @@ export default function Servicos() {
     const casa = (s: ServicoItem) =>
         !termo || s.nome.toLowerCase().includes(termo) || (s.nome_modalidade ?? '').toLowerCase().includes(termo);
     const idsProtocolos = new Set(protocolos.map((p) => p.id));
-    const avulsos = todos.filter((s) => (!s.id_protocolo || !idsProtocolos.has(s.id_protocolo)) && casa(s));
+    const semSite = todos.filter((s) => (!s.id_protocolo || !idsProtocolos.has(s.id_protocolo)) && casa(s));
+    // Fora do site: serviços da clínica e serviços próprios de cada profissional
+    const avulsos = semSite.filter((s) => !s.id_profissional);
+    const proprios = semSite.filter((s) => !!s.id_profissional);
+    const donos: [number, string][] = [...new Map<number, string>(proprios.map((s) => [s.id_profissional as number, s.profissional_nome as string])).entries()]
+        .sort((a, b) => (a[0] === user?.id ? -1 : b[0] === user?.id ? 1 : (a[1] ?? '').localeCompare(b[1] ?? '')));
     const carregando = servicosQ.isLoading || protocolosQ.isLoading;
 
     return (
@@ -87,7 +92,7 @@ export default function Servicos() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {isAdmin && <ProtocoloForm onSuccess={handleProtocoloSaved} />}
-                    <ServicoForm onSuccess={handleServicoSaved} />
+                    <ServicoForm onSuccess={handleServicoSaved} trigger={isAdmin ? undefined : 'Novo serviço meu'} />
                 </div>
             </div>
 
@@ -143,12 +148,14 @@ export default function Servicos() {
                                             trigger={<><SquarePen className="mr-1 h-4 w-4 text-blue-600" /> Conteúdo do site</>}
                                         />
                                     )}
-                                    <ServicoForm
-                                        idProtocoloPadrao={p.id}
-                                        onSuccess={handleServicoSaved}
-                                        trigger={<><Plus className="mr-1 h-4 w-4" /> Modalidade</>}
-                                        variant="outline"
-                                    />
+                                    {isAdmin && (
+                                        <ServicoForm
+                                            idProtocoloPadrao={p.id}
+                                            onSuccess={handleServicoSaved}
+                                            trigger={<><Plus className="mr-1 h-4 w-4" /> Modalidade</>}
+                                            variant="outline"
+                                        />
+                                    )}
                                     {isAdmin && (
                                         <Button
                                             size="sm" variant="ghost" aria-label="Excluir protocolo" title="Excluir protocolo"
@@ -183,9 +190,9 @@ export default function Servicos() {
             {!carregando && avulsos.length > 0 && (
                 <Card>
                     <CardHeader className="p-4">
-                        <CardTitle className="text-base">Serviços sem protocolo</CardTitle>
+                        <CardTitle className="text-base">Serviços da clínica fora do site</CardTitle>
                         <p className="text-sm text-gray-500">
-                            Vendáveis normalmente, mas não aparecem no site. Para levar ao site, edite e escolha um protocolo.
+                            Vendáveis e agendáveis normalmente, mas não aparecem no site.{isAdmin ? ' Para levar ao site, edite e marque "Exibir no site".' : ''}
                         </p>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -194,7 +201,38 @@ export default function Servicos() {
                 </Card>
             )}
 
-            {!carregando && termo && avulsos.length === 0 && !protocolos.some((p) => p.nome.toLowerCase().includes(termo) || todos.some((s) => s.id_protocolo === p.id && casa(s))) && (
+            {!carregando && donos.map(([idDono, nomeDono]) => (
+                <Card key={idDono} className="border-violet-200">
+                    <CardHeader className="p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <CardTitle className="text-base">{idDono === user?.id ? 'Meus serviços' : `Serviços de ${nomeDono}`}</CardTitle>
+                            <Badge variant="outline">Só no sistema</Badge>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                            {idDono === user?.id
+                                ? 'Você vende e agenda estes serviços. Colegas não os veem.'
+                                : 'Serviços próprios do profissional: só ele vende e agenda.'}
+                        </p>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <ServicosTabela servicos={proprios.filter((s) => s.id_profissional === idDono)} onSaved={handleServicoSaved} />
+                    </CardContent>
+                </Card>
+            ))}
+
+            {!carregando && !isAdmin && !donos.length && !termo && (
+                <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="font-medium">Você ainda não tem serviços próprios</p>
+                            <p className="text-sm text-gray-500">Cadastre os serviços que você vende e agenda. Eles ficam só no sistema.</p>
+                        </div>
+                        <ServicoForm onSuccess={handleServicoSaved} trigger="Cadastrar serviço" />
+                    </CardContent>
+                </Card>
+            )}
+
+            {!carregando && termo && semSite.length === 0 && !protocolos.some((p) => p.nome.toLowerCase().includes(termo) || todos.some((s) => s.id_protocolo === p.id && casa(s))) && (
                 <p className="py-8 text-center text-gray-400">Nada encontrado.</p>
             )}
         </div>
@@ -202,6 +240,8 @@ export default function Servicos() {
 }
 
 function ServicosTabela({ servicos, onSaved, modoModalidade = false }: { servicos: ServicoItem[]; onSaved: () => void; modoModalidade?: boolean }) {
+    const { user } = useAuth();
+    const podeEditar = (s: ServicoItem) => user?.perfil === 'ADMIN' || (s.id_profissional != null && s.id_profissional === user?.id);
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
@@ -265,7 +305,7 @@ function ServicosTabela({ servicos, onSaved, modoModalidade = false }: { servico
                                     <Badge variant={s.ativo ? 'success' : 'destructive'}>{s.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                    <ServicoForm servico={s} onSuccess={onSaved} trigger={<SquarePen className="h-4 w-4 text-blue-600" />} />
+                                    {podeEditar(s) && <ServicoForm servico={s} onSuccess={onSaved} trigger={<SquarePen className="h-4 w-4 text-blue-600" />} />}
                                 </TableCell>
                             </TableRow>
                             {expandedId === s.id && (

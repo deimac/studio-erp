@@ -111,7 +111,8 @@ export const publicCatalogoRouter = createTRPCRouter({
             .from(servicos)
             .leftJoin(servicoTecnica, eq(servicoTecnica.servico_id, servicos.id))
             .leftJoin(tecnicas, eq(servicoTecnica.tecnica_id, tecnicas.id))
-            .where(eq(servicos.ativo, true))
+            // Só serviços publicados (com protocolo); serviços internos e de profissionais ficam fora
+            .where(and(eq(servicos.ativo, true), isNotNull(servicos.id_protocolo)))
             .orderBy(servicos.nome);
 
         // 2) Agrupar técnicas por serviço

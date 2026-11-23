@@ -1,9 +1,13 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, isNull, like, or } from 'drizzle-orm';
 import { z } from 'zod';
-import { servicoTecnica, servicos, tecnicas } from '../../drizzle/schema';
+import { servicoTecnica, servicos, tecnicas, usuarios } from '../../drizzle/schema';
 import { parseLista } from '../../lib/protocolos';
-import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import { podeEditarServico, podeVerServico } from '../../lib/servicosAcesso';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
+
+/** Campos do site (protocolo/modalidade): só o admin define. */
+const CAMPOS_SITE = ['id_protocolo', 'nome_modalidade', 'regioes', 'ordem_modalidade'] as const;
 
 export const servicosRouter = createTRPCRouter({
     list: protectedProcedure
@@ -17,6 +21,9 @@ export const servicosRouter = createTRPCRouter({
             const whereParts: any[] = [];
             if (input?.apenasAtivos !== false) whereParts.push(eq(servicos.ativo, true));
             if (input?.search) whereParts.push(like(servicos.nome, `%${input.search}%`));
+            // Profissional vê os da clínica e os próprios; nunca os de colegas
+            if (ctx.session.perfil !== 'ADMIN')
+                whereParts.push(or(isNull(servicos.id_profissional), eq(servicos.id_profissional, ctx.session.id)));
 
             const query = ctx.db
                 .select({
@@ -32,12 +39,15 @@ export const servicosRouter = createTRPCRouter({
                     nome_modalidade: servicos.nome_modalidade,
                     regioes: servicos.regioes,
                     ordem_modalidade: servicos.ordem_modalidade,
+                    id_profissional: servicos.id_profissional,
+                    profissional_nome: usuarios.nome,
                     created_at: servicos.created_at,
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
                     tecnicaNome: tecnicas.nome,
                 })
                 .from(servicos)
+                .leftJoin(usuarios, eq(usuarios.id, servicos.id_profissional))
                 .leftJoin(servicoTecnica, eq(servicoTecnica.servico_id, servicos.id))
                 .leftJoin(tecnicas, eq(servicoTecnica.tecnica_id, tecnicas.id))
                 .orderBy(servicos.nome);
@@ -60,6 +70,8 @@ export const servicosRouter = createTRPCRouter({
                         nome_modalidade: r.nome_modalidade,
                         regioes: parseLista(r.regioes),
                         ordem_modalidade: r.ordem_modalidade,
+                        id_profissional: r.id_profissional,
+                        profissional_nome: r.profissional_nome,
                         created_at: r.created_at,
                         updated_at: r.updated_at,
                         tecnicas: [] as Array<{ id: number; nome: string }>,
@@ -89,12 +101,15 @@ export const servicosRouter = createTRPCRouter({
                     nome_modalidade: servicos.nome_modalidade,
                     regioes: servicos.regioes,
                     ordem_modalidade: servicos.ordem_modalidade,
+                    id_profissional: servicos.id_profissional,
+                    profissional_nome: usuarios.nome,
                     created_at: servicos.created_at,
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
                     tecnicaNome: tecnicas.nome,
                 })
                 .from(servicos)
+                .leftJoin(usuarios, eq(usuarios.id, servicos.id_profissional))
                 .leftJoin(servicoTecnica, eq(servicoTecnica.servico_id, servicos.id))
                 .leftJoin(tecnicas, eq(servicoTecnica.tecnica_id, tecnicas.id))
                 .where(eq(servicos.id, input.id));
@@ -102,6 +117,8 @@ export const servicosRouter = createTRPCRouter({
             if (!rows.length) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
 
             const base = rows[0];
+            if (!podeVerServico(base.id_profissional, ctx.session))
+                throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
             return {
                 id: base.servicoId,
                 nome: base.nome,
@@ -115,6 +132,8 @@ export const servicosRouter = createTRPCRouter({
                 nome_modalidade: base.nome_modalidade,
                 regioes: parseLista(base.regioes),
                 ordem_modalidade: base.ordem_modalidade,
+                id_profissional: base.id_profissional,
+                profissional_nome: base.profissional_nome,
                 created_at: base.created_at,
                 updated_at: base.updated_at,
                 tecnicas: rows
@@ -123,7 +142,7 @@ export const servicosRouter = createTRPCRouter({
             };
         }),
 
-    create: adminProcedure
+    create: protectedProcedure
         .input(
             z.object({
                 nome: z.string().min(2),
@@ -141,6 +160,9 @@ export const servicosRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
+            const admin = ctx.session.perfil === 'ADMIN';
+            // Profissional cadastra só serviços próprios, sem protocolo (fora do site)
+            if (!admin) for (const c of CAMPOS_SITE) delete (input as any)[c];
             const ids = await ctx.db
                 .insert(servicos)
                 .values({
@@ -155,6 +177,7 @@ export const servicosRouter = createTRPCRouter({
                     nome_modalidade: input.nome_modalidade ?? null,
                     regioes: input.regioes ? JSON.stringify(input.regioes) : null,
                     ordem_modalidade: input.ordem_modalidade ?? 0,
+                    id_profissional: admin ? null : ctx.session.id,
                 })
                 .$returningId();
             const servicoId = ids[0]?.id;
@@ -167,7 +190,7 @@ export const servicosRouter = createTRPCRouter({
             return { id: servicoId };
         }),
 
-    update: adminProcedure
+    update: protectedProcedure
         .input(
             z.object({
                 id: z.number().int().positive(),
@@ -186,8 +209,15 @@ export const servicosRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            const [row] = await ctx.db.select({ id: servicos.id }).from(servicos).where(eq(servicos.id, input.id)).limit(1);
+            const [row] = await ctx.db
+                .select({ id: servicos.id, dono: servicos.id_profissional })
+                .from(servicos)
+                .where(eq(servicos.id, input.id))
+                .limit(1);
             if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
+            if (!podeEditarServico(row.dono, ctx.session))
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode editar os seus próprios serviços' });
+            if (ctx.session.perfil !== 'ADMIN') for (const c of CAMPOS_SITE) delete (input as any)[c];
 
             const set: Record<string, any> = { updated_at: new Date() };
             if (input.nome !== undefined) set.nome = input.nome;

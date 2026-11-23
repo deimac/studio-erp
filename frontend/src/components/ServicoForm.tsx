@@ -10,6 +10,7 @@ import { ImageUpload } from '@/components/ImageUpload';
 import { ListEditor } from '@/components/ui/list-editor';
 import { resolveImageUrl } from '@/lib/media';
 import { maskMoney } from '@/lib/masks';
+import { useAuth } from '@/hooks/useAuth';
 
 type Servico = {
     id: number;
@@ -25,6 +26,8 @@ type Servico = {
     nome_modalidade?: string | null;
     regioes?: string[];
     ordem_modalidade?: number;
+    id_profissional?: number | null;
+    profissional_nome?: string | null;
 };
 
 export function ServicoForm({
@@ -42,7 +45,10 @@ export function ServicoForm({
     variant?: 'default' | 'ghost' | 'outline';
 }) {
     const { toast } = useToast();
+    const { isAdmin } = useAuth();
     const [open, setOpen] = useState(false);
+    /** Só o admin decide o que vai para o site (exige um protocolo). */
+    const [noSite, setNoSite] = useState(false);
     const [nome, setNome] = useState('');
     const [descricao, setDescricao] = useState('');
     const [imagemUrl, setImagemUrl] = useState('');
@@ -89,14 +95,18 @@ export function ServicoForm({
             setNomeModalidade(servico.nome_modalidade ?? '');
             setRegioes(servico.regioes ?? []);
             setOrdemModalidade(String(servico.ordem_modalidade ?? 0));
+            setNoSite(!!servico.id_protocolo);
         } else {
             setNome(''); setDescricao(''); setImagemUrl(''); setDuracao('60'); setValor(''); setGeraCredito(true); setAtivo(true); setTecnicaIds([]);
             setIdProtocolo(idProtocoloPadrao ? String(idProtocoloPadrao) : ''); setNomeModalidade(''); setRegioes([]); setOrdemModalidade('0');
+            setNoSite(!!idProtocoloPadrao);
         }
         setOpen(true);
     }
 
-    const protocoloSelecionado = protocolosQ.data?.find((p: any) => String(p.id) === idProtocolo) as { nome: string } | undefined;
+    const protocoloSelecionado = noSite
+        ? (protocolosQ.data?.find((p: any) => String(p.id) === idProtocolo) as { nome: string } | undefined)
+        : undefined;
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -104,6 +114,10 @@ export function ServicoForm({
         let nomeFinal = nome.trim();
         if (!nomeFinal && protocoloSelecionado && nomeModalidade.trim()) {
             nomeFinal = `${protocoloSelecionado.nome} – ${nomeModalidade.trim()}`;
+        }
+        if (isAdmin && noSite && !idProtocolo) {
+            toast({ title: 'Escolha o protocolo onde o serviço aparece no site', variant: 'error' });
+            return;
         }
         if (!nomeFinal) {
             toast({ title: 'Informe o nome do serviço', variant: 'error' });
@@ -131,10 +145,15 @@ export function ServicoForm({
             gera_credito: geraCredito,
             ativo,
             tecnica_ids: tecnicaIds,
-            id_protocolo: idProtocolo ? Number(idProtocolo) : null,
-            nome_modalidade: nomeModalidade.trim() || null,
-            regioes: regioes.map((r) => r.trim()).filter(Boolean),
-            ordem_modalidade: Number(ordemModalidade) || 0,
+            // Campos do site só são enviados pelo admin
+            ...(isAdmin
+                ? {
+                      id_protocolo: noSite && idProtocolo ? Number(idProtocolo) : null,
+                      nome_modalidade: noSite ? nomeModalidade.trim() || null : null,
+                      regioes: noSite ? regioes.map((r) => r.trim()).filter(Boolean) : [],
+                      ordem_modalidade: noSite ? Number(ordemModalidade) || 0 : 0,
+                  }
+                : {}),
         };
         if (servico) {
             updateMut.mutate({ id: servico.id, ...data });
@@ -158,18 +177,32 @@ export function ServicoForm({
                         </DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4 min-h-[400px] max-h-[80vh] overflow-y-auto pr-1">
-                        {/* Modalidade de protocolo (site público) */}
+                        {servico?.id_profissional && (
+                            <p className="rounded-md bg-violet-50 px-3 py-2 text-xs text-violet-700">
+                                Serviço próprio de <strong>{servico.profissional_nome ?? 'profissional'}</strong>{isAdmin ? '' : ' (seu)'}.
+                            </p>
+                        )}
+
+                        {/* Site público: só o admin publica */}
+                        {isAdmin ? (
                         <div className="rounded-lg border border-dashed p-3 space-y-3">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Protocolo e modalidade</p>
+                            <label className="flex cursor-pointer items-start gap-2 text-sm">
+                                <input type="checkbox" className="mt-0.5 rounded" checked={noSite} onChange={(e) => setNoSite(e.target.checked)} />
+                                <span>
+                                    <span className="font-medium">Exibir no site</span>
+                                    <span className="block text-xs text-gray-500">Desmarcado, o serviço fica só no sistema (vendas e agenda).</span>
+                                </span>
+                            </label>
+                            {noSite && (<>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                    <Label>Protocolo</Label>
+                                    <Label>Protocolo (página no site) *</Label>
                                     <select
                                         className="mt-1 h-9 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
                                         value={idProtocolo}
                                         onChange={(e) => setIdProtocolo(e.target.value)}
                                     >
-                                        <option value="">— Sem protocolo (não aparece no site) —</option>
+                                        <option value="">Escolha o protocolo…</option>
                                         {protocolosQ.data?.map((p: any) => (
                                             <option key={p.id} value={p.id}>{p.nome}</option>
                                         ))}
@@ -190,7 +223,11 @@ export function ServicoForm({
                                     <Input type="number" value={ordemModalidade} onChange={(e) => setOrdemModalidade(e.target.value)} />
                                 </div>
                             </div>
+                            </>)}
                         </div>
+                        ) : (
+                            <p className="text-xs text-gray-500">Seus serviços ficam só no sistema (vendas e agenda) e não aparecem no site.</p>
+                        )}
 
                         <div className="px-1">
                             <Label>Nome nas vendas{protocoloSelecionado ? '' : ' *'}</Label>

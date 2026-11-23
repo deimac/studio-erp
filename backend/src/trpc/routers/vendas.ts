@@ -11,6 +11,7 @@ import {
     atendimentos,
 } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import { podeVerServico } from '../../lib/servicosAcesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -236,7 +237,8 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Criação (lançar venda) ============= */
-    create: adminProcedure
+    /** Admin vende qualquer serviço; profissional vende os da clínica e os próprios. */
+    create: protectedProcedure
         .input(
             z.object({
                 id_pessoa: z.number().int().positive(),
@@ -298,19 +300,20 @@ export const vendasRouter = createTRPCRouter({
             /* Validar serviço ou pacote */
             if (input.id_servico) {
                 const [srv] = await ctx.db
-                    .select({ id: servicos.id })
+                    .select({ id: servicos.id, dono: servicos.id_profissional })
                     .from(servicos)
                     .where(and(eq(servicos.id, input.id_servico), eq(servicos.ativo, true)))
                     .limit(1);
-                if (!srv) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
+                if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
             }
             if (input.id_pacote) {
                 const [pkt] = await ctx.db
-                    .select({ id: pacotes.id })
+                    .select({ id: pacotes.id, dono: servicos.id_profissional })
                     .from(pacotes)
+                    .leftJoin(servicos, eq(servicos.id, pacotes.id_servico))
                     .where(and(eq(pacotes.id, input.id_pacote), eq(pacotes.status, 'ativo')))
                     .limit(1);
-                if (!pkt) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
+                if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
             }
 
             /* Criar venda + parcelas em transação */

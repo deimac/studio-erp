@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, like } from 'drizzle-orm';
+import { and, eq, isNull, like, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { pacotes, servicos } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
@@ -16,6 +16,9 @@ export const pacotesRouter = createTRPCRouter({
             const whereParts: any[] = [];
             if (input?.apenasAtivos !== false) whereParts.push(eq(pacotes.status, 'ativo'));
             if (input?.search) whereParts.push(like(pacotes.nome, `%${input.search}%`));
+            // Profissional não vê pacotes de serviços próprios de colegas
+            if (ctx.session.perfil !== 'ADMIN')
+                whereParts.push(or(isNull(servicos.id_profissional), eq(servicos.id_profissional, ctx.session.id)));
 
             const query = ctx.db
                 .select({

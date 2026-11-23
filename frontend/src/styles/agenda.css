@@ -1,0 +1,161 @@
+/* Ajustes do react-big-calendar para o visual do Studio ERP */
+
+.agenda-studio {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.agenda-studio .rbc-calendar {
+    font-family: inherit;
+    font-size: 0.8125rem;
+    flex: 1;
+    min-height: 0;
+}
+
+.agenda-studio .rbc-time-view,
+.agenda-studio .rbc-month-view,
+.agenda-studio .rbc-agenda-view {
+    border: 0;
+}
+
+.agenda-studio .rbc-header {
+    padding: 0.5rem 0.25rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: capitalize;
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--border));
+}
+
+.agenda-studio .rbc-time-header-content,
+.agenda-studio .rbc-time-content,
+.agenda-studio .rbc-day-bg + .rbc-day-bg,
+.agenda-studio .rbc-month-row + .rbc-month-row,
+.agenda-studio .rbc-timeslot-group,
+.agenda-studio .rbc-time-content > * + * > *,
+.agenda-studio .rbc-day-slot .rbc-time-slot {
+    border-color: hsl(var(--border));
+}
+
+.agenda-studio .rbc-day-slot .rbc-time-slot {
+    border-top-color: hsl(var(--border) / 0.4);
+}
+
+.agenda-studio .rbc-timeslot-group {
+    min-height: 56px;
+}
+
+.agenda-studio .rbc-label {
+    font-size: 0.6875rem;
+    color: hsl(var(--muted-foreground));
+}
+
+.agenda-studio .rbc-today {
+    background: hsl(var(--primary) / 0.04);
+}
+
+.agenda-studio .rbc-current-time-indicator {
+    background: #ef4444;
+    height: 2px;
+}
+
+.agenda-studio .rbc-off-range-bg {
+    background: hsl(var(--muted));
+}
+
+/* Fora do expediente: cinza com hachura leve */
+.agenda-studio .rbc-fora-expediente,
+.agenda-legenda-fora {
+    background: repeating-linear-gradient(-45deg, #f1f5f9, #f1f5f9 6px, #e9eef4 6px, #e9eef4 12px);
+}
+
+.agenda-studio .rbc-slot-selection {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+    border: 1px dashed hsl(var(--primary));
+    border-radius: 4px;
+}
+
+/* Atendimentos: fundo claro na cor do profissional, faixa lateral forte */
+.agenda-studio .rbc-event.evt-atendimento,
+.agenda-studio .rbc-day-slot .rbc-background-event.evt-atendimento {
+    background: color-mix(in srgb, var(--evt-cor) 14%, white);
+    color: #0f172a;
+    border: 1px solid color-mix(in srgb, var(--evt-cor) 30%, white);
+    border-left: 4px solid var(--evt-cor);
+    border-radius: 6px;
+    padding: 2px 6px;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+}
+
+.agenda-studio .rbc-event.evt-atendimento.rbc-selected {
+    background: color-mix(in srgb, var(--evt-cor) 26%, white);
+}
+
+.agenda-studio .rbc-event .rbc-event-label {
+    font-size: 0.6875rem;
+    opacity: 0.75;
+}
+
+.agenda-studio .rbc-event.evt-confirmado {
+    border-left-style: double;
+    border-left-width: 6px;
+}
+
+.agenda-studio .rbc-event.evt-realizado {
+    opacity: 0.6;
+}
+
+.agenda-studio .rbc-event.evt-faltou {
+    opacity: 0.6;
+    text-decoration: line-through;
+}
+
+.agenda-studio .rbc-event.evt-cancelado {
+    opacity: 0.4;
+    text-decoration: line-through;
+}
+
+.agenda-studio .rbc-event.evt-restrito {
+    background: repeating-linear-gradient(-45deg, #f8fafc, #f8fafc 5px, #eef2f6 5px, #eef2f6 10px);
+    color: #64748b;
+    cursor: default;
+}
+
+/* Bloqueios (eventos de fundo) */
+.agenda-studio .rbc-background-event.evt-bloqueio,
+.agenda-legenda-bloqueio {
+    background: repeating-linear-gradient(45deg, #fee2e2, #fee2e2 6px, #fecaca 6px, #fecaca 12px);
+    color: #991b1b;
+    border: 0;
+    border-radius: 4px;
+    opacity: 0.85;
+    padding: 2px 6px;
+}
+
+.agenda-studio .rbc-month-view .rbc-event.evt-atendimento {
+    padding: 1px 4px;
+}
+
+.agenda-studio .rbc-show-more {
+    color: hsl(var(--primary));
+    font-size: 0.75rem;
+}
+
+.agenda-studio .rbc-agenda-view table.rbc-agenda-table {
+    border: 0;
+}
+
+.agenda-studio .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+    padding: 0.5rem;
+}
+
+.agenda-studio .rbc-agenda-view .rbc-event.evt-atendimento {
+    display: block;
+}
+
+/* Arrastar */
+.agenda-studio .rbc-addons-dnd .rbc-addons-dnd-resize-ns-anchor .rbc-addons-dnd-resize-ns-icon {
+    border-top-color: var(--evt-cor, #64748b);
+}

@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
+// Backend alvo do proxy (padrão :4000; API_PROXY permite apontar para outra porta)
+const api = process.env.API_PROXY || 'http://localhost:4000';
+
 export default defineConfig({
     plugins: [react(), tailwindcss()],
     resolve: {
@@ -14,15 +17,15 @@ export default defineConfig({
         port: 5173,
         proxy: {
             '/trpc': {
-                target: 'http://localhost:4000',
+                target: api,
                 changeOrigin: true,
             },
             '/api': {
-                target: 'http://localhost:4000',
+                target: api,
                 changeOrigin: true,
             },
             '/uploads': {
-                target: 'http://localhost:4000',
+                target: api,
                 changeOrigin: true,
             },
         },

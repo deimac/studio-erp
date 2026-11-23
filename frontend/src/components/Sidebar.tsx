@@ -6,6 +6,7 @@ import {
     Scissors,
     ShoppingCart,
     CalendarCheck,
+    CalendarDays,
     DollarSign,
     Settings,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ const links = [
     { to: '/pessoas', label: 'Pessoas', icon: Users },
     { to: '/servicos', label: 'Serviços', icon: Scissors },
     { to: '/vendas', label: 'Vendas', icon: ShoppingCart },
+    { to: '/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/atendimentos', label: 'Atendimentos', icon: CalendarCheck },
     { to: '/financeiro', label: 'Financeiro', icon: DollarSign, adminOnly: true },
     { to: '/configuracoes', label: 'Configurações', icon: Settings, adminOnly: true },

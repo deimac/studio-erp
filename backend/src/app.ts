@@ -11,6 +11,7 @@ import { servicosRouter } from './trpc/routers/servicos';
 import { pacotesRouter } from './trpc/routers/pacotes';
 import { vendasRouter } from './trpc/routers/vendas';
 import { atendimentosRouter } from './trpc/routers/atendimentos';
+import { agendaRouter } from './trpc/routers/agenda';
 import { financeiroRouter } from './trpc/routers/financeiro';
 import { formasPagamentoRouter } from './trpc/routers/formasPagamento';
 import { tecnicasRouter } from './trpc/routers/tecnicas';
@@ -76,6 +77,7 @@ export const appRouter = createTRPCRouter({
     pacotes: pacotesRouter,
     vendas: vendasRouter,
     atendimentos: atendimentosRouter,
+    agenda: agendaRouter,
     financeiro: financeiroRouter,
     formasPagamento: formasPagamentoRouter,
     tecnicas: tecnicasRouter,
