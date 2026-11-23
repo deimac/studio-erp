@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowRight, Check, ChevronRight, Clock, Gift, HandHeart, Info, ListChecks, MessageCircle, Sparkles, Wallet } from 'lucide-react';
 import { useProtocolo, useProtocolos, type Modalidade, type ProtocoloDetalhe } from '@/lib/catalogo';
@@ -11,11 +11,15 @@ import ProtocoloTile from '@/components/ProtocoloTile';
 import NotFound from './NotFound';
 
 function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
+    const [selecionado, setSelecionado] = useState<number | null>(null);
     const unica = p.modalidades.length === 1;
     const nome = m.nome_modalidade || (unica ? 'Sessão' : m.nome);
     const modalidadeMsg = m.nome_modalidade || (unica ? undefined : m.nome);
+    const protocoloMsg = modalidadeMsg && !m.nome_modalidade ? undefined : p.nome;
     const avulso = Number(m.valor);
     const pacotes = [...m.pacotes].sort((a, b) => a.quantidade_sessoes - b.quantidade_sessoes);
+    const pacoteSel = pacotes.find((pk) => pk.id === selecionado);
+    const href = whatsappUrl({ protocolo: protocoloMsg, modalidade: modalidadeMsg, pacote: pacoteSel ? { sessoes: pacoteSel.quantidade_sessoes } : undefined });
     return (
         <article className="mod">
             <div className="top">
@@ -27,24 +31,26 @@ function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
             </div>
             {m.regioes.length > 0 && <div className="regs">{m.regioes.map((r) => <span key={r}>{r.replace(/\.$/, '')}</span>)}</div>}
             {pacotes.length > 0 && (
-                <div className="packs">
+                <div className="packs" role="group" aria-label={`Pacotes de ${nome}`}>
                     {pacotes.map((pk) => {
                         const total = Number(pk.valor_total);
                         const economia = calcularEconomia(avulso, pk.quantidade_sessoes, total);
+                        const ativo = pk.id === selecionado;
                         return (
-                            <a key={pk.id} className="pack" target="_blank" rel="noreferrer"
-                                href={whatsappUrl({ protocolo: modalidadeMsg && !m.nome_modalidade ? undefined : p.nome, modalidade: modalidadeMsg, pacote: { sessoes: pk.quantidade_sessoes } })}>
+                            <button key={pk.id} type="button" className={`pack${ativo ? ' on' : ''}`} aria-pressed={ativo}
+                                onClick={() => setSelecionado(ativo ? null : pk.id)}>
+                                <span className="tick" aria-hidden="true">{ativo && <Check />}</span>
                                 <b>Pacote {pk.quantidade_sessoes} sessões</b>
                                 <span className="tot">{formatBRL(total)}</span>
                                 <small>{formatBRL(total / pk.quantidade_sessoes)} por sessão</small>
                                 {economia ? <span className="save">economize {formatBRL(economia)}</span> : <span />}
-                            </a>
+                            </button>
                         );
                     })}
                 </div>
             )}
-            <a className="pill" target="_blank" rel="noreferrer" href={whatsappUrl({ protocolo: modalidadeMsg && !m.nome_modalidade ? undefined : p.nome, modalidade: modalidadeMsg })}>
-                Agendar {m.nome_modalidade ? nome.toLowerCase() : 'sessão'}<ArrowRight />
+            <a className="pill" target="_blank" rel="noreferrer" href={href}>
+                {pacoteSel ? `Agendar pacote de ${pacoteSel.quantidade_sessoes} sessões` : `Agendar ${m.nome_modalidade ? nome.toLowerCase() : 'sessão'}`}<ArrowRight />
             </a>
         </article>
     );
@@ -68,9 +74,8 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
     const paragrafos = (p.descricao ?? '').split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     const outros = (todos ?? []).filter((o) => o.slug !== p.slug).slice(0, 3);
     const ctaPrincipal = p.permite_vale_presente
-        ? { href: whatsappUrl({ protocolo: p.nome, valePresente: true }), label: 'Quero presentear', icon: Gift }
-        : { href: whatsappUrl({ protocolo: p.nome }), label: 'Agendar pelo WhatsApp', icon: ArrowRight };
-    const CtaIcon = ctaPrincipal.icon;
+        ? { href: whatsappUrl({ protocolo: p.nome, valePresente: true }), label: 'Quero presentear' }
+        : { href: whatsappUrl({ protocolo: p.nome }), label: 'Agendar pelo WhatsApp' };
 
     return (
         <>
@@ -82,25 +87,18 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                 <div className="p-hero">
                     <img src={imagemProtocolo(p)} alt="" fetchPriority="high" onError={imagemReserva} />
                     <div className="txt">
+                        {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
                         <div className="facts">
                             {duracoes && <span className="fact"><Clock />{duracoes}</span>}
                             {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
                             {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
                         </div>
-                        <div className="ctas">
-                            <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
-                            {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
-                        </div>
                     </div>
                 </div>
                 <div className="p-info">
                     <header className="p-title">
-                        <div className="head">
-                            <span className="ic-lg"><Icone /></span>
-                            <span className="eyebrow">Protocolo</span>
-                        </div>
+                        <span className="ic-lg"><Icone /></span>
                         <h1>{p.nome}</h1>
-                        {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
                     </header>
                     {paragrafos.length > 0 && (
                         <div className="prose">
@@ -132,8 +130,8 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
             {p.modalidades.length > 0 && (
                 <section className="mods reveal" id="valores" ref={refMods}>
                     <div className="sh">
-                        <div><span className="eyebrow">Valores</span><h2>{p.modalidades.length > 1 ? <>Escolha a sua <em>modalidade</em></> : <>Sessão e <em>{temPacotes ? 'pacotes' : 'valor'}</em></>}</h2></div>
-                        {temPacotes && <p>Nos pacotes, cada sessão sai mais em conta. Toque em um pacote para falar comigo pelo WhatsApp.</p>}
+                        <div><h2>{p.modalidades.length > 1 ? <>Escolha a sua <em>modalidade</em></> : <>Sessão e <em>{temPacotes ? 'pacotes' : 'valor'}</em></>}</h2></div>
+                        {temPacotes && <p>Nos pacotes, cada sessão sai mais em conta. Selecione um pacote e toque em agendar — sem pacote, o agendamento é de uma sessão avulsa.</p>}
                     </div>
                     <div className="mod-grid">{p.modalidades.map((m) => <ModalidadeCard key={m.id} p={p} m={m} />)}</div>
                 </section>
