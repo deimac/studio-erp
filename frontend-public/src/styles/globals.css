@@ -277,53 +277,60 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
 .crumbs { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-3); margin: 6px 0 22px }
 .crumbs a:hover { color: var(--rose-d) }
 .crumbs svg { width: 13px; height: 13px }
-.p-hero { position: relative; min-height: 600px; border-radius: var(--r-xl); overflow: hidden; background: var(--cocoa); color: #fff; display: flex }
+.p-top { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: stretch }
+.p-top.solo { grid-template-columns: 1fr }
+.p-top[aria-busy] > * { min-height: 560px }
+.p-hero { position: relative; min-height: 560px; border-radius: var(--r-xl); overflow: hidden; background: var(--cocoa); color: #fff; display: flex }
 .p-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 50%; transform: scale(1.04); animation: drift 18s ease-in-out infinite alternate }
-.p-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(28, 24, 20, .78) 0%, rgba(28, 24, 20, .55) 34%, rgba(28, 24, 20, .12) 62%, rgba(28, 24, 20, 0) 80%), linear-gradient(0deg, rgba(28, 24, 20, .35) 0%, rgba(28, 24, 20, 0) 40%) }
-.p-hero .txt { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; gap: 32px; padding: 40px 44px; width: min(620px, 100%) }
-.p-hero .head { display: flex; align-items: center; gap: 18px }
+.p-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(0deg, rgba(28, 24, 20, .86) 0%, rgba(28, 24, 20, .55) 42%, rgba(28, 24, 20, .08) 72%), linear-gradient(180deg, rgba(28, 24, 20, .35) 0%, rgba(28, 24, 20, 0) 24%) }
+.p-hero .txt { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: space-between; gap: 28px; padding: 30px 32px; width: 100% }
+.p-hero .head { display: flex; align-items: center; gap: 16px }
 .p-hero .eyebrow { color: var(--gold-l) }
-.p-hero .ic-lg { position: relative; width: 56px; height: 56px; border-radius: 50%; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .28); display: grid; place-items: center; color: #fff; flex: none }
-.p-hero .ic-lg svg { width: 24px; height: 24px; stroke-width: 1.3 }
-.p-hero h1 { font: 400 clamp(42px, 5vw, 72px)/1.02 var(--font-display); letter-spacing: -.03em; margin-bottom: 14px }
-.p-hero .sub { font: 300 22px/1.4 var(--font-display); color: #F1E2DF; max-width: 460px }
-.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px }
-.fact { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 999px; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .22); font-size: 12.5px; color: #fff }
+.p-hero .ic-lg { width: 50px; height: 50px; border-radius: 50%; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .28); display: grid; place-items: center; color: #fff; flex: none }
+.p-hero .ic-lg svg { width: 22px; height: 22px; stroke-width: 1.3 }
+.p-hero h1 { font: 400 clamp(38px, 4vw, 58px)/1.02 var(--font-display); letter-spacing: -.03em; margin-bottom: 10px }
+.p-hero .sub { font: 300 20px/1.4 var(--font-display); color: #F1E2DF; max-width: 440px }
+.facts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px }
+.fact { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 13px; border-radius: 999px; background: rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .22); font-size: 12.5px; color: #fff }
 .fact svg { width: 14px; height: 14px; color: var(--gold-l) }
-.p-hero .foot-row { display: flex; flex-direction: column; align-items: flex-start; gap: 18px }
-.p-hero .meta { display: inline-flex; align-items: baseline; gap: 7px; padding: 9px 16px 9px 15px; border-radius: 999px; background: rgba(255, 255, 255, .94); color: var(--ink); box-shadow: 0 6px 18px rgba(40, 24, 22, .18) }
+.p-hero .meta { display: inline-flex; align-items: baseline; gap: 7px; margin-top: 22px; padding: 9px 16px 9px 15px; border-radius: 999px; background: rgba(255, 255, 255, .94); color: var(--ink); box-shadow: 0 6px 18px rgba(40, 24, 22, .18) }
 .p-hero .meta small { font-size: 11.5px; color: var(--ink-2); letter-spacing: .01em }
 .p-hero .meta b { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--rose-d); line-height: 1 }
-.ctas { display: flex; flex-wrap: wrap; gap: 10px }
+.ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px }
 .p-hero .pill.ghost { color: #fff; border-color: rgba(255, 255, 255, .45) }
 .p-hero .pill.ghost:hover { background: rgba(255, 255, 255, .14) }
 
-.p-body { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; margin-top: 72px; align-items: start }
-.p-body.no-prose { grid-template-columns: 1fr }
-.p-body.no-prose .lists { grid-template-columns: 1fr 1fr }
-.prose .eyebrow { margin-bottom: 18px }
-.prose p { font: 300 19px/1.7 var(--font-display); color: var(--ink); margin-bottom: 18px }
-.prose p:first-of-type::first-letter { font: 400 64px/.8 var(--font-display); float: left; margin: 8px 12px 0 0; color: var(--gold) }
-.lists { display: grid; gap: 16px }
-.lcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 24px 26px }
-.lcard h2 { display: flex; align-items: center; gap: 12px; font: 600 18px var(--font-display); margin-bottom: 16px }
-.lcard h2 .ic { width: 40px; height: 40px }
-.lcard h2 .ic svg { width: 18px; height: 18px }
-.lcard ul { list-style: none; display: grid; gap: 11px }
-.lcard li { display: flex; gap: 12px; font-size: 14px; color: var(--ink-2); line-height: 1.55 }
+.p-info { display: flex; flex-direction: column; justify-content: center; gap: 24px; padding: 8px 0 }
+.prose .eyebrow { margin-bottom: 16px }
+.prose p { font: 300 18px/1.65 var(--font-display); color: var(--ink); margin-bottom: 14px }
+.prose p:last-child { margin-bottom: 0 }
+.prose p:first-of-type::first-letter { font: 400 58px/.8 var(--font-display); float: left; margin: 7px 12px 0 0; color: var(--gold) }
+.lcard { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px 24px }
+.lcard h2 { display: flex; align-items: center; gap: 12px; font: 600 17px var(--font-display); margin-bottom: 14px }
+.lcard h2 .ic { width: 38px; height: 38px }
+.lcard h2 .ic svg { width: 17px; height: 17px }
+.lcard ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px }
+.lcard li { display: flex; gap: 10px; font-size: 13.5px; color: var(--ink-2); line-height: 1.5 }
 .lcard li i { width: 20px; height: 20px; border-radius: 50%; background: var(--rose-l); display: grid; place-items: center; flex: none; margin-top: 1px }
 .lcard li svg { width: 11px; height: 11px; color: var(--rose-d); stroke-width: 3 }
 
-.session { position: relative; overflow: hidden; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 40px; margin-top: 56px; padding: 30px 36px; background: var(--rose-xl); border: 1px solid var(--rose-l); border-radius: var(--r-xl) }
-.session .mono { position: absolute; left: -18px; bottom: -40px; width: 110px; height: 154px; opacity: .08; pointer-events: none }
-.session h2 { font: 400 28px/1.15 var(--font-display); margin-top: 10px; white-space: nowrap }
-.session ul { list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; position: relative }
+.p-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; align-items: stretch }
+.p-extra.wide { grid-template-columns: 1fr }
+.session { position: relative; overflow: hidden; display: grid; grid-template-columns: 1fr auto; grid-template-areas: "lead lead" "list list" "cta cta"; align-content: center; gap: 18px; padding: 24px 28px; background: var(--rose-xl); border: 1px solid var(--rose-l); border-radius: var(--r-lg) }
+.session .lead { grid-area: lead }
+.session ul { grid-area: list }
+.session .pill { grid-area: cta; justify-self: start; position: relative }
+.session .mono { position: absolute; right: -14px; top: -20px; width: 100px; height: 140px; opacity: .08; pointer-events: none }
+.session h2 { font: 400 24px/1.15 var(--font-display); margin-top: 8px }
+.session ul { list-style: none; display: grid; gap: 10px; position: relative }
 .session li { display: flex; gap: 12px; align-items: center; font-size: 13px; line-height: 1.45; color: var(--ink-2) }
-.session li .ic { width: 38px; height: 38px; flex: none; background: var(--card) }
-.session li svg { width: 16px; height: 16px; color: var(--rose-d) }
-.session .pill { position: relative }
+.session li .ic { width: 34px; height: 34px; flex: none; background: var(--card) }
+.session li svg { width: 15px; height: 15px; color: var(--rose-d) }
+.p-extra.wide .session { grid-template-columns: auto 1fr auto; grid-template-areas: "lead list cta"; align-items: center; gap: 36px; padding: 26px 32px }
+.p-extra.wide .session ul { grid-template-columns: repeat(3, 1fr); gap: 18px }
+.p-extra.wide .session .pill { justify-self: end }
 
-.mods { margin-top: 88px }
+.mods { margin-top: 72px }
 .mod-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px }
 .mod { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); padding: 28px; display: flex; flex-direction: column; transition: transform .5s var(--ease), box-shadow .5s }
 .mod:hover { transform: translateY(-4px); box-shadow: var(--shadow) }
@@ -388,7 +395,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
     .brand .emblem { height: 74px }
     .brand .spread { font-size: 10px }
     .brand .bar { height: 46px }
-    .hero, .why, .offer, .about, .faq, .p-body, .p-body.no-prose .lists { grid-template-columns: 1fr }
+    .hero, .why, .offer, .about, .faq, .p-top, .p-extra { grid-template-columns: 1fr }
     .hero { gap: 0 }
     .hero .visual { order: -1; min-height: 380px; margin-top: 6px }
     .hero-quote { left: 22px; top: 22px; max-width: 250px; font-size: 25px }
@@ -414,16 +421,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visibl
     .faq details p { padding: 0 0 22px 42px }
     .foot { grid-template-columns: 1fr; gap: 30px; margin-top: 80px }
     .base { flex-direction: column; gap: 6px }
-    .p-hero { min-height: 640px }
-    .p-hero::before { background: linear-gradient(0deg, rgba(28, 24, 20, .86) 0%, rgba(28, 24, 20, .6) 45%, rgba(28, 24, 20, .1) 75%) }
-    .p-hero .txt { padding: 26px 24px }
-    .p-body, .mods, .others { margin-top: 56px }
-    .session { grid-template-columns: 1fr; gap: 22px; padding: 26px 24px }
-    .session ul { grid-template-columns: 1fr; gap: 12px }
-    .session .pill { justify-self: start }
+    .p-top, .p-extra { gap: 28px }
+    .p-hero { min-height: 560px }
+    .p-hero .txt { padding: 24px 22px }
+    .p-extra { margin-top: 28px }
+    .mods, .others { margin-top: 56px }
+    .p-extra.wide .session { grid-template-columns: 1fr; grid-template-areas: "lead" "list" "cta"; gap: 18px; padding: 24px 22px }
+    .p-extra.wide .session ul { grid-template-columns: 1fr; gap: 10px }
+    .p-extra.wide .session .pill { justify-self: start }
     .others .grid3 { grid-template-columns: 1fr }
 }
 @media (max-width: 520px) {
+    .lcard ul { grid-template-columns: 1fr }
     .brand { gap: 10px }
     .brand b { font-size: 24px }
     .brand .emblem { height: 58px }

@@ -81,50 +81,61 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                 <Link to="/">Início</Link><ChevronRight /><Link to="/#protocolos">Protocolos</Link><ChevronRight /><span aria-current="page">{p.nome}</span>
             </nav>
 
-            <section className="p-hero">
-                <img src={imagemProtocolo(p)} alt="" fetchPriority="high" onError={imagemReserva} />
-                <div className="txt">
-                    <div className="head">
-                        <span className="ic-lg"><Icone /></span>
-                        <span className="eyebrow">Protocolo</span>
-                    </div>
-                    <div className="body">
-                        <h1>{p.nome}</h1>
-                        {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
-                        <div className="facts">
-                            {duracoes && <span className="fact"><Clock />{duracoes}</span>}
-                            {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
-                            {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
+            <section className={`p-top${paragrafos.length || p.inclui.length ? '' : ' solo'}`}>
+                <div className="p-hero">
+                    <img src={imagemProtocolo(p)} alt="" fetchPriority="high" onError={imagemReserva} />
+                    <div className="txt">
+                        <div className="head">
+                            <span className="ic-lg"><Icone /></span>
+                            <span className="eyebrow">Protocolo</span>
                         </div>
-                    </div>
-                    <div className="foot-row">
-                        {aPartir != null && (
-                            <span className="meta">{prefixoPreco && <small>{prefixoPreco}</small>}<b>{formatBRL(aPartir)}</b></span>
-                        )}
-                        <div className="ctas">
-                            <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
-                            {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
+                        <div className="body">
+                            <h1>{p.nome}</h1>
+                            {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
+                            <div className="facts">
+                                {duracoes && <span className="fact"><Clock />{duracoes}</span>}
+                                {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
+                                {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
+                            </div>
+                            {aPartir != null && (
+                                <span className="meta">{prefixoPreco && <small>{prefixoPreco}</small>}<b>{formatBRL(aPartir)}</b></span>
+                            )}
+                            <div className="ctas">
+                                <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
+                                {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
+                            </div>
                         </div>
                     </div>
                 </div>
+                {(paragrafos.length > 0 || p.inclui.length > 0) && (
+                    <div className="p-info">
+                        {paragrafos.length > 0 && (
+                            <div className="prose">
+                                <span className="eyebrow">Sobre o protocolo</span>
+                                {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
+                            </div>
+                        )}
+                        {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
+                    </div>
+                )}
             </section>
 
-            {(paragrafos.length > 0 || p.inclui.length > 0 || p.beneficios.length > 0) && (
-                <section className={`p-body${paragrafos.length ? '' : ' no-prose'}`}>
-                    {paragrafos.length > 0 && (
-                        <div className="prose">
-                            <span className="eyebrow">Sobre o protocolo</span>
-                            {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
-                        </div>
-                    )}
-                    {(p.inclui.length > 0 || p.beneficios.length > 0) && (
-                        <div className="lists">
-                            {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
-                            {p.beneficios.length > 0 && <Lista titulo="Benefícios" itens={p.beneficios} icone={Sparkles} />}
-                        </div>
-                    )}
-                </section>
-            )}
+            <section className={`p-extra${p.beneficios.length ? '' : ' wide'}`}>
+                {p.beneficios.length > 0 && <Lista titulo="Benefícios" itens={p.beneficios} icone={Sparkles} />}
+                <div className="session">
+                    <span className="mono" aria-hidden="true" />
+                    <div className="lead">
+                        <span className="eyebrow">Sua sessão</span>
+                        <h2>Um cuidado só seu</h2>
+                    </div>
+                    <ul>
+                        <li><span className="ic"><HandHeart /></span>Atendimento individual, com hora marcada</li>
+                        <li><span className="ic"><Info /></span>Avaliação prévia antes de começar</li>
+                        <li><span className="ic"><Wallet /></span>Pagamento no dia: PIX, cartão ou dinheiro</li>
+                    </ul>
+                    <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer"><MessageCircle />{ctaPrincipal.label}</a>
+                </div>
+            </section>
 
             {p.modalidades.length > 0 && (
                 <section className="mods reveal" id="valores" ref={refMods}>
@@ -135,20 +146,6 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                     <div className="mod-grid">{p.modalidades.map((m) => <ModalidadeCard key={m.id} p={p} m={m} />)}</div>
                 </section>
             )}
-
-            <section className="session">
-                <span className="mono" aria-hidden="true" />
-                <div className="lead">
-                    <span className="eyebrow">Sua sessão</span>
-                    <h2>Um cuidado só seu</h2>
-                </div>
-                <ul>
-                    <li><span className="ic"><HandHeart /></span>Atendimento individual, com hora marcada</li>
-                    <li><span className="ic"><Info /></span>Avaliação prévia antes de começar</li>
-                    <li><span className="ic"><Wallet /></span>Pagamento no dia: PIX, cartão ou dinheiro</li>
-                </ul>
-                <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer"><MessageCircle />{ctaPrincipal.label}</a>
-            </section>
 
             {p.aviso && (
                 <div className="notice" role="note">
@@ -178,7 +175,7 @@ export default function ProtocoloPage() {
 
     if (isLoading) {
         return (
-            <section className="p-hero skel" aria-busy="true" />
+            <section className="p-top" aria-busy="true"><div className="p-hero skel" /><div className="p-info skel" style={{ borderRadius: 28 }} /></section>
         );
     }
     if (isError) return <NotFound titulo="Não foi possível carregar" texto="Verifique sua conexão e tente novamente em instantes." />;
