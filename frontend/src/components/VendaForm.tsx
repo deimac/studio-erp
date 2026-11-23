@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { trpc } from '@/services/trpc';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,10 @@ type Props = { onSuccess: () => void };
 
 export function VendaForm({ onSuccess }: Props) {
     const [open, setOpen] = useState(false);
+    const { user, isAdmin } = useAuth();
+    /** Quem vendeu: o admin pode lançar em nome de outro profissional. */
+    const [vendedor, setVendedor] = useState<number>(user?.id ?? 0);
+    const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open && isAdmin });
 
     /* selects com busca */
     const pessoasQ = trpc.pessoas.listClientes.useQuery();
@@ -122,8 +127,13 @@ export function VendaForm({ onSuccess }: Props) {
             data_primeiro_vencimento: dataPrimVenc,
             quantidade_parcelas: Number(parcelas),
             observacao: observacao || undefined,
+            ...(isAdmin ? { id_profissional: vendedor } : {}),
         });
     }
+
+    // Serviço próprio de um profissional só pode ser vendido por ele
+    const servicoDoVendedor = (s: any) => s.id_profissional == null || s.id_profissional === vendedor;
+    const donoServico = new Map(((servicosQ.data ?? []) as any[]).map((s) => [s.id, s.id_profissional]));
 
     const filteredPessoas = pessoasQ.data?.filter(
         (p) => !pessoaSearch || p.nome.toLowerCase().includes(pessoaSearch.toLowerCase()),
@@ -131,10 +141,12 @@ export function VendaForm({ onSuccess }: Props) {
     const filteredServicos = (servicosQ.data as any[])?.filter(
         (s) =>
             s.ativo !== false &&
+            servicoDoVendedor(s) &&
             (!servicoSearch || s.nome.toLowerCase().includes(servicoSearch.toLowerCase())),
     );
     const filteredPacotes = (pacotesQ.data as any[])?.filter(
         (p) =>
+            servicoDoVendedor({ id_profissional: donoServico.get(p.id_servico) ?? null }) &&
             (!pacoteSearch || p.nome.toLowerCase().includes(pacoteSearch.toLowerCase())),
     );
 
@@ -169,6 +181,16 @@ export function VendaForm({ onSuccess }: Props) {
                         <h3 className="text-sm font-semibold text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
                             Dados da Venda
                         </h3>
+
+                        {isAdmin && (
+                            <div className="space-y-1.5">
+                                <Label>Vendido por</Label>
+                                <select aria-label="Vendido por" className="w-full rounded-md border px-3 py-2 text-sm" value={vendedor}
+                                    onChange={(e) => { setVendedor(Number(e.target.value)); setIdServico(''); setIdPacote(''); }}>
+                                    {((profsQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Cliente */}
                         <div className="space-y-1.5">

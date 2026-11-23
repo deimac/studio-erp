@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Search, Trash2, Lock, ChevronDown, ChevronUp, Sparkles, Package, ShoppingCart, TrendingUp, Calendar, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
-import { useAuth } from '@/hooks/useAuth';
+import { useEscopo } from '@/hooks/useEscopo';
 
 const fmt = (v: string | number) =>
     Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -46,17 +46,14 @@ const fmtDate = (v: string | Date | null | undefined) => {
 };
 
 export default function Vendas() {
-    // Encerrar/excluir venda é só do admin (o backend recusa para profissionais)
-    const { isAdmin } = useAuth();
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'' | 'ATIVA' | 'ENCERRADA'>('');
 
-    const vendasQ = trpc.vendas.list.useQuery(
-        statusFilter ? { status: statusFilter as 'ATIVA' | 'ENCERRADA' } : undefined,
-    );
+    const { escopo } = useEscopo();
+    const vendasQ = trpc.vendas.list.useQuery({ ...(statusFilter ? { status: statusFilter as 'ATIVA' | 'ENCERRADA' } : {}), escopo });
 
     /* ── Detalhe (expandir linha) ── */
     const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -245,6 +242,9 @@ export default function Vendas() {
                                             </TableCell>
                                             <TableCell>
                                                 <span className="font-medium">{v.pessoa_nome}</span>
+                                                {escopo === 'GERAL' && (
+                                                    <span className="block text-xs text-[hsl(var(--muted-foreground))]">por {v.profissional_nome ?? '—'}</span>
+                                                )}
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">
                                                 <div className="flex items-center gap-2">
@@ -293,7 +293,7 @@ export default function Vendas() {
                                                     className="flex justify-end items-center gap-1"
                                                     onClick={(e) => e.stopPropagation()}
                                                 >
-                                                    {isAdmin && v.status === 'ATIVA' && v.canDelete && (
+                                                    {v.status === 'ATIVA' && v.canDelete && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"
@@ -312,7 +312,7 @@ export default function Vendas() {
                                                             Excluir
                                                         </Button>
                                                     )}
-                                                    {isAdmin && v.status === 'ATIVA' && v.canClose && (
+                                                    {v.status === 'ATIVA' && v.canClose && (
                                                         <Button
                                                             variant="ghost"
                                                             size="sm"

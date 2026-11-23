@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { AtendimentoForm } from '@/components/AtendimentoForm';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +31,8 @@ export default function Atendimentos() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
 
-    const atendQ = trpc.atendimentos.list.useQuery(statusFilter ? { status: statusFilter as any } : undefined);
+    const { escopo } = useEscopo();
+    const atendQ = trpc.atendimentos.list.useQuery({ ...(statusFilter ? { status: statusFilter as any } : {}), escopo });
 
     const realizarMut = trpc.atendimentos.marcarRealizado.useMutation({
         onSuccess: () => { utils.atendimentos.list.invalidate(); utils.vendas.list.invalidate(); toast({ title: 'Atendimento realizado!', variant: 'success' }); },

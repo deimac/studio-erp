@@ -35,6 +35,7 @@ import {
 } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
+import { assertAcessoPessoa, vincularPessoa } from '../acesso';
 import type { Session } from '../context';
 import type { db as Db } from '../../config/db';
 
@@ -112,15 +113,16 @@ async function sessoesUsadas(db: DbOuTx, idVenda: number, ignorarIds: number[] =
     return Number(r?.n ?? 0);
 }
 
-async function assertVenda(db: DbOuTx, unidadeId: number, idVenda: number, idPessoa: number, novas: number) {
+async function assertVenda(db: DbOuTx, unidadeId: number, idVenda: number, idPessoa: number, novas: number, idProfissional: number) {
     const [v] = await db
-        .select({ id: vendas.id, status: vendas.status, id_pessoa: vendas.id_pessoa, qtd: vendas.quantidade_sessoes, deleted_at: vendas.deleted_at })
+        .select({ id: vendas.id, status: vendas.status, id_pessoa: vendas.id_pessoa, qtd: vendas.quantidade_sessoes, deleted_at: vendas.deleted_at, dono: vendas.id_profissional })
         .from(vendas)
         .where(and(eq(vendas.id, idVenda), eq(vendas.id_unidade, unidadeId)))
         .limit(1);
     if (!v || v.deleted_at) erro('NOT_FOUND', 'Venda não encontrada');
     if (v.status !== 'ATIVA') erro('CONFLICT', 'Venda não está ativa');
     if (v.id_pessoa !== idPessoa) erro('BAD_REQUEST', 'A venda é de outro cliente');
+    if (v.dono != null && v.dono !== idProfissional) erro('BAD_REQUEST', 'A venda é de outro profissional');
     const usadas = await sessoesUsadas(db, idVenda);
     const restantes = v.qtd - usadas;
     if (novas > restantes) erro('CONFLICT', `A venda tem só ${Math.max(restantes, 0)} sessão(ões) disponível(is)`);
@@ -657,7 +659,9 @@ export const agendaRouter = createTRPCRouter({
         }),
 
     /** Vendas ativas do cliente com sessões ainda disponíveis. */
-    vendasDoCliente: protectedProcedure.input(z.object({ id_pessoa: zId })).query(async ({ ctx, input }) => {
+    vendasDoCliente: protectedProcedure.input(z.object({ id_pessoa: zId, id_profissional: zId.optional() })).query(async ({ ctx, input }) => {
+        // Só vendas do profissional do atendimento (as sem dono, legado, só para o admin)
+        const idProf = isAdmin(ctx.session) ? input.id_profissional ?? ctx.session.id : ctx.session.id;
         const rows = await ctx.db
             .select({
                 id: vendas.id,
@@ -675,6 +679,9 @@ export const agendaRouter = createTRPCRouter({
                     eq(vendas.id_unidade, ctx.session.unidadeId),
                     eq(vendas.status, 'ATIVA'),
                     isNull(vendas.deleted_at),
+                    isAdmin(ctx.session)
+                        ? or(eq(vendas.id_profissional, idProf), isNull(vendas.id_profissional))
+                        : eq(vendas.id_profissional, idProf),
                 ),
             )
             .orderBy(vendas.data_venda);
@@ -691,6 +698,7 @@ export const agendaRouter = createTRPCRouter({
                 .insert(pessoas)
                 .values({ id_unidade: ctx.session.unidadeId, tipo: 'CLIENTE', nome: input.nome, telefone: input.telefone || null })
                 .$returningId();
+            await vincularPessoa(ctx.db, r!.id, ctx.session.id);
             return { id: r!.id, nome: input.nome, telefone: input.telefone ?? null };
         }),
 
@@ -723,6 +731,7 @@ export const agendaRouter = createTRPCRouter({
                 .where(and(eq(pessoas.id, input.id_pessoa), eq(pessoas.id_unidade, s.unidadeId), isNull(pessoas.deleted_at)))
                 .limit(1);
             if (!cliente) erro('NOT_FOUND', 'Cliente não encontrado');
+            if (!isAdmin(s)) await assertAcessoPessoa(ctx.db, s, input.id_pessoa);
 
             const servs = await carregarServicos(ctx.db, input.servicos, idProf);
             const inicio = hhmmParaMin(input.hora_inicio);
@@ -751,7 +760,7 @@ export const agendaRouter = createTRPCRouter({
                 if (!input.recorrencia && puladas.length) erro('CONFLICT', puladas[0].motivo);
                 if (!livres.length) erro('CONFLICT', 'Nenhuma data livre: ' + puladas.map((p) => `${p.data} (${p.motivo})`).join('; '));
 
-                if (input.id_venda) await assertVenda(tx, s.unidadeId, input.id_venda, input.id_pessoa, livres.length);
+                if (input.id_venda) await assertVenda(tx, s.unidadeId, input.id_venda, input.id_pessoa, livres.length, idProf);
 
                 let idRecorrencia: number | null = null;
                 if (input.recorrencia) {
@@ -762,6 +771,7 @@ export const agendaRouter = createTRPCRouter({
                     idRecorrencia = r!.id;
                 }
 
+                await vincularPessoa(tx, input.id_pessoa, idProf);
                 const criados: number[] = [];
                 for (const data of livres) {
                     const [r] = await tx
@@ -862,7 +872,7 @@ export const agendaRouter = createTRPCRouter({
                 }
 
                 if (input.id_venda && input.id_venda !== atual.id_venda) {
-                    await assertVenda(tx, s.unidadeId, input.id_venda, atual.id_pessoa, alvos.length);
+                    await assertVenda(tx, s.unidadeId, input.id_venda, atual.id_pessoa, alvos.length, idProf);
                 }
 
                 const c = await carregarContexto(tx, { unidadeId: s.unidadeId, datas: alvos.map((a) => a.data), idProfissional: idProf, idSala, travar: true });

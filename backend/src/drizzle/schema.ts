@@ -82,6 +82,23 @@ export const pessoas = mysqlTable(
     }),
 );
 
+/** Quais profissionais atendem cada pessoa: o profissional só vê as pessoas dele. */
+export const pessoaProfissionais = mysqlTable(
+    'pessoa_profissionais',
+    {
+        id_pessoa: int('id_pessoa')
+            .notNull()
+            .references(() => pessoas.id, { onDelete: 'cascade' }),
+        id_profissional: int('id_profissional')
+            .notNull()
+            .references(() => usuarios.id, { onDelete: 'cascade' }),
+        created_at: timestamp('created_at').defaultNow(),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.id_pessoa, t.id_profissional] }),
+    }),
+);
+
 /* =========================================================================
    Serviços
    ========================================================================= */
@@ -199,6 +216,8 @@ export const vendas = mysqlTable(
         quantidade_parcelas: int('quantidade_parcelas').notNull().default(1),
         observacao: text('observacao'),
         status: mysqlEnum('status', ['ATIVA', 'ENCERRADA']).notNull().default('ATIVA'),
+        /** Quem vendeu (dono da venda). NULL = legado, só o admin vê. */
+        id_profissional: int('id_profissional'),
         motivo_encerramento: varchar('motivo_encerramento', { length: 255 }),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
@@ -247,6 +266,8 @@ export const receitasDespesas = mysqlTable(
             .references(() => categoriasReceitasDespesas.id),
         quantidade_parcelas: int('quantidade_parcelas').notNull().default(1),
         observacao: text('observacao'),
+        /** Dono do lançamento. NULL = legado, só o admin vê. */
+        id_profissional: int('id_profissional'),
         created_at: timestamp('created_at').defaultNow(),
     },
     (t) => ({

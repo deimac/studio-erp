@@ -9,6 +9,7 @@ import {
     categoriasReceitasDespesas,
 } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import { assertAcessoPessoa } from '../acesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -36,8 +37,8 @@ export const receitasDespesasRouter = createTRPCRouter({
             return await ctx.db.select().from(categoriasReceitasDespesas);
         }),
 
-    /** Criar receita ou despesa */
-    create: adminProcedure
+    /** Criar receita ou despesa (fica sendo do usuário que lançou) */
+    create: protectedProcedure
         .input(
             z.object({
                 id_pessoa: z.number().int().positive(),
@@ -75,6 +76,7 @@ export const receitasDespesasRouter = createTRPCRouter({
             if (!pessoa[0]) {
                 throw new TRPCError({ code: 'NOT_FOUND', message: 'Pessoa não encontrada' });
             }
+            await assertAcessoPessoa(ctx.db, ctx.session, id_pessoa);
 
             // Validar forma de pagamento
             const forma = await ctx.db
@@ -110,6 +112,7 @@ export const receitasDespesasRouter = createTRPCRouter({
                 id_categorias_receitas_despesas: id_categoria,
                 quantidade_parcelas,
                 observacao,
+                id_profissional: ctx.session.id,
             });
 
             const idReceitaDespesa = Number(rd.insertId);

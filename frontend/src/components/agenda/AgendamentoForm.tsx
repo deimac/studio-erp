@@ -88,7 +88,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const salasQ = trpc.agenda.salas.list.useQuery(undefined, { enabled: open });
     const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open });
     const servProfQ = trpc.agenda.profissionais.servicos.useQuery({ id_profissional: idProf }, { enabled: open && !!idProf });
-    const vendasQ = trpc.agenda.vendasDoCliente.useQuery({ id_pessoa: idPessoa ?? 0 }, { enabled: open && !!idPessoa });
+    const vendasQ = trpc.agenda.vendasDoCliente.useQuery({ id_pessoa: idPessoa ?? 0, id_profissional: idProf }, { enabled: open && !!idPessoa });
 
     const servicosDisponiveis = useMemo(() => {
         // Serviço próprio só serve para o dono; os da clínica seguem a lista "serviços que executa"

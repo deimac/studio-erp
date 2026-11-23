@@ -1,4 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
+import { definirEscopo, useEscopo } from '@/hooks/useEscopo';
+import { cn } from '@/lib/utils';
 import { LogOut, Menu, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -6,6 +8,7 @@ type Props = { onMenuToggle: () => void };
 
 export function Header({ onMenuToggle }: Props) {
     const { user, logout } = useAuth();
+    const { valor: escopo, isAdmin } = useEscopo();
 
     return (
         <header className="sticky top-0 z-30 flex h-[var(--header-height)] items-center justify-between border-b border-[hsl(var(--border))] bg-white px-4 lg:px-6">
@@ -19,6 +22,16 @@ export function Header({ onMenuToggle }: Props) {
             </div>
 
             <div className="flex items-center gap-3">
+                {isAdmin && (
+                    <div className="flex rounded-md border p-0.5 text-xs" title="O que as listas mostram">
+                        {(['GERAL', 'MEU'] as const).map((e) => (
+                            <button key={e} type="button" onClick={() => definirEscopo(e)}
+                                className={cn('rounded px-2.5 py-1', escopo === e ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]')}>
+                                {e === 'GERAL' ? 'Geral' : 'Só meu'}
+                            </button>
+                        ))}
+                    </div>
+                )}
                 <span className="hidden items-center gap-1.5 text-sm text-[hsl(var(--muted-foreground))] sm:flex">
                     <User className="h-4 w-4" />
                     {user?.nome || user?.email}

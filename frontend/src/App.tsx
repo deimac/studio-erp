@@ -38,8 +38,8 @@ export default function App() {
                     <Route path="vendas" element={<Vendas />} />
                     <Route path="agenda" element={<Agenda />} />
                     <Route path="atendimentos" element={<Atendimentos />} />
+                    <Route path="financeiro" element={<Financeiro />} />
                     <Route element={<AdminRoute />}>
-                        <Route path="financeiro" element={<Financeiro />} />
                         <Route path="configuracoes" element={<Configuracoes />} />
                     </Route>
                     <Route path="*" element={<Navigate to="/" replace />} />

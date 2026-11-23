@@ -21,7 +21,7 @@ const links = [
     { to: '/vendas', label: 'Vendas', icon: ShoppingCart },
     { to: '/agenda', label: 'Agenda', icon: CalendarDays },
     { to: '/atendimentos', label: 'Atendimentos', icon: CalendarCheck },
-    { to: '/financeiro', label: 'Financeiro', icon: DollarSign, adminOnly: true },
+    { to: '/financeiro', label: 'Financeiro', icon: DollarSign },
     { to: '/configuracoes', label: 'Configurações', icon: Settings, adminOnly: true },
 ];
 

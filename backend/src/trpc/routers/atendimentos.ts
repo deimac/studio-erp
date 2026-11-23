@@ -78,6 +78,7 @@ export const atendimentosRouter = createTRPCRouter({
                 profissionalId: z.number().int().positive().optional(),
                 id_venda: z.number().int().positive().optional(),
                 status: z.enum(STATUS).optional(),
+                escopo: z.enum(['GERAL', 'MEU']).optional(),
             }).optional(),
         )
         .query(async ({ ctx, input }) => {
@@ -91,6 +92,8 @@ export const atendimentosRouter = createTRPCRouter({
                 whereParts.push(eq(atendimentos.id_profissional, ctx.session.id));
             } else if (input?.profissionalId) {
                 whereParts.push(eq(atendimentos.id_profissional, input.profissionalId));
+            } else if (input?.escopo === 'MEU') {
+                whereParts.push(eq(atendimentos.id_profissional, ctx.session.id));
             }
 
             return ctx.db

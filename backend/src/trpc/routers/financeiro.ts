@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { financeiro, vendas, pessoas, formasPagamento, servicos, pacotes, receitasDespesas } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { filtroDono, podeGerenciar, zEscopo, type Sessao } from '../../lib/escopo';
+import { vendaGerenciavel, type DbOuTx } from '../acesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -11,6 +13,26 @@ function normalizeDateOnly(value: string) {
     const d = new Date(`${datePart}T00:00:00`);
     if (isNaN(d.getTime())) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Data inválida' });
     return d;
+}
+
+/** Parcela da unidade que o usuário pode alterar (venda ou lançamento dele; admin: todas). */
+async function parcelaGerenciavel(db: DbOuTx, s: Sessao & { unidadeId: number }, idFinanceiro: number) {
+    const [p] = await db
+        .select({ id: financeiro.id, id_venda: financeiro.id_venda, id_receita_despesa: financeiro.id_receita_despesa })
+        .from(financeiro)
+        .where(eq(financeiro.id, idFinanceiro))
+        .limit(1);
+    if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Parcela não encontrada' });
+    if (p.id_venda) {
+        await vendaGerenciavel(db, s, p.id_venda);
+    } else if (p.id_receita_despesa) {
+        const [rd] = await db
+            .select({ dono: receitasDespesas.id_profissional })
+            .from(receitasDespesas)
+            .where(eq(receitasDespesas.id, p.id_receita_despesa))
+            .limit(1);
+        if (!rd || !podeGerenciar(rd.dono, s)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Parcela não encontrada' });
+    }
 }
 
 /* ── router ──────────────────────────────────────────────── */
@@ -25,10 +47,13 @@ export const financeiroRouter = createTRPCRouter({
             z.object({
                 status: z.enum(['PENDENTE', 'PAGO', 'CANCELADO']).optional(),
                 id_venda: z.number().int().positive().optional(),
+                escopo: zEscopo,
             }).optional(),
         )
         .query(async ({ ctx, input }) => {
             const whereParts: any[] = [eq(vendas.id_unidade, ctx.session.unidadeId)];
+            const dono = filtroDono(ctx.session, input?.escopo);
+            if (dono != null) whereParts.push(eq(vendas.id_profissional, dono));
             if (input?.status) whereParts.push(eq(financeiro.status, input.status));
             if (input?.id_venda) whereParts.push(eq(financeiro.id_venda, input.id_venda));
 
@@ -62,8 +87,11 @@ export const financeiroRouter = createTRPCRouter({
             dataType: z.enum(['VENCIMENTO', 'PAGAMENTO']).default('VENCIMENTO'),
             dataInicio: z.string().optional(),
             dataFim: z.string().optional(),
+            escopo: zEscopo,
         }))
         .query(async ({ ctx, input }) => {
+            // Profissional vê só as vendas e lançamentos dele; admin escolhe Geral / Só meu
+            const dono = filtroDono(ctx.session, input.escopo);
             // Query para VENDAS (para tipo RECEITA)
             let vendasData: any[] = [];
             if (input.tipo === 'RECEITA') {
@@ -71,6 +99,7 @@ export const financeiroRouter = createTRPCRouter({
                     isNotNull(financeiro.id_venda),
                     eq(vendas.id_unidade, ctx.session.unidadeId),
                 ];
+                if (dono != null) vendaWhereParts.push(eq(vendas.id_profissional, dono));
 
                 // Filtro de situação
                 if (input.situacao === 'PAGO') {
@@ -129,6 +158,7 @@ export const financeiroRouter = createTRPCRouter({
                 eq(receitasDespesas.tipo, input.tipo),
                 eq(pessoas.id_unidade, ctx.session.unidadeId),
             ];
+            if (dono != null) rdWhereParts.push(eq(receitasDespesas.id_profissional, dono));
 
             // Filtro de situação
             if (input.situacao === 'PAGO') {
@@ -199,6 +229,7 @@ export const financeiroRouter = createTRPCRouter({
             novo_vencimento: z.string().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
+            await parcelaGerenciavel(ctx.db, ctx.session, input.id);
             // Buscar parcela para validação e dados necessários para pagamento parcial
             const [parcela] = await ctx.db
                 .select({
@@ -297,6 +328,7 @@ export const financeiroRouter = createTRPCRouter({
             id_financeiro: z.number().int().positive(), // id da parcela principal
         }))
         .mutation(async ({ ctx, input }) => {
+            await parcelaGerenciavel(ctx.db, ctx.session, input.id_financeiro);
             // Buscar parcela principal para saber os IDs referência
             const [principal] = await ctx.db
                 .select({
@@ -344,6 +376,7 @@ export const financeiroRouter = createTRPCRouter({
             id_financeiro: z.number().int().positive(), // id da parcela principal
         }))
         .mutation(async ({ ctx, input }) => {
+            await parcelaGerenciavel(ctx.db, ctx.session, input.id_financeiro);
             // Buscar parcela principal para saber os IDs referência
             const [principal] = await ctx.db
                 .select({

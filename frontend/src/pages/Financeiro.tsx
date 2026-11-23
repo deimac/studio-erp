@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
+import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,10 +41,12 @@ export default function Financeiro() {
     const pgtoFoiRemocaoRef = useRef(false);
 
     // Queries
-    const pessoasQ = trpc.pessoas.list.useQuery();
+    const { escopo } = useEscopo();
+    const pessoasQ = trpc.pessoas.list.useQuery({ escopo });
     const finQ = trpc.financeiro.listWithDetails.useQuery(
         {
             tipo,
+            escopo,
             id_pessoa: idPessoa,
             situacao,
             dataType,

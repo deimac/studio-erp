@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { PessoaForm } from '@/components/PessoaForm';
 import { Badge } from '@/components/ui/badge';
@@ -36,9 +37,8 @@ export default function Pessoas() {
     const [tipoFilter, setTipoFilter] = useState('');
     const confirm = useConfirm();
 
-    const pessoasQ = trpc.pessoas.list.useQuery(
-        tipoFilter ? { tipo: tipoFilter as any } : undefined,
-    );
+    const { escopo } = useEscopo();
+    const pessoasQ = trpc.pessoas.list.useQuery({ ...(tipoFilter ? { tipo: tipoFilter as any } : {}), escopo });
 
     const deleteMut = trpc.pessoas.delete.useMutation({
         onSuccess: () => {

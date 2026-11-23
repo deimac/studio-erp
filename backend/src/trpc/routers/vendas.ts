@@ -9,9 +9,12 @@ import {
     financeiro,
     formasPagamento,
     atendimentos,
+    usuarios,
 } from '../../drizzle/schema';
-import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
-import { podeVerServico } from '../../lib/servicosAcesso';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
+import { filtroDono, zEscopo } from '../../lib/escopo';
+import { assertAcessoPessoa, vendaGerenciavel, vincularPessoa } from '../acesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -64,13 +67,14 @@ export const vendasRouter = createTRPCRouter({
             return Boolean(row);
         }),
     /* ============= Atualizar valor da parcela principal ============= */
-    atualizarValorParcelaPrincipal: adminProcedure
+    atualizarValorParcelaPrincipal: protectedProcedure
         .input(z.object({
             id_venda: z.number().int().positive(),
             parcela: z.number().int().positive(),
             id_financeiro: z.number().int().positive(), // id da parcela principal
         }))
         .mutation(async ({ ctx, input }) => {
+            await vendaGerenciavel(ctx.db, ctx.session, input.id_venda);
             // Buscar todas as parcelas principal+filhas
             const parcelas = await ctx.db.select({ id: financeiro.id, valor: financeiro.valor })
                 .from(financeiro)
@@ -89,13 +93,14 @@ export const vendasRouter = createTRPCRouter({
             return { ok: true, valorRestaurado: valorTotal };
         }),
     /* ============= Restaurar parcela original ============= */
-    restaurarParcelaOriginal: adminProcedure
+    restaurarParcelaOriginal: protectedProcedure
         .input(z.object({
             id_venda: z.number().int().positive(),
             parcela: z.number().int().positive(),
             id_financeiro: z.number().int().positive(), // id da parcela principal
         }))
         .mutation(async ({ ctx, input }) => {
+            await vendaGerenciavel(ctx.db, ctx.session, input.id_venda);
             // Buscar todas as parcelas principal+filhas
             const parcelas = await ctx.db.select({ id: financeiro.id, valor: financeiro.valor })
                 .from(financeiro)
@@ -123,13 +128,14 @@ export const vendasRouter = createTRPCRouter({
             return { ok: true, valorRestaurado: valorTotal };
         }),
     /* ============= Remover parcela filha ============= */
-    removerParcelaFilha: adminProcedure
+    removerParcelaFilha: protectedProcedure
         .input(z.object({
             id_venda: z.number().int().positive(),
             parcela: z.number().int().positive(),
             id_financeiro: z.number().int().positive(), // id da parcela principal
         }))
         .mutation(async ({ ctx, input }) => {
+            await vendaGerenciavel(ctx.db, ctx.session, input.id_venda);
             // Remove todas as parcelas com mesmo número, exceto a principal (independente de data_pagamento ou deleted_at)
             const result = await ctx.db.delete(financeiro)
                 .where(
@@ -146,6 +152,7 @@ export const vendasRouter = createTRPCRouter({
         .input(
             z.object({
                 status: z.enum(['ATIVA', 'ENCERRADA']).optional(),
+                escopo: zEscopo,
             }).optional(),
         )
         .query(async ({ ctx, input }) => {
@@ -153,6 +160,9 @@ export const vendasRouter = createTRPCRouter({
                 eq(vendas.id_unidade, ctx.session.unidadeId),
                 isNull(vendas.deleted_at),
             ];
+            // Profissional vê só as vendas dele; admin escolhe Geral / Só meu
+            const dono = filtroDono(ctx.session, input?.escopo);
+            if (dono != null) whereParts.push(eq(vendas.id_profissional, dono));
             if (input?.status) whereParts.push(eq(vendas.status, input.status));
 
             const rows = await ctx.db
@@ -174,6 +184,8 @@ export const vendasRouter = createTRPCRouter({
                     servico_nome: servicos.nome,
                     pacote_nome: pacotes.nome,
                     forma_pagamento_nome: formasPagamento.nome,
+                    id_profissional: vendas.id_profissional,
+                    profissional_nome: usuarios.nome,
                     temPagamento: sql<boolean>`EXISTS(SELECT 1 FROM financeiro f WHERE f.id_venda = ${vendas.id} AND f.data_pagamento IS NOT NULL)`.as('tem_pagamento'),
                     temAtendimento: sql<boolean>`EXISTS(SELECT 1 FROM atendimentos a WHERE a.id_venda = ${vendas.id})`.as('tem_atendimento'),
                     sessoes_realizadas: sql<number>`(SELECT COUNT(*) FROM atendimentos a WHERE a.id_venda = ${vendas.id} AND a.status = 'REALIZADO')`.as('sessoes_realizadas'),
@@ -183,6 +195,7 @@ export const vendasRouter = createTRPCRouter({
                 .leftJoin(servicos, eq(vendas.id_servico, servicos.id))
                 .leftJoin(pacotes, eq(vendas.id_pacote, pacotes.id))
                 .innerJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
+                .leftJoin(usuarios, eq(usuarios.id, vendas.id_profissional))
                 .where(and(...whereParts))
                 .orderBy(vendas.created_at);
 
@@ -200,6 +213,7 @@ export const vendasRouter = createTRPCRouter({
     getById: protectedProcedure
         .input(z.object({ id: z.number().int().positive() }))
         .query(async ({ ctx, input }) => {
+            await vendaGerenciavel(ctx.db, ctx.session, input.id);
             const [row] = await ctx.db
                 .select({
                     id: vendas.id,
@@ -251,10 +265,23 @@ export const vendasRouter = createTRPCRouter({
                 data_primeiro_vencimento: z.string().min(1),
                 quantidade_parcelas: z.number().int().positive().default(1),
                 observacao: z.string().optional(),
+                /** Vendedor: só o admin escolhe; padrão = usuário logado. */
+                id_profissional: z.number().int().positive().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            console.log("INPUT:", input);
+            const admin = ctx.session.perfil === 'ADMIN';
+            if (!admin && input.id_profissional && input.id_profissional !== ctx.session.id)
+                throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode lançar vendas suas' });
+            const vendedor = admin && input.id_profissional ? input.id_profissional : ctx.session.id;
+            if (vendedor !== ctx.session.id) {
+                const [u] = await ctx.db
+                    .select({ id: usuarios.id, ativo: usuarios.ativo })
+                    .from(usuarios)
+                    .where(and(eq(usuarios.id, vendedor), eq(usuarios.id_unidade, ctx.session.unidadeId)))
+                    .limit(1);
+                if (!u?.ativo) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Profissional inválido ou inativo' });
+            }
             /* Validações de regra de negócio */
             if (!input.id_servico && !input.id_pacote) {
                 throw new TRPCError({ code: 'BAD_REQUEST', message: 'Informe serviço ou pacote' });
@@ -288,6 +315,7 @@ export const vendasRouter = createTRPCRouter({
                 )
                 .limit(1);
             if (!pessoa) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pessoa não encontrada' });
+            if (!admin) await assertAcessoPessoa(ctx.db, ctx.session, input.id_pessoa);
 
             /* Validar forma de pagamento */
             const [fp] = await ctx.db
@@ -305,6 +333,8 @@ export const vendasRouter = createTRPCRouter({
                     .where(and(eq(servicos.id, input.id_servico), eq(servicos.ativo, true)))
                     .limit(1);
                 if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
+                if (!servicoServeParaProfissional(srv.dono, vendedor))
+                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço próprio de outro profissional' });
             }
             if (input.id_pacote) {
                 const [pkt] = await ctx.db
@@ -314,6 +344,8 @@ export const vendasRouter = createTRPCRouter({
                     .where(and(eq(pacotes.id, input.id_pacote), eq(pacotes.status, 'ativo')))
                     .limit(1);
                 if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
+                if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor))
+                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço próprio de outro profissional' });
             }
 
             /* Criar venda + parcelas em transação */
@@ -330,9 +362,11 @@ export const vendasRouter = createTRPCRouter({
                     quantidade_parcelas: input.quantidade_parcelas,
                     observacao: input.observacao || null,
                     status: 'ATIVA',
+                    id_profissional: vendedor,
                 }).$returningId();
 
                 const vendaId = ids[0]?.id;
+                await vincularPessoa(tx, input.id_pessoa, vendedor);
 
                 /* Gerar parcelas no financeiro */
                 const numParcelas = input.quantidade_parcelas;
@@ -365,7 +399,7 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Atualizar observação ============= */
-    updateObservacao: adminProcedure
+    updateObservacao: protectedProcedure
         .input(
             z.object({
                 id: z.number().int().positive(),
@@ -373,18 +407,7 @@ export const vendasRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            const [row] = await ctx.db
-                .select({ id: vendas.id })
-                .from(vendas)
-                .where(
-                    and(
-                        eq(vendas.id, input.id),
-                        eq(vendas.id_unidade, ctx.session.unidadeId),
-                        isNull(vendas.deleted_at),
-                    ),
-                )
-                .limit(1);
-            if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
+            await vendaGerenciavel(ctx.db, ctx.session, input.id);
 
             await ctx.db
                 .update(vendas)
@@ -394,7 +417,7 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Encerrar venda ============= */
-    encerrar: adminProcedure
+    encerrar: protectedProcedure
         .input(
             z.object({
                 id: z.number().int().positive(),
@@ -402,18 +425,7 @@ export const vendasRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            const [row] = await ctx.db
-                .select({ id: vendas.id, status: vendas.status })
-                .from(vendas)
-                .where(
-                    and(
-                        eq(vendas.id, input.id),
-                        eq(vendas.id_unidade, ctx.session.unidadeId),
-                        isNull(vendas.deleted_at),
-                    ),
-                )
-                .limit(1);
-            if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
+            const row = await vendaGerenciavel(ctx.db, ctx.session, input.id);
             if (row.status === 'ENCERRADA') {
                 throw new TRPCError({ code: 'CONFLICT', message: 'Venda já está encerrada' });
             }
@@ -444,21 +456,10 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Excluir venda ============= */
-    delete: adminProcedure
+    delete: protectedProcedure
         .input(z.object({ id: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
-            const [row] = await ctx.db
-                .select({ id: vendas.id })
-                .from(vendas)
-                .where(
-                    and(
-                        eq(vendas.id, input.id),
-                        eq(vendas.id_unidade, ctx.session.unidadeId),
-                        isNull(vendas.deleted_at),
-                    ),
-                )
-                .limit(1);
-            if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
+            await vendaGerenciavel(ctx.db, ctx.session, input.id);
 
             // Checar se pode excluir
             const [pago] = await ctx.db
@@ -497,19 +498,8 @@ export const vendasRouter = createTRPCRouter({
     listParcelas: protectedProcedure
         .input(z.object({ id_venda: z.number().int().positive() }))
         .query(async ({ ctx, input }) => {
-            // Validar acesso à venda
-            const [v] = await ctx.db
-                .select({ id: vendas.id })
-                .from(vendas)
-                .where(
-                    and(
-                        eq(vendas.id, input.id_venda),
-                        eq(vendas.id_unidade, ctx.session.unidadeId),
-                        isNull(vendas.deleted_at),
-                    ),
-                )
-                .limit(1);
-            if (!v) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
+            // Validar acesso à venda (dono ou admin)
+            await vendaGerenciavel(ctx.db, ctx.session, input.id_venda);
 
             return ctx.db
                 .select({
@@ -526,7 +516,7 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Registrar pagamento ============= */
-    registrarPagamento: adminProcedure
+    registrarPagamento: protectedProcedure
         .input(
             z.object({
                 id_financeiro: z.number().int().positive(),
@@ -557,21 +547,9 @@ export const vendasRouter = createTRPCRouter({
             }
 
             // Validar acesso via venda e obter data_venda para validação
-            let dataVenda: Date | null = null;
-            if (parcela.id_venda) {
-                const [v] = await ctx.db
-                    .select({ id: vendas.id, data_venda: vendas.data_venda })
-                    .from(vendas)
-                    .where(
-                        and(
-                            eq(vendas.id, parcela.id_venda),
-                            eq(vendas.id_unidade, ctx.session.unidadeId),
-                        ),
-                    )
-                    .limit(1);
-                if (!v) throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso a esta venda' });
-                dataVenda = v.data_venda;
-            }
+            if (!parcela.id_venda) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Parcela não pertence a uma venda' });
+            const v = await vendaGerenciavel(ctx.db, ctx.session, parcela.id_venda);
+            const dataVenda: Date | null = v.data_venda;
 
             let dtPgto: Date | undefined = undefined;
             if (input.data_pagamento && typeof input.data_pagamento === 'string') {
@@ -649,20 +627,7 @@ export const vendasRouter = createTRPCRouter({
     listAtendimentos: protectedProcedure
         .input(z.object({ id_venda: z.number().int().positive() }))
         .query(async ({ ctx, input }) => {
-            const [v] = await ctx.db
-                .select({ id: vendas.id })
-                .from(vendas)
-                .where(
-                    and(
-                        eq(vendas.id, input.id_venda),
-                        eq(vendas.id_unidade, ctx.session.unidadeId),
-                        isNull(vendas.deleted_at),
-                    ),
-                )
-                .limit(1);
-            if (!v) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
-
-            const { usuarios } = await import('../../drizzle/schema');
+            await vendaGerenciavel(ctx.db, ctx.session, input.id_venda);
 
             return ctx.db
                 .select({

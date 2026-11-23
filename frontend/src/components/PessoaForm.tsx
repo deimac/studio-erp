@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { trpc } from '@/services/trpc';
+import { useToast } from '@/hooks/useToast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +42,7 @@ type Props = {
 
 export function PessoaForm({ onSuccess, editData, trigger }: Props) {
     const isEdit = !!editData?.id;
+    const { toast } = useToast();
     const [open, setOpen] = useState(false);
 
     const [tipo, setTipo] = useState(editData?.tipo ?? 'CLIENTE');
@@ -53,7 +55,10 @@ export function PessoaForm({ onSuccess, editData, trigger }: Props) {
     const [status, setStatus] = useState(editData?.status ?? 'ATIVO');
 
     const createMut = trpc.pessoas.create.useMutation({
-        onSuccess: () => { onSuccess(); setOpen(false); resetForm(); },
+        onSuccess: (r: any) => {
+            if (r?.existente) toast({ title: 'Pessoa já cadastrada na clínica', description: 'Ela foi vinculada a você e agora aparece na sua lista.' });
+            onSuccess(); setOpen(false); resetForm();
+        },
     });
     const updateMut = trpc.pessoas.update.useMutation({
         onSuccess: () => { onSuccess(); setOpen(false); },
