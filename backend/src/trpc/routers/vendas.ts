@@ -14,7 +14,7 @@ import {
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { filtroDono, zEscopo } from '../../lib/escopo';
-import { assertAcessoPessoa, vendaGerenciavel, vincularPessoa } from '../acesso';
+import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa } from '../acesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -333,7 +333,7 @@ export const vendasRouter = createTRPCRouter({
                     .where(and(eq(servicos.id, input.id_servico), eq(servicos.ativo, true)))
                     .limit(1);
                 if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
-                if (!servicoServeParaProfissional(srv.dono, vendedor))
+                if (!servicoServeParaProfissional(srv.dono, vendedor, await usaServicosClinica(ctx.db, vendedor)))
                     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço próprio de outro profissional' });
             }
             if (input.id_pacote) {
@@ -344,7 +344,7 @@ export const vendasRouter = createTRPCRouter({
                     .where(and(eq(pacotes.id, input.id_pacote), eq(pacotes.status, 'ativo')))
                     .limit(1);
                 if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
-                if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor))
+                if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor, await usaServicosClinica(ctx.db, vendedor)))
                     throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço próprio de outro profissional' });
             }
 

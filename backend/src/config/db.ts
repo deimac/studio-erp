@@ -11,6 +11,11 @@ const pool = mysql.createPool({
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
+    // O MySQL fecha conexões ociosas; sem isso o pool devolve conexão morta ("Failed query")
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10_000,
+    maxIdle: 2,
+    idleTimeout: 60_000,
 });
 
 export const db = drizzle(pool, { schema, mode: 'default' });

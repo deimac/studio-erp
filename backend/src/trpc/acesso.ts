@@ -2,10 +2,36 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
 import type { db as Db } from '../config/db';
-import { pessoaProfissionais, pessoas, vendas } from '../drizzle/schema';
+import { pessoaProfissionais, pessoas, servicos, tecnicas, usuarios, vendas } from '../drizzle/schema';
 import { podeGerenciar, type Sessao } from '../lib/escopo';
 
 export type DbOuTx = typeof Db | Parameters<Parameters<typeof Db.transaction>[0]>[0];
+
+/** O profissional usa os serviços da clínica? (admin: sempre) */
+export async function usaServicosClinica(db: DbOuTx, idProfissional: number): Promise<boolean> {
+    const [u] = await db
+        .select({ perfil: usuarios.perfil, ve: usuarios.ve_servicos_clinica })
+        .from(usuarios)
+        .where(eq(usuarios.id, idProfissional))
+        .limit(1);
+    return !!u && (u.perfil === 'ADMIN' || Boolean(u.ve));
+}
+
+/** Condição SQL: serviços que o usuário logado enxerga (próprios + da clínica se liberado). */
+export function servicosVisiveis(s: Sessao & { veServicosClinica?: boolean }): SQL | undefined {
+    if (s.perfil === 'ADMIN') return undefined;
+    return s.veServicosClinica
+        ? sql`(${servicos.id_profissional} IS NULL OR ${servicos.id_profissional} = ${s.id})`
+        : sql`${servicos.id_profissional} = ${s.id}`;
+}
+
+/** Condição SQL: técnicas que o usuário logado enxerga. */
+export function tecnicasVisiveis(s: Sessao & { veServicosClinica?: boolean }): SQL | undefined {
+    if (s.perfil === 'ADMIN') return undefined;
+    return s.veServicosClinica
+        ? sql`(${tecnicas.id_profissional} IS NULL OR ${tecnicas.id_profissional} = ${s.id})`
+        : sql`${tecnicas.id_profissional} = ${s.id}`;
+}
 
 /** Condição SQL: a pessoa é atendida pelo profissional. */
 export function pessoaDoProfissional(idProfissional: number): SQL {

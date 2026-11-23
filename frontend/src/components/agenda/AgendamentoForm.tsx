@@ -92,11 +92,13 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
     const servicosDisponiveis = useMemo(() => {
         // Serviço próprio só serve para o dono; os da clínica seguem a lista "serviços que executa"
-        const todos = ((servicosQ.data ?? []) as any[]).filter((s) => s.id_profissional == null || s.id_profissional === idProf);
+        const prof = ((profsQ.data ?? []) as any[]).find((p) => p.id === idProf);
+        const usaClinica = !prof || prof.perfil === 'ADMIN' || prof.ve_servicos_clinica;
+        const todos = ((servicosQ.data ?? []) as any[]).filter((s) => (s.id_profissional == null && usaClinica) || s.id_profissional === idProf);
         const permitidos = (servProfQ.data ?? []) as number[];
         if (!permitidos.length) return todos;
         return todos.filter((s) => s.id_profissional === idProf || permitidos.includes(s.id) || servicosSel.includes(s.id));
-    }, [servicosQ.data, servProfQ.data, servicosSel, idProf]);
+    }, [servicosQ.data, servProfQ.data, servicosSel, idProf, profsQ.data]);
 
     const duracaoTotal = useMemo(() => {
         const todos = (servicosQ.data ?? []) as any[];

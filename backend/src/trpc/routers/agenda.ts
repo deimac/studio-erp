@@ -35,7 +35,7 @@ import {
 } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
-import { assertAcessoPessoa, vincularPessoa } from '../acesso';
+import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
 import type { Session } from '../context';
 import type { db as Db } from '../../config/db';
 
@@ -99,8 +99,10 @@ async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: numbe
         .from(servicos)
         .where(inArray(servicos.id, unicos));
     if (rows.length !== unicos.length) erro('BAD_REQUEST', 'Serviço não encontrado');
-    const deOutro = rows.find((r) => !servicoServeParaProfissional(r.dono, idProfissional));
-    if (deOutro) erro('BAD_REQUEST', `"${deOutro.nome}" é um serviço próprio de outro profissional`);
+    const usaClinica = await usaServicosClinica(db, idProfissional);
+    const deOutro = rows.find((r) => !servicoServeParaProfissional(r.dono, idProfissional, usaClinica));
+    if (deOutro)
+        erro('BAD_REQUEST', deOutro.dono == null ? `"${deOutro.nome}" é um serviço da clínica, não liberado para este profissional` : `"${deOutro.nome}" é um serviço próprio de outro profissional`);
     // mantém a ordem escolhida
     return unicos.map((id) => rows.find((r) => r.id === id)!);
 }
@@ -453,6 +455,7 @@ const profissionaisRouter = createTRPCRouter({
                 telefone: usuarios.telefone,
                 intervalo_agenda_min: usuarios.intervalo_agenda_min,
                 agenda_compartilhada: usuarios.agenda_compartilhada,
+                ve_servicos_clinica: usuarios.ve_servicos_clinica,
             })
             .from(usuarios)
             .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true)))
@@ -466,12 +469,13 @@ const profissionaisRouter = createTRPCRouter({
                 cor: z.string().max(20).nullable().optional(),
                 telefone: z.string().max(20).nullable().optional(),
                 agenda_compartilhada: z.boolean().optional(),
+                ve_servicos_clinica: z.boolean().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
             assertPodeGerenciar(ctx.session, input.id);
-            if (input.agenda_compartilhada !== undefined && !isAdmin(ctx.session))
-                erro('FORBIDDEN', 'Só o administrador define a agenda compartilhada');
+            if ((input.agenda_compartilhada !== undefined || input.ve_servicos_clinica !== undefined) && !isAdmin(ctx.session))
+                erro('FORBIDDEN', 'Só o administrador altera essas configurações');
             const { id, ...campos } = input;
             await ctx.db
                 .update(usuarios)
@@ -839,7 +843,8 @@ export const agendaRouter = createTRPCRouter({
                         .from(atendimentoServicos)
                         .innerJoin(servicos, eq(servicos.id, atendimentoServicos.id_servico))
                         .where(eq(atendimentoServicos.id_atendimento, atual.id));
-                    const deOutro = atuais.find((x) => !servicoServeParaProfissional(x.dono, idProf));
+                    const usaClinica = await usaServicosClinica(tx, idProf);
+                    const deOutro = atuais.find((x) => !servicoServeParaProfissional(x.dono, idProf, usaClinica));
                     if (deOutro) erro('BAD_REQUEST', `"${deOutro.nome}" é um serviço próprio de outro profissional`);
                 }
                 const inicioAtual = hhmmParaMin(atual.hora_inicio);

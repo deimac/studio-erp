@@ -46,6 +46,8 @@ async function garantirSlugLivre(db: any, slug: string, ignorarId?: number) {
 
 export const protocolosRouter = createTRPCRouter({
     list: protectedProcedure.query(async ({ ctx }) => {
+        // Protocolos agrupam serviços da clínica: profissional sem acesso a eles não vê
+        if (ctx.session.perfil !== 'ADMIN' && !ctx.session.veServicosClinica) return [];
         const rows = await ctx.db.select().from(protocolos).orderBy(asc(protocolos.ordem), asc(protocolos.nome));
         const vinculados = await ctx.db
             .select({ id: servicos.id, nome: servicos.nome, nome_modalidade: servicos.nome_modalidade, id_protocolo: servicos.id_protocolo })

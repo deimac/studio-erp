@@ -14,6 +14,8 @@ export type Session = {
     id: number;
     perfil: 'ADMIN' | 'PROFISSIONAL';
     unidadeId: number;
+    /** Usa os serviços/técnicas da clínica (admin: sempre). */
+    veServicosClinica: boolean;
 };
 
 export async function createContext({ req, res }: CreateExpressContextOptions) {
@@ -37,6 +39,7 @@ export async function createContext({ req, res }: CreateExpressContextOptions) {
                 perfil: usuarios.perfil,
                 id_unidade: usuarios.id_unidade,
                 ativo: usuarios.ativo,
+                ve_servicos_clinica: usuarios.ve_servicos_clinica,
             })
             .from(usuarios)
             .where(eq(usuarios.id, usuario.id))
@@ -47,6 +50,7 @@ export async function createContext({ req, res }: CreateExpressContextOptions) {
                 id: usuarioDb.id,
                 perfil: usuarioDb.perfil,
                 unidadeId: usuarioDb.id_unidade,
+                veServicosClinica: usuarioDb.perfil === 'ADMIN' || Boolean(usuarioDb.ve_servicos_clinica),
             };
         }
     }

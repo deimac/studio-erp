@@ -110,6 +110,7 @@ export default function Servicos() {
                     const protocoloCasa = !termo || p.nome.toLowerCase().includes(termo);
                     const modalidades = todos.filter((s) => s.id_protocolo === p.id && (protocoloCasa || casa(s)));
                     if (termo && !protocoloCasa && modalidades.length === 0) return null;
+                    if (!isAdmin && modalidades.length === 0) return null;
                     return (
                         <Card key={p.id} className={p.ativo ? '' : 'opacity-70'}>
                             <CardHeader className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
@@ -395,6 +396,8 @@ function ServicosTabela({ servicos, onSaved, modoModalidade = false }: { servico
 }
 
 function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
+    const { user } = useAuth();
+    const podeEditarTecnica = (t: any) => user?.perfil === 'ADMIN' || (t.id_profissional != null && t.id_profissional === user?.id);
     const utils = trpc.useUtils();
     const { toast } = useToast();
     const confirm = useConfirm();
@@ -533,7 +536,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                                         {descreverUso(u)}
                                                     </p>
                                                 </div>
-                                                <div className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                                                {podeEditarTecnica(t) && <div className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                                                     <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Renomear ${t.nome}`} title="Renomear" onClick={() => iniciarEdicao(t.id, t.nome)}>
                                                         <SquarePen className="h-4 w-4 text-blue-600" />
                                                     </Button>
@@ -554,7 +557,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                                     >
                                                         <Trash2 className="h-4 w-4 text-red-500" />
                                                     </Button>
-                                                </div>
+                                                </div>}
                                             </>
                                         )}
                                     </li>

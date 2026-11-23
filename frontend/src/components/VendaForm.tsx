@@ -132,7 +132,9 @@ export function VendaForm({ onSuccess }: Props) {
     }
 
     // Serviço próprio de um profissional só pode ser vendido por ele
-    const servicoDoVendedor = (s: any) => s.id_profissional == null || s.id_profissional === vendedor;
+    const profVendedor = ((profsQ.data ?? []) as any[]).find((p) => p.id === vendedor);
+    const vendedorUsaClinica = !isAdmin || !profVendedor || profVendedor.perfil === 'ADMIN' || profVendedor.ve_servicos_clinica;
+    const servicoDoVendedor = (s: any) => (s.id_profissional == null && vendedorUsaClinica) || s.id_profissional === vendedor;
     const donoServico = new Map(((servicosQ.data ?? []) as any[]).map((s) => [s.id, s.id_profissional]));
 
     const filteredPessoas = pessoasQ.data?.filter(

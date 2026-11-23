@@ -1,31 +1,54 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { servicoTecnica, tecnicas } from '../../drizzle/schema';
-import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { tecnicasVisiveis } from '../acesso';
+import { podeEditarServico } from '../../lib/servicosAcesso';
+
+/** Admin cria técnicas da clínica; profissional cria as próprias. */
+async function tecnicaEditavel(ctx: any, id: number) {
+    const [t] = await ctx.db.select({ id: tecnicas.id, dono: tecnicas.id_profissional }).from(tecnicas).where(eq(tecnicas.id, id)).limit(1);
+    if (!t || !podeEditarServico(t.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Técnica não encontrada' });
+    return t as { id: number; dono: number | null };
+}
+
+async function assertNomeLivre(ctx: any, nome: string, dono: number | null, ignorarId?: number) {
+    const [e] = await ctx.db
+        .select({ id: tecnicas.id })
+        .from(tecnicas)
+        .where(and(eq(tecnicas.nome, nome), dono == null ? isNull(tecnicas.id_profissional) : eq(tecnicas.id_profissional, dono)))
+        .limit(1);
+    if (e && e.id !== ignorarId) throw new TRPCError({ code: 'CONFLICT', message: 'Já existe uma técnica com esse nome' });
+}
 
 export const tecnicasRouter = createTRPCRouter({
     list: protectedProcedure.query(async ({ ctx }) => {
-        return ctx.db.select().from(tecnicas).orderBy(asc(tecnicas.nome));
+        return ctx.db.select().from(tecnicas).where(tecnicasVisiveis(ctx.session)).orderBy(asc(tecnicas.nome));
     }),
 
-    create: adminProcedure
-        .input(z.object({ nome: z.string().min(2) }))
+    create: protectedProcedure
+        .input(z.object({ nome: z.string().trim().min(2) }))
         .mutation(async ({ ctx, input }) => {
-            const ids = await ctx.db.insert(tecnicas).values({ nome: input.nome }).$returningId();
+            const dono = ctx.session.perfil === 'ADMIN' ? null : ctx.session.id;
+            await assertNomeLivre(ctx, input.nome, dono);
+            const ids = await ctx.db.insert(tecnicas).values({ nome: input.nome, id_profissional: dono }).$returningId();
             return { id: ids[0]?.id };
         }),
 
-    update: adminProcedure
-        .input(z.object({ id: z.number().int().positive(), nome: z.string().min(2) }))
+    update: protectedProcedure
+        .input(z.object({ id: z.number().int().positive(), nome: z.string().trim().min(2) }))
         .mutation(async ({ ctx, input }) => {
+            const t = await tecnicaEditavel(ctx, input.id);
+            await assertNomeLivre(ctx, input.nome, t.dono, t.id);
             await ctx.db.update(tecnicas).set({ nome: input.nome }).where(eq(tecnicas.id, input.id));
             return { ok: true };
         }),
 
-    delete: adminProcedure
+    delete: protectedProcedure
         .input(z.object({ id: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
+            await tecnicaEditavel(ctx, input.id);
             // Só exclui técnica sem vínculo com serviço (ativo ou inativo)
             const [uso] = await ctx.db
                 .select({ cnt: count() })

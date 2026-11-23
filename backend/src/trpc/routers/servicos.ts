@@ -5,9 +5,21 @@ import { servicoTecnica, servicos, tecnicas, usuarios } from '../../drizzle/sche
 import { parseLista } from '../../lib/protocolos';
 import { podeEditarServico, podeVerServico } from '../../lib/servicosAcesso';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { servicosVisiveis, tecnicasVisiveis } from '../acesso';
+import { inArray } from 'drizzle-orm';
 
 /** Campos do site (protocolo/modalidade): só o admin define. */
 const CAMPOS_SITE = ['id_protocolo', 'nome_modalidade', 'regioes', 'ordem_modalidade'] as const;
+
+
+/** Profissional só marca técnicas que enxerga (próprias ou da clínica, se liberado). */
+async function assertTecnicasVisiveis(ctx: any, ids: number[] | undefined) {
+    if (!ids?.length) return;
+    const cond = tecnicasVisiveis(ctx.session);
+    if (!cond) return;
+    const ok = await ctx.db.select({ id: tecnicas.id }).from(tecnicas).where(and(inArray(tecnicas.id, ids), cond));
+    if (ok.length !== new Set(ids).size) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Técnica não disponível para você' });
+}
 
 export const servicosRouter = createTRPCRouter({
     list: protectedProcedure
@@ -21,9 +33,9 @@ export const servicosRouter = createTRPCRouter({
             const whereParts: any[] = [];
             if (input?.apenasAtivos !== false) whereParts.push(eq(servicos.ativo, true));
             if (input?.search) whereParts.push(like(servicos.nome, `%${input.search}%`));
-            // Profissional vê os da clínica e os próprios; nunca os de colegas
-            if (ctx.session.perfil !== 'ADMIN')
-                whereParts.push(or(isNull(servicos.id_profissional), eq(servicos.id_profissional, ctx.session.id)));
+            // Profissional vê os próprios (e os da clínica, se o admin liberou); nunca os de colegas
+            const visiveis = servicosVisiveis(ctx.session);
+            if (visiveis) whereParts.push(visiveis);
 
             const query = ctx.db
                 .select({
@@ -163,6 +175,7 @@ export const servicosRouter = createTRPCRouter({
             const admin = ctx.session.perfil === 'ADMIN';
             // Profissional cadastra só serviços próprios, sem protocolo (fora do site)
             if (!admin) for (const c of CAMPOS_SITE) delete (input as any)[c];
+            await assertTecnicasVisiveis(ctx, input.tecnica_ids);
             const ids = await ctx.db
                 .insert(servicos)
                 .values({
@@ -218,6 +231,7 @@ export const servicosRouter = createTRPCRouter({
             if (!podeEditarServico(row.dono, ctx.session))
                 throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode editar os seus próprios serviços' });
             if (ctx.session.perfil !== 'ADMIN') for (const c of CAMPOS_SITE) delete (input as any)[c];
+            await assertTecnicasVisiveis(ctx, input.tecnica_ids);
 
             const set: Record<string, any> = { updated_at: new Date() };
             if (input.nome !== undefined) set.nome = input.nome;

@@ -3,6 +3,7 @@ import { and, eq, isNull, like, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { pacotes, servicos } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import { servicosVisiveis } from '../acesso';
 
 export const pacotesRouter = createTRPCRouter({
     list: protectedProcedure
@@ -16,9 +17,9 @@ export const pacotesRouter = createTRPCRouter({
             const whereParts: any[] = [];
             if (input?.apenasAtivos !== false) whereParts.push(eq(pacotes.status, 'ativo'));
             if (input?.search) whereParts.push(like(pacotes.nome, `%${input.search}%`));
-            // Profissional não vê pacotes de serviços próprios de colegas
-            if (ctx.session.perfil !== 'ADMIN')
-                whereParts.push(or(isNull(servicos.id_profissional), eq(servicos.id_profissional, ctx.session.id)));
+            // Profissional vê só pacotes de serviços que ele enxerga
+            const visiveis = servicosVisiveis(ctx.session);
+            if (visiveis) whereParts.push(visiveis);
 
             const query = ctx.db
                 .select({

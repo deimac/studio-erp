@@ -46,6 +46,8 @@ export const usuarios = mysqlTable(
         intervalo_agenda_min: int('intervalo_agenda_min').notNull().default(30),
         /** Divide o espaço com os demais: horário ocupado por um bloqueia o grupo. */
         agenda_compartilhada: dbBoolean('agenda_compartilhada').notNull().default(true),
+        /** Profissional usa os serviços/técnicas da clínica (decisão do admin). */
+        ve_servicos_clinica: dbBoolean('ve_servicos_clinica').notNull().default(false),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
@@ -160,6 +162,8 @@ export const SITE_CONFIG_CHAVES = ['hero_imagem_url', 'sobre_imagem_url', 'hero_
 export const tecnicas = mysqlTable('tecnicas', {
     id: serial('id').primaryKey(),
     nome: varchar('nome', { length: 255 }).notNull(),
+    /** Dono: técnica própria de um profissional. NULL = da clínica. */
+    id_profissional: int('id_profissional'),
 });
 
 export const servicoTecnica = mysqlTable(
