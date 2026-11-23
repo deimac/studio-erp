@@ -498,13 +498,14 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                                         <SquarePen className="h-4 w-4 text-blue-600" />
                                                     </Button>
                                                     <Button
-                                                        size="icon" variant="ghost" className="h-8 w-8" aria-label={`Remover ${t.nome}`} title="Remover"
+                                                        size="icon" variant="ghost" className="h-8 w-8 disabled:opacity-30"
+                                                        aria-label={n ? `${t.nome} está em uso e não pode ser removida` : `Remover ${t.nome}`}
+                                                        title={n ? 'Em uso: remova dos serviços para poder excluir' : 'Remover'}
+                                                        disabled={n > 0 || deleteMut.isPending}
                                                         onClick={async () => {
                                                             const ok = await confirm({
                                                                 title: 'Remover técnica',
-                                                                description: n
-                                                                    ? `"${t.nome}" está em ${n === 1 ? '1 serviço' : `${n} serviços`} e sairá deles. Remover mesmo assim?`
-                                                                    : `Remover "${t.nome}"?`,
+                                                                description: `Remover "${t.nome}"? Ela não está em nenhum serviço.`,
                                                                 confirmLabel: 'Remover',
                                                                 variant: 'danger',
                                                             });
