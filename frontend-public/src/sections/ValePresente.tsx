@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import type { ProtocoloResumo } from '@/lib/catalogo';
 import { useReveal } from '@/lib/useReveal';
 import { formatDuracoes } from '@/lib/format';
-import { imagemProtocolo } from '@/lib/media';
 import { whatsappUrl } from '@/lib/whatsapp';
 
 // Depoimentos ILUSTRATIVOS — substituir por depoimentos reais (ver PRODUCT.md).
@@ -30,7 +29,6 @@ export default function ValePresente({ protocolo }: { protocolo?: ProtocoloResum
                 </ul>
                 <a className="pill" href={whatsappUrl({ protocolo: protocolo?.nome, valePresente: true })} target="_blank" rel="noreferrer">Quero presentear<ArrowRight /></a>
             </div>
-            <div className="portrait"><img src={protocolo?.imagem_url ? imagemProtocolo(protocolo) : '/images/site/vale-presente.jpg'} alt="" loading="lazy" /></div>
             <figure className="quote" aria-live="polite">
                 <span className="illus">depoimento ilustrativo</span>
                 <div className="q" aria-hidden="true">“</div>
