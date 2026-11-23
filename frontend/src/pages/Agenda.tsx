@@ -18,6 +18,7 @@ import { BloqueioForm } from '@/components/agenda/BloqueioForm';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { LembretesDialog } from '@/components/agenda/LembretesDialog';
 import { AgendaDia } from '@/components/agenda/AgendaDia';
+import { AgendaLista } from '@/components/agenda/AgendaLista';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
@@ -81,10 +82,6 @@ export default function Agenda() {
 
     const mobile = useIsMobile();
     const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'));
-    // No celular só há "Dia" (lista) e "Mês"
-    useEffect(() => {
-        if (mobile && (view === 'week' || view === 'agenda')) setView('day');
-    }, [mobile, view]);
     const [data, setData] = useState(new Date());
     const [colunas, setColunas] = useState<'profissional' | 'sala'>('profissional');
     const [selProfs, setSelProfs] = useState<number[]>([]);
@@ -385,7 +382,7 @@ export default function Agenda() {
     );
 
     if (mobile) {
-        const t = view === 'month' ? format(data, "MMMM 'de' yyyy", { locale: ptBR }) : format(data, "EEEE, d 'de' MMM", { locale: ptBR });
+        const t = view === 'day' ? format(data, "EEEE, d 'de' MMM", { locale: ptBR }) : tituloPeriodo(view, data);
         const titulo = t.charAt(0).toUpperCase() + t.slice(1);
         return (
             <div className="flex flex-col gap-3">
@@ -399,20 +396,20 @@ export default function Agenda() {
                             className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
                     </label>
                     <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Próximo" onClick={() => navegar(1)}><ChevronRight className="h-5 w-5" /></Button>
+                    {dataISO(data) !== dataISO(new Date()) && (
+                        <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => navegar(0)}>Hoje</Button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2">
                     <div className="flex rounded-lg border p-0.5">
-                        {(['day', 'month'] as View[]).map((v) => (
-                            <button key={v} type="button" onClick={() => setView(v)}
-                                className={cn('rounded-md px-4 py-1.5 text-sm', view === v ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))]')}>
-                                {v === 'day' ? 'Dia' : 'Mês'}
+                        {([['day', 'Dia'], ['week', 'Sem.'], ['month', 'Mês'], ['agenda', 'Lista']] as [View, string][]).map(([v, rotulo]) => (
+                            <button key={v} type="button" onClick={() => setView(v)} aria-label={v === 'week' ? 'Semana' : undefined}
+                                className={cn('rounded-md px-2.5 py-1.5 text-sm', view === v ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))]')}>
+                                {rotulo}
                             </button>
                         ))}
                     </div>
-                    {dataISO(data) !== dataISO(new Date()) && (
-                        <Button variant="outline" size="sm" className="h-9" onClick={() => navegar(0)}>Hoje</Button>
-                    )}
                     <div className="ml-auto flex">
                         <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Lembretes por WhatsApp" onClick={() => setLembretes(true)}><BellRing className="h-5 w-5" /></Button>
                         <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Bloquear horário" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="h-5 w-5" /></Button>
@@ -437,6 +434,20 @@ export default function Agenda() {
                         carregando={eventosQ.isLoading}
                         onAbrir={setDetalhe}
                         onNovo={novoAgendamento}
+                        onBloqueio={perguntarRemoverBloqueio}
+                    />
+                ) : view === 'week' || view === 'agenda' ? (
+                    <AgendaLista
+                        de={de}
+                        ate={ate}
+                        mostrarVazios={view === 'week'}
+                        atendimentos={dados?.atendimentos ?? []}
+                        bloqueios={dados?.bloqueios ?? []}
+                        profissionais={profissionais}
+                        visiveis={profsVisiveis}
+                        carregando={eventosQ.isLoading}
+                        onAbrir={setDetalhe}
+                        onDia={(d) => { setData(d); setView('day'); }}
                         onBloqueio={perguntarRemoverBloqueio}
                     />
                 ) : (
