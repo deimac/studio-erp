@@ -3,6 +3,7 @@ import cors from 'cors';
 import express from 'express';
 import path from 'path';
 import multer from 'multer';
+import { authMiddleware } from './middlewares/auth';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { createContext } from './trpc/context';
 import { usuariosRouter } from './trpc/routers/usuarios';
@@ -54,7 +55,8 @@ const upload = multer({
     },
 });
 
-app.post('/api/upload', (req, res, next) => {
+// Só quem está logado no admin pode enviar imagens
+app.post('/api/upload', authMiddleware, (req, res, next) => {
     upload.single('image')(req, res, (err) => {
         if (err instanceof multer.MulterError) {
             return res.status(400).json({ error: err.code === 'LIMIT_FILE_SIZE' ? 'Arquivo excede 5 MB' : err.message });
