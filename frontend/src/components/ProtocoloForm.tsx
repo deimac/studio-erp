@@ -64,7 +64,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (f.nome.trim().length < 2) {
-            toast({ title: 'Informe o nome do protocolo', variant: 'error' });
+            toast({ title: 'Informe o nome da página', variant: 'error' });
             return;
         }
         const limpa = (l: string[]) => l.map((x) => x.trim()).filter(Boolean);
@@ -91,12 +91,12 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
     return (
         <>
             <Button size="sm" variant={protocolo ? 'ghost' : 'outline'} onClick={handleOpen}>
-                {trigger ?? (protocolo ? 'Editar' : 'Novo Protocolo')}
+                {trigger ?? (protocolo ? 'Editar página' : 'Nova página do site')}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="w-full max-w-2xl px-6">
                     <DialogHeader>
-                        <DialogTitle>{protocolo ? 'Editar Protocolo' : 'Novo Protocolo'}</DialogTitle>
+                        <DialogTitle>{protocolo ? `Página do site: ${protocolo.nome}` : 'Nova página do site (protocolo)'}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1 pr-2">
                         <div className="grid gap-3 sm:grid-cols-2">
