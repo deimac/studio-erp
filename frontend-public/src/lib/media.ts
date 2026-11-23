@@ -9,7 +9,7 @@ export function resolveImageUrl(url?: string | null): string {
 
 /** Imagem padrão de cada protocolo enquanto nenhuma é enviada pelo admin. */
 export function imagemProtocolo(p: { slug: string; imagem_url?: string | null }): string {
-    return resolveImageUrl(p.imagem_url) || `/images/protocolos/${p.slug}.jpg?v=5`;
+    return resolveImageUrl(p.imagem_url) || `/images/protocolos/${p.slug}.jpg?v=6`;
 }
 
 /** onError de <img>: troca por uma imagem genérica (uma única vez). */
