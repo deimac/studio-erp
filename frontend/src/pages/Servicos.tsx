@@ -4,7 +4,7 @@ import { ServicoForm } from '@/components/ServicoForm';
 import { PacoteForm } from '@/components/PacoteForm';
 import { ProtocoloForm, type Protocolo } from '@/components/ProtocoloForm';
 import { Badge } from '@/components/ui/badge';
-import { ArrowDown, ArrowUp, ExternalLink, SquarePen, Trash2, Package, Plus, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronDown, ExternalLink, Layers, SquarePen, Trash2, Package, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +32,8 @@ export default function Servicos() {
     const isAdmin = user?.perfil === 'ADMIN';
     const utils = trpc.useUtils();
     const [search, setSearch] = useState('');
-    const servicosQ = trpc.servicos.list.useQuery();
+    // Inclui inativos: o admin precisa vê-los para reativar (vendas usam só os ativos)
+    const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false });
     const protocolosQ = trpc.protocolos.list.useQuery();
     const protocolos = (protocolosQ.data ?? []) as Protocolo[];
 
@@ -90,7 +91,7 @@ export default function Servicos() {
                 </div>
             </div>
 
-            <TecnicasPanel />
+            <TecnicasPanel servicos={todos} />
 
             <div className="relative max-w-sm">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -353,88 +354,175 @@ function ServicosTabela({ servicos, onSaved, modoModalidade = false }: { servico
     );
 }
 
-function TecnicasPanel() {
+function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
     const utils = trpc.useUtils();
     const { toast } = useToast();
     const confirm = useConfirm();
+    const [aberto, setAberto] = useState(false);
+    const [nome, setNome] = useState('');
     const [editId, setEditId] = useState<number | null>(null);
     const [editNome, setEditNome] = useState('');
-    const [nome, setNome] = useState('');
-    const nomeInputRef = useRef<HTMLInputElement>(null);
+    const editRef = useRef<HTMLInputElement>(null);
     const tecnicasQ = trpc.tecnicas.list.useQuery();
+    const invalidar = () => { utils.tecnicas.list.invalidate(); utils.servicos.list.invalidate(); };
     const createMut = trpc.tecnicas.create.useMutation({
-        onSuccess: () => { setNome(''); utils.tecnicas.list.invalidate(); toast({ title: 'Técnica criada', variant: 'success' }); },
+        onSuccess: () => { setNome(''); invalidar(); toast({ title: 'Técnica adicionada', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
-    const updateMut = trpc.tecnicas.update.useMutation({ onSuccess: () => { utils.tecnicas.list.invalidate(); } });
-    const deleteMut = trpc.tecnicas.delete.useMutation({ onSuccess: () => { utils.tecnicas.list.invalidate(); toast({ title: 'Técnica removida' }); } });
+    const updateMut = trpc.tecnicas.update.useMutation({
+        onSuccess: () => { setEditId(null); invalidar(); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const deleteMut = trpc.tecnicas.delete.useMutation({
+        onSuccess: () => { invalidar(); toast({ title: 'Técnica removida' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+
+    // Quantos serviços usam cada técnica
+    const uso = new Map<number, { ativos: number; inativos: number }>();
+    for (const s of servicos) {
+        for (const t of s.tecnicas ?? []) {
+            const u = uso.get(t.id) ?? { ativos: 0, inativos: 0 };
+            if (s.ativo) u.ativos += 1; else u.inativos += 1;
+            uso.set(t.id, u);
+        }
+    }
+    const plural = (n: number, um: string, varios: string) => (n === 1 ? `1 ${um}` : `${n} ${varios}`);
+    const descreverUso = (u?: { ativos: number; inativos: number }) => {
+        if (!u || (!u.ativos && !u.inativos)) return 'Sem uso';
+        const partes = [];
+        if (u.ativos) partes.push(plural(u.ativos, 'serviço', 'serviços'));
+        if (u.inativos) partes.push(plural(u.inativos, 'inativo', 'inativos'));
+        return partes.join(' · ');
+    };
+
+    const lista = [...(tecnicasQ.data ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    function iniciarEdicao(id: number, atual: string) {
+        setEditId(id);
+        setEditNome(atual);
+        setTimeout(() => editRef.current?.select(), 0);
+    }
+    function salvarEdicao() {
+        const novo = editNome.trim();
+        const atual = lista.find((t) => t.id === editId);
+        if (!editId || !novo || novo === atual?.nome) { setEditId(null); return; }
+        updateMut.mutate({ id: editId, nome: novo });
+    }
 
     return (
         <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Técnicas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-                <form
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        if (!nome.trim()) return;
-                        if (editId) {
-                            updateMut.mutate({ id: editId, nome: nome.trim() });
-                            setEditId(null);
-                            setNome('');
-                        } else {
-                            createMut.mutate({ nome: nome.trim() });
-                        }
-                    }}
-                    className="flex flex-wrap items-center gap-2"
-                >
-                    <Input placeholder="Nova técnica" value={nome} onChange={(e) => setNome(e.target.value)} className="max-w-xs" ref={nomeInputRef} />
-                    {editId ? (
-                        <>
-                            <Button type="button" size="sm" variant="outline" onClick={() => { setEditId(null); setNome(''); }}>Cancelar</Button>
-                            <Button type="submit" size="sm" disabled={updateMut.isPending}>
-                                {updateMut.isPending ? 'Salvando…' : 'Salvar'}
-                            </Button>
-                        </>
-                    ) : (
-                        <Button type="submit" size="sm" disabled={createMut.isPending}>
-                            {createMut.isPending ? 'Salvando…' : 'Adicionar'}
+            <button
+                type="button"
+                onClick={() => setAberto((v) => !v)}
+                aria-expanded={aberto}
+                className="flex w-full items-center gap-3 rounded-xl px-5 py-4 text-left transition-colors hover:bg-[hsl(var(--muted))]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]"
+            >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]">
+                    <Layers className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">Técnicas</span>
+                        <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-xs font-medium tabular-nums text-gray-600">{lista.length}</span>
+                    </span>
+                    <span className="block text-xs text-gray-500">Marcadas nas modalidades. Renomear aqui muda em todos os serviços.</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`} />
+            </button>
+
+            {aberto && (
+                <CardContent className="space-y-4 border-t px-5 pb-5 pt-4">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const n = nome.trim();
+                            if (!n) return;
+                            if (lista.some((t) => t.nome.toLowerCase() === n.toLowerCase())) {
+                                toast({ title: 'Essa técnica já existe', variant: 'error' });
+                                return;
+                            }
+                            createMut.mutate({ nome: n });
+                        }}
+                        className="flex gap-2"
+                    >
+                        <Input placeholder="Nome da nova técnica" value={nome} onChange={(e) => setNome(e.target.value)} className="max-w-sm" aria-label="Nome da nova técnica" />
+                        <Button type="submit" size="sm" className="h-9 shrink-0" disabled={createMut.isPending || !nome.trim()}>
+                            <Plus className="mr-1 h-4 w-4" />
+                            {createMut.isPending ? 'Adicionando…' : 'Adicionar'}
                         </Button>
+                    </form>
+
+                    {tecnicasQ.isLoading && <p className="text-sm text-gray-400">Carregando…</p>}
+                    {!tecnicasQ.isLoading && lista.length === 0 && (
+                        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-gray-500">
+                            Nenhuma técnica ainda. Adicione a primeira acima.
+                        </p>
                     )}
-                </form>
-                <div className="flex flex-wrap gap-2">
-                    {tecnicasQ.data?.map((t) => (
-                        <div key={t.id} className="flex items-center rounded-full border bg-white px-3 py-1 text-sm shadow-sm">
-                            <span className="mr-2">{t.nome}</span>
-                            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={() => {
-                                setEditId(t.id);
-                                setEditNome(t.nome);
-                                setNome(t.nome); // Preenche o input principal com o nome da técnica
-                                setTimeout(() => {
-                                    if (nomeInputRef.current) {
-                                        nomeInputRef.current.focus();
-                                        const len = t.nome.length;
-                                        nomeInputRef.current.setSelectionRange(len, len);
-                                    }
-                                }, 100);
-                            }}>
-                                <SquarePen className="w-4 h-4 text-blue-600" />
-                            </Button>
-                            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs" onClick={async () => {
-                                const ok = await confirm({
-                                    title: 'Remover técnica',
-                                    description: `Tem certeza que deseja remover "${t.nome}"? Serviços vinculados perderão essa técnica.`,
-                                    confirmLabel: 'Remover',
-                                });
-                                if (ok) deleteMut.mutate({ id: t.id });
-                            }}>
-                                <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                        </div>
-                    ))}
-                    {tecnicasQ.data?.length === 0 && <p className="text-xs text-gray-400">Nenhuma técnica cadastrada.</p>}
-                </div>
-            </CardContent>
+
+                    {lista.length > 0 && (
+                        <ul className="grid grid-cols-1 overflow-hidden rounded-lg border sm:grid-cols-2 lg:grid-cols-3">
+                            {lista.map((t) => {
+                                const u = uso.get(t.id);
+                                const n = (u?.ativos ?? 0) + (u?.inativos ?? 0);
+                                const editando = editId === t.id;
+                                return (
+                                    <li key={t.id} className="group -mb-px -mr-px flex min-h-[52px] min-w-0 items-center gap-2 border-b border-r px-3 py-2">
+                                        {editando ? (
+                                            <form className="flex flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); salvarEdicao(); }}>
+                                                <Input
+                                                    ref={editRef}
+                                                    value={editNome}
+                                                    onChange={(e) => setEditNome(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Escape') setEditId(null); }}
+                                                    className="h-8 flex-1 text-sm"
+                                                    aria-label={`Novo nome para ${t.nome}`}
+                                                />
+                                                <Button type="submit" size="icon" variant="ghost" className="h-8 w-8" aria-label="Salvar" disabled={updateMut.isPending}>
+                                                    <Check className="h-4 w-4 text-green-600" />
+                                                </Button>
+                                                <Button type="button" size="icon" variant="ghost" className="h-8 w-8" aria-label="Cancelar" onClick={() => setEditId(null)}>
+                                                    <X className="h-4 w-4 text-gray-500" />
+                                                </Button>
+                                            </form>
+                                        ) : (
+                                            <>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-medium" title={t.nome}>{t.nome}</p>
+                                                    <p className={`text-xs tabular-nums ${u?.ativos ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                        {descreverUso(u)}
+                                                    </p>
+                                                </div>
+                                                <div className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Renomear ${t.nome}`} title="Renomear" onClick={() => iniciarEdicao(t.id, t.nome)}>
+                                                        <SquarePen className="h-4 w-4 text-blue-600" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon" variant="ghost" className="h-8 w-8" aria-label={`Remover ${t.nome}`} title="Remover"
+                                                        onClick={async () => {
+                                                            const ok = await confirm({
+                                                                title: 'Remover técnica',
+                                                                description: n
+                                                                    ? `"${t.nome}" está em ${n === 1 ? '1 serviço' : `${n} serviços`} e sairá deles. Remover mesmo assim?`
+                                                                    : `Remover "${t.nome}"?`,
+                                                                confirmLabel: 'Remover',
+                                                                variant: 'danger',
+                                                            });
+                                                            if (ok) deleteMut.mutate({ id: t.id });
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 text-red-500" />
+                                                    </Button>
+                                                </div>
+                                            </>
+                                        )}
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </CardContent>
+            )}
         </Card>
     );
 }
