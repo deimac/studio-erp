@@ -57,6 +57,7 @@ export function ServicoForm({
     trigger,
     idProtocoloPadrao,
     variant,
+    triggerClassName,
 }: {
     servico?: Servico;
     onSuccess?: () => void;
@@ -64,6 +65,8 @@ export function ServicoForm({
     /** Ao criar dentro de um protocolo, já vem selecionado. */
     idProtocoloPadrao?: number;
     variant?: 'default' | 'ghost' | 'outline';
+    /** Quando informado, o gatilho vira um botão simples com estas classes (ex.: linha inteira clicável). */
+    triggerClassName?: string;
 }) {
     const { toast } = useToast();
     const { isAdmin } = useAuth();
@@ -237,9 +240,13 @@ export function ServicoForm({
 
     return (
         <>
-            <Button size="sm" variant={variant ?? (servico ? 'ghost' : 'default')} onClick={abrir}>
-                {trigger ?? (servico ? 'Editar' : 'Novo serviço')}
-            </Button>
+            {triggerClassName ? (
+                <button type="button" className={triggerClassName} onClick={abrir}>{trigger}</button>
+            ) : (
+                <Button size="sm" variant={variant ?? (servico ? 'ghost' : 'default')} onClick={abrir}>
+                    {trigger ?? (servico ? 'Editar' : 'Novo serviço')}
+                </Button>
+            )}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-h-[92vh] w-full max-w-xl overflow-y-auto px-6">
                     <DialogHeader>

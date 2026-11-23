@@ -1,54 +1,238 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useSyncExternalStore } from 'react';
 import { trpc } from '@/services/trpc';
 import { ServicoForm } from '@/components/ServicoForm';
 import { ProtocoloForm, type Protocolo } from '@/components/ProtocoloForm';
 import { Badge } from '@/components/ui/badge';
-import { ArrowDown, ArrowUp, Check, ChevronDown, ExternalLink, Layers, SquarePen, Trash2, Package, Plus, Search, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronRight, ExternalLink, Globe, SquarePen, Trash2, Package, Plus, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { resolveImageUrl } from '@/lib/media';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 const SITE_URL = 'https://tsmassoterapeuta.com.br';
 const fmt = (v: string | number) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 type ServicoItem = NonNullable<ReturnType<typeof trpc.servicos.list.useQuery>['data']>[number];
+type Pacote = { id: number; id_servico: number | null; quantidade_sessoes: number; valor_total: string | number; status: string | null };
+type Aba = 'servicos' | 'paginas' | 'tecnicas';
+type Filtro = 'todos' | 'site' | 'sistema' | 'inativos';
+
+// Aba escolhida fica lembrada neste navegador
+const CHAVE_ABA = 'servicos.aba';
+const ouvintes = new Set<() => void>();
+function lerAba(): Aba {
+    try { const v = localStorage.getItem(CHAVE_ABA); return v === 'paginas' || v === 'tecnicas' ? v : 'servicos'; } catch { return 'servicos'; }
+}
+function gravarAba(a: Aba) {
+    try { localStorage.setItem(CHAVE_ABA, a); } catch { /* sem armazenamento */ }
+    ouvintes.forEach((f) => f());
+}
 
 /**
- * Serviços. Protocolo = página do site (vitrine); serviço = o que se vende e
- * agenda (duração + preço da sessão); pacote = N sessões do serviço por um preço
- * fechado. Pacotes são editados dentro do formulário do serviço.
+ * Serviços em três abas:
+ * - Serviços: todos juntos numa lista (o que se vende e agenda), com a página do site como etiqueta;
+ * - Páginas do site (admin): as vitrines do site;
+ * - Técnicas: etiquetas dos serviços.
  */
 export default function Servicos() {
-    const { toast } = useToast();
-    const confirm = useConfirm();
     const { user } = useAuth();
     const isAdmin = user?.perfil === 'ADMIN';
-    const utils = trpc.useUtils();
-    const [search, setSearch] = useState('');
-    const [verInativos, setVerInativos] = useState(false);
+    const abaSalva = useSyncExternalStore((f) => { ouvintes.add(f); return () => ouvintes.delete(f); }, lerAba);
+    const aba: Aba = abaSalva === 'paginas' && !isAdmin ? 'servicos' : abaSalva;
+
     const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false });
-    const pacotesQ = trpc.pacotes.list.useQuery({ apenasAtivos: false });
     const protocolosQ = trpc.protocolos.list.useQuery();
+    const todos = (servicosQ.data ?? []) as ServicoItem[];
     const protocolos = (protocolosQ.data ?? []) as Protocolo[];
 
-    const invalidarProtocolos = () => utils.protocolos.list.invalidate();
-    const handleServicoSaved = () => toast({ title: 'Serviço salvo', variant: 'success' });
-    const handleProtocoloSaved = () => {
-        invalidarProtocolos();
-        toast({ title: 'Página do site salva', variant: 'success' });
+    const abas: { id: Aba; rotulo: string }[] = [
+        { id: 'servicos', rotulo: 'Serviços' },
+        ...(isAdmin ? [{ id: 'paginas' as Aba, rotulo: 'Páginas do site' }] : []),
+        { id: 'tecnicas', rotulo: 'Técnicas' },
+    ];
+
+    return (
+        <div className="space-y-5">
+            <div>
+                <h2 className="text-xl font-bold tracking-tight">Serviços</h2>
+                <p className="text-sm text-gray-500">
+                    {aba === 'servicos' && 'O que você vende e agenda, com preço da sessão e pacotes.'}
+                    {aba === 'paginas' && 'As páginas que aparecem no site. Os preços vêm dos serviços ligados a cada página.'}
+                    {aba === 'tecnicas' && 'Etiquetas que descrevem os serviços (aparecem no site).'}
+                </p>
+            </div>
+
+            <div role="tablist" className="flex gap-1 border-b">
+                {abas.map((a) => (
+                    <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} onClick={() => gravarAba(a.id)}
+                        className={cn('-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
+                            aba === a.id ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]' : 'border-transparent text-gray-500 hover:text-gray-800')}>
+                        {a.rotulo}
+                    </button>
+                ))}
+            </div>
+
+            {aba === 'servicos' && <AbaServicos todos={todos} protocolos={protocolos} carregando={servicosQ.isLoading || protocolosQ.isLoading} />}
+            {aba === 'paginas' && <AbaPaginas todos={todos} protocolos={protocolos} carregando={protocolosQ.isLoading} />}
+            {aba === 'tecnicas' && <TecnicasPanel servicos={todos} />}
+        </div>
+    );
+}
+
+function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; protocolos: Protocolo[]; carregando: boolean }) {
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const isAdmin = user?.perfil === 'ADMIN';
+    const [busca, setBusca] = useState('');
+    const [filtro, setFiltro] = useState<Filtro>('todos');
+    const pacotesQ = trpc.pacotes.list.useQuery({ apenasAtivos: false });
+
+    const pacotesPorServico = new Map<number, Pacote[]>();
+    for (const p of (pacotesQ.data ?? []) as Pacote[]) {
+        if (!p.id_servico) continue;
+        pacotesPorServico.set(p.id_servico, [...(pacotesPorServico.get(p.id_servico) ?? []), p]);
+    }
+
+    const paginaPorId = new Map(protocolos.map((p, i) => [p.id, { ...p, ordem: i }]));
+    const pagina = (s: ServicoItem) => (s.id_protocolo ? paginaPorId.get(s.id_protocolo) : undefined);
+    const termo = busca.trim().toLowerCase();
+
+    const contagem = {
+        todos: todos.filter((s) => s.ativo).length,
+        site: todos.filter((s) => s.ativo && pagina(s)).length,
+        sistema: todos.filter((s) => s.ativo && !pagina(s)).length,
+        inativos: todos.filter((s) => !s.ativo).length,
     };
 
-    const reorderMut = trpc.protocolos.reorder.useMutation({ onSuccess: invalidarProtocolos });
-    const deleteProtocoloMut = trpc.protocolos.delete.useMutation({
-        onSuccess: () => {
-            invalidarProtocolos();
-            utils.servicos.list.invalidate();
-            toast({ title: 'Página do site removida', variant: 'success' });
-        },
+    const lista = todos
+        .filter((s) => (filtro === 'inativos' ? !s.ativo : s.ativo))
+        .filter((s) => filtro !== 'site' || pagina(s))
+        .filter((s) => filtro !== 'sistema' || !pagina(s))
+        .filter((s) => !termo || s.nome.toLowerCase().includes(termo) || (pagina(s)?.nome ?? '').toLowerCase().includes(termo))
+        .sort((a, b) => {
+            // Agrupados pela página do site (na ordem do site); depois os só no sistema
+            const pa = pagina(a)?.ordem ?? 999, pb = pagina(b)?.ordem ?? 999;
+            return pa - pb || (a.ordem_modalidade ?? 0) - (b.ordem_modalidade ?? 0) || a.nome.localeCompare(b.nome, 'pt-BR');
+        });
+
+    const podeEditar = (s: ServicoItem) => isAdmin || (s.id_profissional != null && s.id_profissional === user?.id);
+    const salvo = () => toast({ title: 'Serviço salvo', variant: 'success' });
+
+    const filtros: { id: Filtro; rotulo: string }[] = [
+        { id: 'todos', rotulo: 'Todos' },
+        { id: 'site', rotulo: 'No site' },
+        { id: 'sistema', rotulo: 'Só no sistema' },
+        ...(contagem.inativos ? [{ id: 'inativos' as Filtro, rotulo: 'Inativos' }] : []),
+    ];
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1 sm:max-w-sm">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <Input placeholder="Buscar serviço…" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
+                </div>
+                <div className="sm:ml-auto">
+                    <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
+                </div>
+            </div>
+
+            {isAdmin && (
+                <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                    {filtros.map((f) => (
+                        <button key={f.id} type="button" onClick={() => setFiltro(f.id)}
+                            className={cn('shrink-0 rounded-full border px-3 py-1 text-sm transition-colors',
+                                filtro === f.id ? 'border-transparent bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50')}>
+                            {f.rotulo} <span className="tabular-nums opacity-70">{contagem[f.id]}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+            {!isAdmin && contagem.inativos > 0 && (
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                    <input type="checkbox" checked={filtro === 'inativos'} onChange={(e) => setFiltro(e.target.checked ? 'inativos' : 'todos')} />
+                    Ver só os inativos ({contagem.inativos})
+                </label>
+            )}
+
+            {carregando ? (
+                <p className="py-8 text-center text-gray-400">Carregando…</p>
+            ) : lista.length === 0 ? (
+                <Card className="border-dashed">
+                    <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="font-medium">{termo ? 'Nenhum serviço com esse nome' : 'Nenhum serviço aqui ainda'}</p>
+                            <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>
+                        </div>
+                        {!termo && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card className="overflow-hidden">
+                    <ul className="divide-y">
+                        {lista.map((s) => {
+                            const pg = pagina(s);
+                            const pacotes = (pacotesPorServico.get(s.id) ?? [])
+                                .filter((p) => filtro === 'inativos' || String(p.status).toLowerCase() === 'ativo')
+                                .sort((a, b) => a.quantidade_sessoes - b.quantidade_sessoes);
+                            const dono = s.id_profissional && s.id_profissional !== user?.id ? (s.profissional_nome as string | null)?.split(' ')[0] : null;
+                            const conteudo = (
+                                <>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                                            <p className="font-medium">{s.nome}</p>
+                                            <p className="text-sm tabular-nums text-gray-600">{s.duracao_minutos} min · {fmt(s.valor)}</p>
+                                        </div>
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                            {pacotes.map((p) => (
+                                                <span key={p.id} className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs tabular-nums text-blue-800">
+                                                    <Package className="h-3 w-3" /> {p.quantidade_sessoes} sessões · {fmt(p.valor_total)}
+                                                </span>
+                                            ))}
+                                            {pg ? (
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-800">
+                                                    <Globe className="h-3 w-3" /> No site: {pg.nome}
+                                                </span>
+                                            ) : (
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Só no sistema</span>
+                                            )}
+                                            {dono && <span className="rounded-full bg-violet-50 px-2 py-0.5 text-xs text-violet-800">de {dono}</span>}
+                                        </div>
+                                    </div>
+                                    {podeEditar(s) && <ChevronRight className="h-5 w-5 shrink-0 self-center text-gray-300" />}
+                                </>
+                            );
+                            const classe = cn('flex w-full items-start gap-3 px-4 py-3 text-left', !s.ativo && 'opacity-60');
+                            return (
+                                <li key={s.id}>
+                                    {podeEditar(s) ? (
+                                        <ServicoForm servico={s as any} onSuccess={salvo} triggerClassName={cn(classe, 'hover:bg-gray-50 active:bg-gray-100')} trigger={conteudo} />
+                                    ) : (
+                                        <div className={classe}>{conteudo}</div>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </Card>
+            )}
+        </div>
+    );
+}
+
+function AbaPaginas({ todos, protocolos, carregando }: { todos: ServicoItem[]; protocolos: Protocolo[]; carregando: boolean }) {
+    const { toast } = useToast();
+    const confirm = useConfirm();
+    const utils = trpc.useUtils();
+    const invalidar = () => utils.protocolos.list.invalidate();
+    const salvo = () => { invalidar(); toast({ title: 'Página do site salva', variant: 'success' }); };
+    const reorderMut = trpc.protocolos.reorder.useMutation({ onSuccess: invalidar });
+    const deleteMut = trpc.protocolos.delete.useMutation({
+        onSuccess: () => { invalidar(); utils.servicos.list.invalidate(); toast({ title: 'Página do site removida', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
@@ -60,253 +244,68 @@ export default function Servicos() {
         reorderMut.mutate({ ids });
     }
 
-    const termo = search.trim().toLowerCase();
-    const todos = (servicosQ.data ?? []) as ServicoItem[];
-    const casa = (s: ServicoItem) =>
-        !termo || s.nome.toLowerCase().includes(termo) || (s.nome_modalidade ?? '').toLowerCase().includes(termo);
-    const visivel = (s: ServicoItem) => (verInativos || s.ativo) && casa(s);
-    const inativos = todos.filter((s) => !s.ativo).length;
-
-    const pacotesPorServico = new Map<number, Pacote[]>();
-    for (const p of (pacotesQ.data ?? []) as Pacote[]) {
-        if (!p.id_servico) continue;
-        const l = pacotesPorServico.get(p.id_servico) ?? [];
-        l.push(p);
-        pacotesPorServico.set(p.id_servico, l);
-    }
-
-    const idsProtocolos = new Set(protocolos.map((p) => p.id));
-    const semSite = todos.filter((s) => (!s.id_protocolo || !idsProtocolos.has(s.id_protocolo)) && visivel(s));
-    // Fora do site: serviços da clínica e serviços próprios de cada profissional
-    const avulsos = semSite.filter((s) => !s.id_profissional);
-    const proprios = semSite.filter((s) => !!s.id_profissional);
-    const donos: [number, string][] = [...new Map<number, string>(proprios.map((s) => [s.id_profissional as number, s.profissional_nome as string])).entries()]
-        .sort((a, b) => (a[0] === user?.id ? -1 : b[0] === user?.id ? 1 : (a[1] ?? '').localeCompare(b[1] ?? '')));
-    const carregando = servicosQ.isLoading || protocolosQ.isLoading;
-
-    const lista = (servs: ServicoItem[]) => (
-        <ServicosLista servicos={servs} pacotesPorServico={pacotesPorServico} verInativos={verInativos} onSaved={handleServicoSaved} />
-    );
-
     return (
-        <div className="space-y-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight">Serviços</h2>
-                    <p className="max-w-2xl text-sm text-gray-500">
-                        {isAdmin
-                            ? 'Cada bloco é uma página do site com os serviços que ela mostra. Serviço é o que se vende e agenda; pacote é um conjunto de sessões com preço fechado.'
-                            : 'Serviço é o que você vende e agenda; pacote é um conjunto de sessões com preço fechado.'}
-                    </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                    {isAdmin && <ProtocoloForm onSuccess={handleProtocoloSaved} trigger="Nova página do site" />}
-                    <ServicoForm onSuccess={handleServicoSaved} trigger={isAdmin ? undefined : 'Novo serviço meu'} />
-                </div>
+        <div className="space-y-4">
+            <div className="flex justify-end">
+                <ProtocoloForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Nova página</>} />
             </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="relative flex-1 sm:max-w-sm">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <Input placeholder="Buscar serviço…" className="pl-9" value={search} onChange={(e) => setSearch(e.target.value)} />
-                </div>
-                {inativos > 0 && (
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-                        <input type="checkbox" checked={verInativos} onChange={(e) => setVerInativos(e.target.checked)} />
-                        Mostrar inativos ({inativos})
-                    </label>
-                )}
-            </div>
-
             {carregando && <p className="py-8 text-center text-gray-400">Carregando…</p>}
-
-            {!carregando &&
-                protocolos.map((p, i) => {
-                    const protocoloCasa = !termo || p.nome.toLowerCase().includes(termo);
-                    const servs = todos.filter((s) => s.id_protocolo === p.id && (verInativos || s.ativo) && (protocoloCasa || casa(s)));
-                    if (termo && !protocoloCasa && servs.length === 0) return null;
-                    if (!isAdmin && servs.length === 0) return null;
-                    return (
-                        <Card key={p.id} className="overflow-hidden">
-                            {/* Página do site */}
-                            <div className={`flex gap-3 border-b bg-[hsl(var(--muted))]/40 p-4 ${p.ativo ? '' : 'opacity-75'}`}>
-                                {p.imagem_url ? (
-                                    <img src={resolveImageUrl(p.imagem_url)} alt="" className="h-16 w-14 shrink-0 rounded-lg object-cover" />
-                                ) : (
-                                    <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded-lg bg-white text-[10px] text-gray-400">sem foto</div>
-                                )}
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <h3 className="text-base font-semibold">{p.nome}</h3>
-                                        <Badge variant={p.ativo ? 'success' : 'warning'}>{p.ativo ? 'No site' : 'Fora do site'}</Badge>
-                                        {p.permite_vale_presente && <Badge variant="secondary">Vale-presente</Badge>}
-                                    </div>
-                                    {p.subtitulo && <p className="text-sm italic text-gray-500">{p.subtitulo}</p>}
-                                    <div className="mt-2 flex flex-wrap items-center gap-1">
-                                        <a href={`${SITE_URL}/protocolos/${p.slug}`} target="_blank" rel="noopener noreferrer"
-                                            className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-gray-600 hover:bg-white">
-                                            <ExternalLink className="h-3.5 w-3.5" /> Ver no site
-                                        </a>
-                                        {isAdmin && (
-                                            <ProtocoloForm
-                                                protocolo={p}
-                                                onSuccess={handleProtocoloSaved}
-                                                trigger={<><SquarePen className="mr-1 h-3.5 w-3.5 text-blue-600" /> Editar página</>}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                                {isAdmin && !termo && (
-                                    <div className="flex shrink-0 flex-col items-center gap-0.5">
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Subir no site" disabled={i === 0 || reorderMut.isPending} onClick={() => mover(i, -1)}>
-                                            <ArrowUp className="h-4 w-4" />
-                                        </Button>
-                                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Descer no site" disabled={i === protocolos.length - 1 || reorderMut.isPending} onClick={() => mover(i, 1)}>
-                                            <ArrowDown className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            size="icon" variant="ghost" className="h-8 w-8" aria-label={`Excluir página ${p.nome}`} title="Excluir página do site"
-                                            onClick={async () => {
-                                                const ok = await confirm({
-                                                    title: 'Excluir página do site',
-                                                    description: `Excluir "${p.nome}"? A página sai do site. Os serviços continuam no sistema, com vendas e pacotes intactos.`,
-                                                    confirmLabel: 'Excluir',
-                                                    variant: 'danger',
-                                                });
-                                                if (ok) deleteProtocoloMut.mutate({ id: p.id });
-                                            }}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-red-500" />
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Serviços da página */}
-                            <div className="flex items-center justify-between px-4 pt-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Serviços</p>
-                                {isAdmin && (
-                                    <ServicoForm idProtocoloPadrao={p.id} onSuccess={handleServicoSaved} variant="ghost"
-                                        trigger={<><Plus className="mr-1 h-4 w-4" /> Serviço</>} />
-                                )}
-                            </div>
-                            {servs.length === 0 ? (
-                                <p className="px-4 pb-4 pt-2 text-sm text-amber-700">
-                                    Nenhum serviço: a página aparece no site sem preço e não pode ser vendida.
-                                </p>
-                            ) : (
-                                lista(servs)
-                            )}
-                        </Card>
-                    );
-                })}
-
-            {!carregando && avulsos.length > 0 && (
-                <Card>
-                    <CardHeader className="p-4 pb-0">
-                        <CardTitle className="text-base">Serviços só no sistema</CardTitle>
-                        <p className="text-sm text-gray-500">
-                            Vendidos e agendados normalmente, mas não aparecem no site.{isAdmin ? ' Para levar ao site, edite e marque "Exibir no site".' : ''}
-                        </p>
-                    </CardHeader>
-                    {lista(avulsos)}
-                </Card>
+            {!carregando && protocolos.length === 0 && (
+                <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-gray-500">Nenhuma página no site ainda.</p>
             )}
-
-            {!carregando && donos.map(([idDono, nomeDono]) => (
-                <Card key={idDono} className="border-violet-200">
-                    <CardHeader className="p-4 pb-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <CardTitle className="text-base">{idDono === user?.id ? 'Meus serviços' : `Serviços de ${nomeDono}`}</CardTitle>
-                            <Badge variant="outline">Só no sistema</Badge>
-                        </div>
-                        <p className="text-sm text-gray-500">
-                            {idDono === user?.id ? 'Você vende e agenda estes serviços. Colegas não os veem.' : 'Serviços próprios do profissional: só ele vende e agenda.'}
-                        </p>
-                    </CardHeader>
-                    {lista(proprios.filter((s) => s.id_profissional === idDono))}
-                </Card>
-            ))}
-
-            {!carregando && !isAdmin && !donos.length && !termo && (
-                <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p className="font-medium">Você ainda não tem serviços próprios</p>
-                            <p className="text-sm text-gray-500">Cadastre os serviços que você vende e agenda, com os pacotes. Eles ficam só no sistema.</p>
-                        </div>
-                        <ServicoForm onSuccess={handleServicoSaved} trigger="Cadastrar serviço" />
-                    </CardContent>
-                </Card>
-            )}
-
-            {!carregando && termo && semSite.length === 0 && !protocolos.some((p) => p.nome.toLowerCase().includes(termo) || todos.some((s) => s.id_protocolo === p.id && casa(s))) && (
-                <p className="py-8 text-center text-gray-400">Nada encontrado.</p>
-            )}
-
-            <TecnicasPanel servicos={todos} />
-        </div>
-    );
-}
-
-type Pacote = { id: number; id_servico: number | null; quantidade_sessoes: number; valor_total: string | number; status: string | null };
-
-/** Linhas de serviço: nome, duração, preço da sessão e os pacotes. */
-function ServicosLista({
-    servicos,
-    pacotesPorServico,
-    verInativos,
-    onSaved,
-}: {
-    servicos: ServicoItem[];
-    pacotesPorServico: Map<number, Pacote[]>;
-    verInativos: boolean;
-    onSaved: () => void;
-}) {
-    const { user } = useAuth();
-    const podeEditar = (s: ServicoItem) => user?.perfil === 'ADMIN' || (s.id_profissional != null && s.id_profissional === user?.id);
-    const ordenados = [...servicos].sort((a, b) => (a.ordem_modalidade ?? 0) - (b.ordem_modalidade ?? 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
-
-    return (
-        <ul className="divide-y">
-            {ordenados.map((s) => {
-                const titulo = s.nome_modalidade || s.nome;
-                const pacotes = (pacotesPorServico.get(s.id) ?? [])
-                    .filter((p) => verInativos || String(p.status).toLowerCase() === 'ativo')
-                    .sort((a, b) => a.quantidade_sessoes - b.quantidade_sessoes);
+            {protocolos.map((p, i) => {
+                const servs = todos.filter((s) => s.id_protocolo === p.id && s.ativo);
                 return (
-                    <li key={s.id} className={`flex items-start gap-3 px-4 py-3 ${s.ativo ? '' : 'opacity-60'}`}>
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                                <p className="font-medium">{titulo}</p>
-                                <p className="text-sm tabular-nums text-gray-600">
-                                    {s.duracao_minutos} min · {fmt(s.valor)}
-                                </p>
-                                {!s.ativo && <Badge variant="destructive">Inativo</Badge>}
-                            </div>
-                            {pacotes.length > 0 ? (
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                                    {pacotes.map((p) => {
-                                        const ativo = String(p.status).toLowerCase() === 'ativo';
-                                        return (
-                                            <span key={p.id} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs tabular-nums ${ativo ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-gray-200 bg-gray-50 text-gray-500 line-through'}`}>
-                                                <Package className="h-3 w-3" />
-                                                {p.quantidade_sessoes} sessões · {fmt(p.valor_total)}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <p className="mt-1 text-xs text-gray-400">Só sessão avulsa</p>
-                            )}
-                        </div>
-                        {podeEditar(s) && (
-                            <ServicoForm servico={s as any} onSuccess={onSaved} trigger={<SquarePen className="h-4 w-4 text-blue-600" />} />
+                    <Card key={p.id} className={cn('flex gap-3 p-4', !p.ativo && 'opacity-75')}>
+                        {p.imagem_url ? (
+                            <img src={resolveImageUrl(p.imagem_url)} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                            <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[10px] text-gray-400">sem foto</div>
                         )}
-                    </li>
+                        <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <h3 className="text-base font-semibold">{p.nome}</h3>
+                                <Badge variant={p.ativo ? 'success' : 'warning'}>{p.ativo ? 'No site' : 'Fora do site'}</Badge>
+                                {p.permite_vale_presente && <Badge variant="secondary">Vale-presente</Badge>}
+                            </div>
+                            {p.subtitulo && <p className="text-sm italic text-gray-500">{p.subtitulo}</p>}
+                            <p className={cn('mt-1 text-sm', servs.length ? 'text-gray-600' : 'text-amber-700')}>
+                                {servs.length
+                                    ? `Preços de: ${servs.map((s) => s.nome_modalidade || s.nome).join(', ')}`
+                                    : 'Sem serviço ligado: aparece no site sem preço. Ligue um serviço na aba Serviços.'}
+                            </p>
+                            <div className="mt-2 flex flex-wrap items-center gap-1">
+                                <a href={`${SITE_URL}/protocolos/${p.slug}`} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs text-gray-600 hover:bg-gray-100">
+                                    <ExternalLink className="h-3.5 w-3.5" /> Ver no site
+                                </a>
+                                <ProtocoloForm protocolo={p} onSuccess={salvo} trigger={<><SquarePen className="mr-1 h-3.5 w-3.5 text-blue-600" /> Editar página</>} />
+                            </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-center gap-0.5">
+                            <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Subir no site" title="Subir no site" disabled={i === 0 || reorderMut.isPending} onClick={() => mover(i, -1)}>
+                                <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Descer no site" title="Descer no site" disabled={i === protocolos.length - 1 || reorderMut.isPending} onClick={() => mover(i, 1)}>
+                                <ArrowDown className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Excluir página ${p.nome}`} title="Excluir página do site"
+                                onClick={async () => {
+                                    const ok = await confirm({
+                                        title: 'Excluir página do site',
+                                        description: `Excluir "${p.nome}"? A página sai do site. Os serviços continuam no sistema, com vendas e pacotes intactos.`,
+                                        confirmLabel: 'Excluir',
+                                        variant: 'danger',
+                                    });
+                                    if (ok) deleteMut.mutate({ id: p.id });
+                                }}>
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                        </div>
+                    </Card>
                 );
             })}
-        </ul>
+        </div>
     );
 }
 
@@ -316,7 +315,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
     const utils = trpc.useUtils();
     const { toast } = useToast();
     const confirm = useConfirm();
-    const [aberto, setAberto] = useState(false);
+    const aberto = true;
     const [nome, setNome] = useState('');
     const [editId, setEditId] = useState<number | null>(null);
     const [editNome, setEditNome] = useState('');
@@ -370,27 +369,8 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
 
     return (
         <Card>
-            <button
-                type="button"
-                onClick={() => setAberto((v) => !v)}
-                aria-expanded={aberto}
-                className="flex w-full items-center gap-3 rounded-xl px-5 py-4 text-left transition-colors hover:bg-[hsl(var(--muted))]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]"
-            >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]">
-                    <Layers className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">Técnicas</span>
-                        <span className="rounded-full bg-[hsl(var(--muted))] px-2 py-0.5 text-xs font-medium tabular-nums text-gray-600">{lista.length}</span>
-                    </span>
-                    <span className="block text-xs text-gray-500">Etiquetas dos serviços, mostradas no site. Renomear aqui muda em todos os serviços.</span>
-                </span>
-                <ChevronDown className={`h-4 w-4 shrink-0 text-gray-400 transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`} />
-            </button>
-
             {aberto && (
-                <CardContent className="space-y-4 border-t px-5 pb-5 pt-4">
+                <CardContent className="space-y-4 p-4 sm:p-5">
                     <form
                         onSubmit={(e) => {
                             e.preventDefault();
