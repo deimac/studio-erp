@@ -66,6 +66,7 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
     const valores = p.modalidades.map((m) => Number(m.valor)).filter((v) => v > 0);
     const aPartir = valores.length ? Math.min(...valores) : null;
     const duracoes = formatDuracoes(p.modalidades.map((m) => m.duracao_minutos));
+    const prefixoPreco = new Set(p.modalidades.map((m) => m.duracao_minutos)).size > 1 || p.modalidades.length > 1 ? 'a partir de' : duracoes;
     const temPacotes = p.modalidades.some((m) => m.pacotes.length > 0);
     const paragrafos = (p.descricao ?? '').split(/\n{2,}/).map((s) => s.trim()).filter(Boolean);
     const outros = (todos ?? []).filter((o) => o.slug !== p.slug).slice(0, 3);
@@ -81,62 +82,73 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
             </nav>
 
             <section className="p-hero">
+                <img src={imagemProtocolo(p)} alt="" fetchPriority="high" onError={imagemReserva} />
                 <div className="txt">
-                    <span className="ic-lg"><Icone /></span>
-                    <span className="eyebrow">Protocolo</span>
-                    <h1>{p.nome}</h1>
-                    {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
-                    <div className="facts">
-                        {duracoes && <span className="fact"><Clock />{duracoes}</span>}
-                        {aPartir != null && <span className="fact"><Wallet />a partir de <b>{formatBRL(aPartir)}</b></span>}
-                        {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
-                        {p.permite_vale_presente && <span className="fact"><Gift />Disponível como vale-presente</span>}
+                    <div className="head">
+                        <span className="ic-lg"><Icone /></span>
+                        <span className="eyebrow">Protocolo</span>
                     </div>
-                    <div className="ctas">
-                        <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
-                        {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
+                    <div className="body">
+                        <h1>{p.nome}</h1>
+                        {p.subtitulo && <p className="sub">{p.subtitulo}</p>}
+                        <div className="facts">
+                            {duracoes && <span className="fact"><Clock />{duracoes}</span>}
+                            {p.modalidades.length > 1 && <span className="fact"><ListChecks />{p.modalidades.length} modalidades</span>}
+                            {p.permite_vale_presente && <span className="fact"><Gift />Vale-presente</span>}
+                        </div>
                     </div>
-                </div>
-                <div className="visual">
-                    <img src={imagemProtocolo(p)} alt={p.nome} fetchPriority="high" onError={imagemReserva} />
-                    {aPartir != null && <span className="glass price-chip"><small>a partir de</small><b>{formatBRL(aPartir)}</b></span>}
+                    <div className="foot-row">
+                        {aPartir != null && (
+                            <span className="meta">{prefixoPreco && <small>{prefixoPreco}</small>}<b>{formatBRL(aPartir)}</b></span>
+                        )}
+                        <div className="ctas">
+                            <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer">{ctaPrincipal.label}<CtaIcon /></a>
+                            {p.modalidades.length > 0 && <a className="pill ghost" href="#valores">Ver valores</a>}
+                        </div>
+                    </div>
                 </div>
             </section>
 
             {(paragrafos.length > 0 || p.inclui.length > 0 || p.beneficios.length > 0) && (
-                <section className="p-body">
-                    <div>
-                        {paragrafos.length > 0 && <div className="prose">{paragrafos.map((t, i) => <p key={i}>{t}</p>)}</div>}
-                        {(p.inclui.length > 0 || p.beneficios.length > 0) && (
-                            <div className={`lists${p.inclui.length && p.beneficios.length ? '' : ' single'}`}>
-                                {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
-                                {p.beneficios.length > 0 && <Lista titulo="Benefícios" itens={p.beneficios} icone={Sparkles} />}
-                            </div>
-                        )}
-                    </div>
-                    <aside className="aside">
-                        <span className="mono" aria-hidden="true" />
-                        <span className="eyebrow">Sua sessão</span>
-                        <h2>Um cuidado só seu</h2>
-                        <ul>
-                            <li><HandHeart />Atendimento individual, com hora marcada</li>
-                            <li><Info />Avaliação prévia antes de começar</li>
-                            <li><Wallet />Pagamento no dia: PIX, cartão ou dinheiro</li>
-                        </ul>
-                        <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer"><MessageCircle />{ctaPrincipal.label}</a>
-                    </aside>
+                <section className={`p-body${paragrafos.length ? '' : ' no-prose'}`}>
+                    {paragrafos.length > 0 && (
+                        <div className="prose">
+                            <span className="eyebrow">Sobre o protocolo</span>
+                            {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
+                        </div>
+                    )}
+                    {(p.inclui.length > 0 || p.beneficios.length > 0) && (
+                        <div className="lists">
+                            {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
+                            {p.beneficios.length > 0 && <Lista titulo="Benefícios" itens={p.beneficios} icone={Sparkles} />}
+                        </div>
+                    )}
                 </section>
             )}
 
             {p.modalidades.length > 0 && (
                 <section className="mods reveal" id="valores" ref={refMods}>
                     <div className="sh">
-                        <div><span className="eyebrow">Valores</span><h2>{p.modalidades.length > 1 ? <>Escolha a sua<br /><em>modalidade</em></> : <>Sessão e<br /><em>{temPacotes ? 'pacotes' : 'valor'}</em></>}</h2></div>
+                        <div><span className="eyebrow">Valores</span><h2>{p.modalidades.length > 1 ? <>Escolha a sua <em>modalidade</em></> : <>Sessão e <em>{temPacotes ? 'pacotes' : 'valor'}</em></>}</h2></div>
                         {temPacotes && <p>Nos pacotes, cada sessão sai mais em conta. Toque em um pacote para falar comigo pelo WhatsApp.</p>}
                     </div>
                     <div className="mod-grid">{p.modalidades.map((m) => <ModalidadeCard key={m.id} p={p} m={m} />)}</div>
                 </section>
             )}
+
+            <section className="session">
+                <span className="mono" aria-hidden="true" />
+                <div className="lead">
+                    <span className="eyebrow">Sua sessão</span>
+                    <h2>Um cuidado só seu</h2>
+                </div>
+                <ul>
+                    <li><span className="ic"><HandHeart /></span>Atendimento individual, com hora marcada</li>
+                    <li><span className="ic"><Info /></span>Avaliação prévia antes de começar</li>
+                    <li><span className="ic"><Wallet /></span>Pagamento no dia: PIX, cartão ou dinheiro</li>
+                </ul>
+                <a className="pill" href={ctaPrincipal.href} target="_blank" rel="noreferrer"><MessageCircle />{ctaPrincipal.label}</a>
+            </section>
 
             {p.aviso && (
                 <div className="notice" role="note">
@@ -166,10 +178,7 @@ export default function ProtocoloPage() {
 
     if (isLoading) {
         return (
-            <section className="p-hero" aria-busy="true">
-                <div className="txt"><span className="ic-lg skel" /><div className="skel" style={{ height: 60, borderRadius: 16, width: '80%' }} /></div>
-                <div className="visual skel" />
-            </section>
+            <section className="p-hero skel" aria-busy="true" />
         );
     }
     if (isError) return <NotFound titulo="Não foi possível carregar" texto="Verifique sua conexão e tente novamente em instantes." />;
