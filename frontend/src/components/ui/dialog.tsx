@@ -10,7 +10,7 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
     <DialogPrimitive.Overlay
         ref={ref}
-        className={cn('fixed inset-0 z-50 data-[state=open]:animate-in data-[state=closed]:animate-out', className)}
+        className={cn('fixed inset-0 z-50 bg-slate-900/30 data-[state=open]:animate-in data-[state=closed]:animate-out', className)}
         {...props}
     />
 ));
@@ -31,14 +31,16 @@ const DialogContent = React.forwardRef<
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-6 shadow-lg sm:rounded-lg',
+                // Celular: folha que sobe do rodapé; a partir de 640px: janela centralizada
+                'fixed inset-x-0 bottom-0 z-50 grid max-h-[92dvh] w-full gap-4 overflow-y-auto rounded-t-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-lg',
+                'sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[90vh] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:p-6',
                 className
             )}
             {...props}
         >
             {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100">
-                <X className="h-4 w-4" />
+            <DialogPrimitive.Close className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full opacity-70 hover:opacity-100 sm:right-4 sm:top-4 sm:h-auto sm:w-auto">
+                <X className="h-5 w-5 sm:h-4 sm:w-4" />
             </DialogPrimitive.Close>
         </DialogPrimitive.Content>
     </DialogPortal>

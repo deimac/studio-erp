@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
+import { dataBR } from '@/lib/datas';
 import { AtendimentoForm } from '@/components/AtendimentoForm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,11 +65,7 @@ export default function Atendimentos() {
         faltas: atendQ.data?.filter((a) => a.status === 'FALTOU').length ?? 0,
     };
 
-    const fmtDate = (d: string | Date | null) => {
-        if (!d) return '–';
-        const dt = new Date(d);
-        return dt.toLocaleDateString('pt-BR');
-    };
+    const fmtDate = dataBR;
     const fmtTime = (t: string | null) => t?.slice(0, 5) ?? '–';
 
     const handleCancelClick = async (id: number) => {
@@ -94,7 +91,7 @@ export default function Atendimentos() {
 
                 <TabsContent value="atendimentos" className="space-y-4 mt-4">
                     {/* Cards informativos */}
-                    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+                    <div className="hidden gap-4 sm:grid sm:grid-cols-3 lg:grid-cols-5">
                         <Card>
                             <CardContent className="flex items-center gap-3 p-4">
                                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -169,6 +166,47 @@ export default function Atendimentos() {
 
                     <Card>
                         <CardContent className="p-0">
+                            {/* Celular: cartões */}
+                            <ul className="divide-y md:hidden">
+                                {atendQ.isLoading && <li className="py-8 text-center text-gray-400">Carregando…</li>}
+                                {filtered?.length === 0 && <li className="py-8 text-center text-gray-400">Nenhum atendimento.</li>}
+                                {filtered?.map((a) => {
+                                    const cfg = statusConfig[a.status] ?? statusConfig.AGENDADO;
+                                    const Icon = cfg.icon;
+                                    const aberto = a.status === 'AGENDADO' || a.status === 'CONFIRMADO';
+                                    return (
+                                        <li key={a.id} className="space-y-2 p-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="min-w-0">
+                                                    <p className="truncate font-semibold">{a.pessoa_nome}</p>
+                                                    <p className="text-sm tabular-nums text-gray-500">{fmtDate(a.data)} · {fmtTime(a.hora_inicio)}–{fmtTime(a.hora_fim)}</p>
+                                                </div>
+                                                <Badge variant={cfg.variant} className="shrink-0 gap-1">
+                                                    <Icon className="h-3 w-3" />
+                                                    {cfg.label}
+                                                </Badge>
+                                            </div>
+                                            <p className="truncate text-sm text-gray-600">
+                                                {a.servico_nome ?? a.pacote_nome ?? 'Serviço'} · {a.profissional_nome}
+                                            </p>
+                                            {aberto && (
+                                                <div className="grid grid-cols-3 gap-2 pt-1">
+                                                    <Button variant="outline" size="sm" className="h-10 gap-1 text-green-700" disabled={realizarMut.isPending} onClick={() => realizarMut.mutate({ id: a.id })}>
+                                                        <CheckCircle className="h-4 w-4" /> Realizar
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" className="h-10 gap-1 text-amber-700" disabled={faltouMut.isPending} onClick={() => faltouMut.mutate({ id: a.id })}>
+                                                        <AlertCircle className="h-4 w-4" /> Faltou
+                                                    </Button>
+                                                    <Button variant="outline" size="sm" className="h-10 gap-1 text-red-700" disabled={cancelarMut.isPending} onClick={() => handleCancelClick(a.id)}>
+                                                        <XCircle className="h-4 w-4" /> Cancelar
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                            <div className="hidden md:block">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -267,6 +305,7 @@ export default function Atendimentos() {
                                     })}
                                 </TableBody>
                             </Table>
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>

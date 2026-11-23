@@ -82,8 +82,7 @@
 .agenda-studio .rbc-day-slot .rbc-background-event.evt-atendimento {
     background: color-mix(in srgb, var(--evt-cor) 14%, white);
     color: #0f172a;
-    border: 1px solid color-mix(in srgb, var(--evt-cor) 30%, white);
-    border-left: 4px solid var(--evt-cor);
+    border: 1px solid color-mix(in srgb, var(--evt-cor) 45%, white);
     border-radius: 6px;
     padding: 2px 6px;
     box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
@@ -99,8 +98,7 @@
 }
 
 .agenda-studio .rbc-event.evt-confirmado {
-    border-left-style: double;
-    border-left-width: 6px;
+    background: color-mix(in srgb, var(--evt-cor) 24%, white);
 }
 
 .agenda-studio .rbc-event.evt-realizado {

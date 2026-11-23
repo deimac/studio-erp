@@ -57,6 +57,21 @@ export default function Pessoas() {
             (p.telefone ?? '').includes(search),
     );
 
+    async function removerPessoa(p: { id: number; nome: string }) {
+        const hasVendas = await hasVendasVinculadas(p.id, trpcClient);
+        if (hasVendas) {
+            toast({ title: 'Não é possível excluir', description: 'Esta pessoa possui vendas vinculadas.', variant: 'error' });
+            return;
+        }
+        const ok = await confirm({
+            title: 'Remover pessoa',
+            description: `Tem certeza que deseja remover "${p.nome}"? Essa ação não pode ser desfeita.`,
+            confirmLabel: 'Remover',
+            variant: 'danger',
+        });
+        if (ok) deleteMut.mutate({ id: p.id });
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -93,7 +108,38 @@ export default function Pessoas() {
                 </div>
             </div>
 
-            <Card>
+            {/* Celular: cartões */}
+            <Card className="md:hidden">
+                <ul className="divide-y">
+                    {pessoasQ.isLoading && <li className="py-8 text-center text-gray-400">Carregando…</li>}
+                    {filtered?.length === 0 && <li className="py-8 text-center text-gray-400">Nenhuma pessoa encontrada.</li>}
+                    {filtered?.map((p) => (
+                        <li key={p.id} className="flex items-center gap-3 p-4">
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate font-semibold">{p.nome}</p>
+                                <p className="flex flex-wrap items-center gap-x-2 text-sm text-gray-500">
+                                    {p.telefone ? <a href={`tel:${p.telefone.replace(/\D/g, '')}`} className="tabular-nums text-[hsl(var(--primary))]">{p.telefone}</a> : 'Sem telefone'}
+                                    <Badge variant={tipoBadge(p.tipo)} className="text-[10px]">{p.tipo}</Badge>
+                                    {p.status !== 'ATIVO' && <Badge variant="destructive" className="text-[10px]">{p.status}</Badge>}
+                                </p>
+                            </div>
+                            <PessoaForm
+                                editData={p as any}
+                                onSuccess={() => {
+                                    utils.pessoas.list.invalidate();
+                                    toast({ title: 'Pessoa atualizada', variant: 'success' });
+                                }}
+                                trigger={<SquarePen className="h-5 w-5 text-blue-600" />}
+                            />
+                            <Button variant="ghost" size="icon" className="h-10 w-10 text-red-500" aria-label={`Remover ${p.nome}`} onClick={() => removerPessoa(p)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            </Card>
+
+            <Card className="hidden md:block">
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
@@ -163,31 +209,7 @@ export default function Pessoas() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 px-2 text-xs text-red-500 hover:text-red-700"
-                                                onClick={async () => {
-                                                    const hasVendas = await hasVendasVinculadas(p.id, trpcClient);
-                                                    if (hasVendas) {
-                                                        toast({
-                                                            title: 'Não é possível excluir',
-                                                            description: 'Esta pessoa possui vendas vinculadas.',
-                                                            variant: 'error',
-                                                        });
-                                                        return;
-                                                    }
-                                                    const ok = await confirm({
-                                                        title: 'Remover pessoa',
-                                                        description: `Tem certeza que deseja remover "${p.nome}"? Essa ação não pode ser desfeita.`,
-                                                        confirmLabel: 'Remover',
-                                                        variant: 'danger',
-                                                    });
-                                                    if (ok) {
-                                                        deleteMut.mutate({ id: p.id });
-                                                        toast({
-                                                            title: 'Pessoa sem vendas',
-                                                            description: 'Removendo pessoa sem vendas vinculadas.',
-                                                            variant: 'success',
-                                                        });
-                                                    }
-                                                }}
+                                                onClick={() => removerPessoa(p)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>

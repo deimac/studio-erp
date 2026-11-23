@@ -1,5 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { trpc } from '@/services/trpc';
+import { dataBR } from '@/lib/datas';
 import { useEscopo } from '@/hooks/useEscopo';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,7 @@ export default function Dashboard() {
     const pessoasList = trpc.pessoas.list.useQuery({ escopo });
     const vendasList = trpc.vendas.list.useQuery({ status: 'ATIVA', escopo });
 
-    const fmt = (v: string) => new Date(v).toLocaleDateString('pt-BR');
+    const fmt = dataBR;
     const fmtTime = (v?: string | null) => (v ? v.slice(0, 5) : '–');
 
     return (

@@ -142,7 +142,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
                 )}
 
                 {podeAgir && !cancelando && (
-                    <DialogFooter className="flex-wrap gap-2 sm:justify-start sm:space-x-0">
+                    <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start sm:space-x-0 [&>button]:h-11 sm:[&>button]:h-9">
                         {evento.pessoa_telefone && (
                             <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={abrirWhatsApp} disabled={!waQ.data}>
                                 <MessageCircle className="mr-1.5 h-4 w-4" /> {tipoMsg === 'LEMBRETE' ? 'Lembrete' : 'Confirmar'} no WhatsApp

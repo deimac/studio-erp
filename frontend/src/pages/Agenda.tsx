@@ -17,6 +17,8 @@ import { AgendamentoDetalhe, type EventoAgenda } from '@/components/agenda/Agend
 import { BloqueioForm } from '@/components/agenda/BloqueioForm';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { LembretesDialog } from '@/components/agenda/LembretesDialog';
+import { AgendaDia } from '@/components/agenda/AgendaDia';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 
@@ -77,7 +79,12 @@ export default function Agenda() {
     const confirm = useConfirm();
     const utils = trpc.useUtils();
 
+    const mobile = useIsMobile();
     const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'));
+    // No celular só há "Dia" (lista) e "Mês"
+    useEffect(() => {
+        if (mobile && (view === 'week' || view === 'agenda')) setView('day');
+    }, [mobile, view]);
     const [data, setData] = useState(new Date());
     const [colunas, setColunas] = useState<'profissional' | 'sala'>('profissional');
     const [selProfs, setSelProfs] = useState<number[]>([]);
@@ -90,7 +97,8 @@ export default function Agenda() {
     /** Posição otimista enquanto o servidor confirma um arrastar/redimensionar. */
     const [movendo, setMovendo] = useState<Record<number, { start: Date; end: Date; resourceId?: number }>>({});
 
-    const [de, ate] = periodo(view, data);
+    // No celular o "Dia" busca a semana inteira para a faixa de dias mostrar os pontos
+    const [de, ate] = mobile && view === 'day' ? periodo('week', data) : periodo(view, data);
     const profsQ = trpc.agenda.profissionais.list.useQuery();
     const salasQ = trpc.agenda.salas.list.useQuery();
     const eventosQ = trpc.agenda.eventos.useQuery({
@@ -282,7 +290,10 @@ export default function Agenda() {
 
     async function selecionar(e: Evento) {
         if (e.tipo === 'atendimento') return setDetalhe(e.atendimento!);
-        const b = e.bloqueio!;
+        return perguntarRemoverBloqueio(e.bloqueio!);
+    }
+
+    async function perguntarRemoverBloqueio(b: { id: number; motivo: string | null; id_profissional: number | null }) {
         if (!isAdmin && b.id_profissional !== user?.id) return;
         const ok = await confirm({
             title: 'Remover bloqueio?',
@@ -315,6 +326,157 @@ export default function Agenda() {
 
     const passoMin = Math.min(...profsVisiveis.map((p) => p.intervalo_agenda_min ?? 30), 30);
 
+    const novoAgendamento = (hora?: string) =>
+        setForm({ open: true, inicial: { data: dataISO(data), hora_inicio: hora, id_profissional: selProfs.length === 1 && isAdmin ? selProfs[0] : user?.id } });
+
+    const chipsProfissionais = (
+        <>
+            <button type="button" onClick={() => setSelProfs([])}
+                className={cn('shrink-0 rounded-full border px-3 py-1.5', !selProfs.length ? 'border-gray-900 bg-gray-900 text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                Todos
+            </button>
+            {profissionais.map((p) => {
+                const ativo = selProfs.includes(p.id);
+                const cor = corPadrao(p.id, p.cor);
+                return (
+                    <button key={p.id} type="button"
+                        onClick={() => setSelProfs((s) => (ativo ? s.filter((x) => x !== p.id) : [...s, p.id]))}
+                        className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
+                        style={ativo ? { background: cor, borderColor: cor } : undefined}>
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: ativo ? '#fff' : cor }} />
+                        {p.nome.split(' ')[0]}
+                    </button>
+                );
+            })}
+        </>
+    );
+
+    const dialogos = (
+        <>
+            <AgendamentoForm open={form.open} onOpenChange={(v) => setForm((f) => ({ ...f, open: v }))} inicial={form.inicial} />
+            <AgendamentoDetalhe
+                evento={detalhe}
+                onOpenChange={(v) => !v && setDetalhe(null)}
+                onEditar={(e) => {
+                    setDetalhe(null);
+                    setForm({
+                        open: true,
+                        inicial: {
+                            id: e.id,
+                            id_recorrencia: e.id_recorrencia,
+                            id_pessoa: e.id_pessoa,
+                            pessoa_nome: e.pessoa_nome,
+                            id_profissional: e.id_profissional,
+                            id_sala: e.id_sala,
+                            data: e.data,
+                            hora_inicio: e.hora_inicio,
+                            hora_fim: e.hora_fim,
+                            servicos: e.servicos.map((s) => s.id),
+                            id_venda: e.id_venda,
+                            observacoes: e.observacoes,
+                        },
+                    });
+                }}
+            />
+            <BloqueioForm open={bloqueio.open} onOpenChange={(v) => setBloqueio((b) => ({ ...b, open: v }))} inicial={bloqueio.inicial} />
+            <ExpedienteDialog open={expediente} onOpenChange={setExpediente} profissional={eu ?? null} admin={isAdmin} />
+            <LembretesDialog open={lembretes} onOpenChange={setLembretes} />
+        </>
+    );
+
+    if (mobile) {
+        const t = view === 'month' ? format(data, "MMMM 'de' yyyy", { locale: ptBR }) : format(data, "EEEE, d 'de' MMM", { locale: ptBR });
+        const titulo = t.charAt(0).toUpperCase() + t.slice(1);
+        return (
+            <div className="flex flex-col gap-3">
+                {/* Navegação do dia */}
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Anterior" onClick={() => navegar(-1)}><ChevronLeft className="h-5 w-5" /></Button>
+                    <label className="relative min-w-0 flex-1 text-center">
+                        <span className="block truncate text-lg font-semibold">{titulo}</span>
+                        <input type="date" aria-label="Escolher data" value={dataISO(data)}
+                            onChange={(e) => e.target.value && setData(paraDate(e.target.value))}
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+                    </label>
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Próximo" onClick={() => navegar(1)}><ChevronRight className="h-5 w-5" /></Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <div className="flex rounded-lg border p-0.5">
+                        {(['day', 'month'] as View[]).map((v) => (
+                            <button key={v} type="button" onClick={() => setView(v)}
+                                className={cn('rounded-md px-4 py-1.5 text-sm', view === v ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))]')}>
+                                {v === 'day' ? 'Dia' : 'Mês'}
+                            </button>
+                        ))}
+                    </div>
+                    {dataISO(data) !== dataISO(new Date()) && (
+                        <Button variant="outline" size="sm" className="h-9" onClick={() => navegar(0)}>Hoje</Button>
+                    )}
+                    <div className="ml-auto flex">
+                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Lembretes por WhatsApp" onClick={() => setLembretes(true)}><BellRing className="h-5 w-5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Bloquear horário" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="h-5 w-5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Meu expediente" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="h-5 w-5" /></Button>
+                    </div>
+                </div>
+
+                {profissionais.length > 1 && (
+                    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 text-sm scrollbar-thin">{chipsProfissionais}</div>
+                )}
+
+                {view === 'day' ? (
+                    <AgendaDia
+                        data={data}
+                        onData={setData}
+                        atendimentos={dados?.atendimentos ?? []}
+                        bloqueios={dados?.bloqueios ?? []}
+                        horarios={dados?.horarios ?? []}
+                        profissionais={profissionais}
+                        visiveis={profsVisiveis}
+                        idReferencia={selProfs.length === 1 ? selProfs[0] : eu?.id}
+                        carregando={eventosQ.isLoading}
+                        onAbrir={setDetalhe}
+                        onNovo={novoAgendamento}
+                        onBloqueio={perguntarRemoverBloqueio}
+                    />
+                ) : (
+                    <div className="agenda-studio h-[70vh] rounded-lg border bg-white">
+                        <DnDCalendar
+                            localizer={localizer}
+                            culture="pt-BR"
+                            messages={MENSAGENS}
+                            toolbar={false}
+                            view="month"
+                            views={['month']}
+                            date={data}
+                            onNavigate={(d) => setData(d)}
+                            events={eventos}
+                            selectable
+                            longPressThreshold={250}
+                            onSelectSlot={(slot) => { setData(slot.start as Date); setView('day'); }}
+                            onSelectEvent={(e) => { setData(e.start); setView('day'); }}
+                            onDrillDown={(d) => { setData(d); setView('day'); }}
+                            onView={() => undefined}
+                            draggableAccessor={() => false}
+                            eventPropGetter={(e) => ({
+                                className: cn('evt-atendimento', e.atendimento && `evt-${e.atendimento.status.toLowerCase()}`, e.atendimento?.restrito && 'evt-restrito'),
+                                style: { '--evt-cor': e.atendimento?.restrito ? '#94a3b8' : e.cor } as React.CSSProperties,
+                            })}
+                        />
+                    </div>
+                )}
+
+                {/* Agendar: ao alcance do polegar */}
+                <button type="button" onClick={() => novoAgendamento()} aria-label="Novo agendamento"
+                    className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white shadow-[0_8px_24px_-6px_rgb(37_99_235/0.55)] active:scale-95">
+                    <Plus className="h-6 w-6" />
+                </button>
+
+                {dialogos}
+            </div>
+        );
+    }
+
     return (
         <div className="flex h-full flex-col gap-3">
             {/* Barra superior */}
@@ -341,23 +503,7 @@ export default function Agenda() {
 
             {/* Filtros e ações secundárias */}
             <div className="flex flex-wrap items-center gap-2 text-sm">
-                <button type="button" onClick={() => setSelProfs([])}
-                    className={cn('rounded-full border px-3 py-1', !selProfs.length ? 'border-gray-900 bg-gray-900 text-white' : 'hover:bg-[hsl(var(--accent))]')}>
-                    Todos
-                </button>
-                {profissionais.map((p) => {
-                    const ativo = selProfs.includes(p.id);
-                    const cor = corPadrao(p.id, p.cor);
-                    return (
-                        <button key={p.id} type="button"
-                            onClick={() => setSelProfs((s) => (ativo ? s.filter((x) => x !== p.id) : [...s, p.id]))}
-                            className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1 transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
-                            style={ativo ? { background: cor, borderColor: cor } : undefined}>
-                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: ativo ? '#fff' : cor }} />
-                            {p.nome.split(' ')[0]}
-                        </button>
-                    );
-                })}
+                {chipsProfissionais}
 
                 {view === 'day' && salas.length > 0 && (
                     <div className="ml-2 flex items-center gap-1 rounded-md border p-0.5 text-xs">
@@ -458,34 +604,7 @@ export default function Agenda() {
                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm agenda-legenda-bloqueio" /> Bloqueado</span>
             </div>
 
-            <AgendamentoForm open={form.open} onOpenChange={(v) => setForm((f) => ({ ...f, open: v }))} inicial={form.inicial} />
-            <AgendamentoDetalhe
-                evento={detalhe}
-                onOpenChange={(v) => !v && setDetalhe(null)}
-                onEditar={(e) => {
-                    setDetalhe(null);
-                    setForm({
-                        open: true,
-                        inicial: {
-                            id: e.id,
-                            id_recorrencia: e.id_recorrencia,
-                            id_pessoa: e.id_pessoa,
-                            pessoa_nome: e.pessoa_nome,
-                            id_profissional: e.id_profissional,
-                            id_sala: e.id_sala,
-                            data: e.data,
-                            hora_inicio: e.hora_inicio,
-                            hora_fim: e.hora_fim,
-                            servicos: e.servicos.map((s) => s.id),
-                            id_venda: e.id_venda,
-                            observacoes: e.observacoes,
-                        },
-                    });
-                }}
-            />
-            <BloqueioForm open={bloqueio.open} onOpenChange={(v) => setBloqueio((b) => ({ ...b, open: v }))} inicial={bloqueio.inicial} />
-            <ExpedienteDialog open={expediente} onOpenChange={setExpediente} profissional={eu ?? null} admin={isAdmin} />
-            <LembretesDialog open={lembretes} onOpenChange={setLembretes} />
+            {dialogos}
         </div>
     );
 }

@@ -111,7 +111,7 @@ export default function Vendas() {
             </div>
 
             {/* Cards informativos */}
-            <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid gap-2 grid-cols-3 sm:gap-4 sm:grid-cols-2 max-sm:[&>*>div]:p-2.5 max-sm:[&>*>div>div:first-child]:hidden max-sm:[&_p]:text-[11px] max-sm:[&_p+p]:text-sm sm:grid-cols-3 lg:grid-cols-5">
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -194,8 +194,71 @@ export default function Vendas() {
                 </div>
             </div>
 
+            {/* Celular: cartões; toque abre parcelas e atendimentos */}
+            <Card className="md:hidden">
+                <ul className="divide-y">
+                    {vendasQ.isLoading && <li className="py-8 text-center text-gray-400">Carregando…</li>}
+                    {filtered?.length === 0 && <li className="py-8 text-center text-gray-400">Nenhuma venda encontrada.</li>}
+                    {filtered?.map((v) => {
+                        const realizadas = v.sessoes_realizadas ?? 0;
+                        const total = v.quantidade_sessoes ?? 0;
+                        const pct = total > 0 ? Math.round((realizadas / total) * 100) : 0;
+                        const aberta = expandedId === v.id;
+                        return (
+                            <li key={v.id}>
+                                <button type="button" className="block w-full space-y-1.5 p-4 text-left active:bg-[hsl(var(--muted))]/50"
+                                    onClick={() => setExpandedId(aberta ? null : v.id)} aria-expanded={aberta}>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="truncate font-semibold">{v.pessoa_nome}</p>
+                                            <p className="truncate text-sm text-gray-600">{v.pacote_nome ?? v.servico_nome ?? '–'}</p>
+                                        </div>
+                                        <div className="shrink-0 text-right">
+                                            <p className="font-semibold tabular-nums">{fmt(v.valor)}</p>
+                                            <Badge variant={v.status === 'ATIVA' ? 'success' : 'secondary'}>{v.status === 'ATIVA' ? 'Ativa' : 'Encerrada'}</Badge>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200">
+                                            <div className={`h-full rounded-full ${pct >= 100 ? 'bg-green-500' : 'bg-blue-500'}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                                        </div>
+                                        <span className="tabular-nums">{realizadas}/{total} sessões</span>
+                                        <span>· {fmtDate(v.data_venda)}</span>
+                                        {aberta ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                    </div>
+                                    {escopo === 'GERAL' && <p className="text-xs text-gray-500">por {v.profissional_nome ?? '—'} · {v.forma_pagamento_nome}</p>}
+                                </button>
+                                {aberta && (
+                                    <div className="border-t bg-[hsl(var(--muted))]/30">
+                                        {v.status === 'ATIVA' && (v.canDelete || v.canClose) && (
+                                            <div className="flex gap-2 px-4 pt-3">
+                                                {v.canDelete && (
+                                                    <Button variant="outline" size="sm" className="h-10 flex-1 text-red-600"
+                                                        onClick={async () => {
+                                                            const ok = await confirm({ title: 'Excluir venda', description: 'Excluir esta venda e todas as parcelas? Essa ação não pode ser desfeita.', confirmLabel: 'Excluir', variant: 'danger' });
+                                                            if (ok) deleteMut.mutate({ id: v.id });
+                                                        }}>
+                                                        <Trash2 className="mr-1 h-4 w-4" /> Excluir
+                                                    </Button>
+                                                )}
+                                                {v.canClose && (
+                                                    <Button variant="outline" size="sm" className="h-10 flex-1 text-yellow-700" onClick={() => setEncerrarId(v.id)}>
+                                                        <Lock className="mr-1 h-4 w-4" /> Encerrar
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        )}
+                                        <VendaDetail venda={v} />
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            </Card>
+
             {/* Tabela */}
-            <Card>
+            <Card className="hidden md:block">
                 <CardContent className="p-0 overflow-x-auto">
                     <Table>
                         <TableHeader>

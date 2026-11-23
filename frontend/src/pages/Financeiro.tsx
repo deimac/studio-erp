@@ -318,7 +318,7 @@ export default function Financeiro() {
             )}
 
             {/* Summary cards */}
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 grid-cols-3 sm:gap-4 sm:grid-cols-2 max-sm:[&>*>div]:p-2.5 max-sm:[&>*>div>div:first-child]:hidden max-sm:[&_p]:text-[11px] max-sm:[&_p+p]:text-sm lg:grid-cols-3">
                 <Card>
                     <CardContent className="flex items-center gap-3 p-4">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
@@ -486,8 +486,47 @@ export default function Financeiro() {
                 </div>
             </Card>
 
+            {/* Celular: cartões com o "pago" ao alcance do dedo */}
+            <Card className="md:hidden">
+                <ul className="divide-y">
+                    {finQ.isLoading && <li className="py-8 text-center text-gray-400">Carregando…</li>}
+                    {!finQ.isLoading && filtered.length === 0 && <li className="py-8 text-center text-gray-400">Nenhum lançamento.</li>}
+                    {filtered.map((f: any) => {
+                        const situacao = getSituacaoVencimento(f.data_vencimento, f.data_pagamento);
+                        const pgt = pagamentoDisplayStatus(f.data_pagamento, f.data_vencimento);
+                        return (
+                            <li key={f.id} className="flex items-center gap-3 p-4">
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-baseline justify-between gap-2">
+                                        <p className="truncate font-semibold">{f.cliente_nome}</p>
+                                        <p className="shrink-0 font-semibold tabular-nums">{fmt(f.valor)}</p>
+                                    </div>
+                                    <p className="truncate text-sm text-gray-600">
+                                        {f.pacote_nome ?? f.servico_nome ?? f.descricao ?? '–'}
+                                        {f.quantidade_parcelas > 1 ? ` · ${f.parcela}/${f.quantidade_parcelas}` : ''}
+                                    </p>
+                                    <p className="text-xs">
+                                        <span className={situacao === 'ATRASADO' ? 'font-medium text-red-700' : situacao === 'VENCE_HOJE' ? 'font-medium text-yellow-700' : 'text-gray-500'}>
+                                            vence {fmtDate(f.data_vencimento)}
+                                        </span>
+                                        <span className="text-gray-400"> · </span>
+                                        <span className={pgt.color}>{pgt.label}</span>
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={!!f.data_pagamento}
+                                    disabled={updateParcelaMut.isPending}
+                                    onCheckedChange={(checked: boolean) => handleTogglePago(f.id, checked)}
+                                    aria-label={`Marcar ${f.cliente_nome} como pago`}
+                                />
+                            </li>
+                        );
+                    })}
+                </ul>
+            </Card>
+
             {/* Tabela */}
-            <Card>
+            <Card className="hidden md:block">
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
