@@ -447,23 +447,29 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         {idPessoa && (itensCliente.length > 0 || itensAtuaisFora.length > 0) && (
                             <div className="space-y-2">
                                 <Label>Já comprado <span className="font-normal text-[hsl(var(--muted-foreground))]">· marque o que usa nesta sessão</span></Label>
-                                <div className="grid gap-2 sm:grid-cols-2">
+                                <div className="space-y-2">
                                     {itensAtuaisFora.map((id) => (
                                         <CartaoItem key={id} ativo={usarItens.includes(id)} onClick={() => setUsarItens((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]))}
-                                            titulo={inicial.venda_rotulo ?? 'Item da venda'} linha1="usado neste agendamento" linha2="" />
+                                            titulo={inicial.venda_rotulo ?? 'Item da venda'} />
                                     ))}
                                     {itensCliente.map((it) => {
                                         const ativo = usarItens.includes(it.id);
-                                        const dataVenda = String(it.data_venda ?? '').slice(0, 10).split('-').reverse().join('/');
                                         return (
                                             <CartaoItem key={it.id} ativo={ativo} pacote={it.pacote} pagamento={it.pagamento}
                                                 onClick={() => { setUsarItens((l) => (ativo ? l.filter((x) => x !== it.id) : [...l, it.id])); setDuracaoManual(false); }}
-                                                titulo={it.rotulo}
-                                                linha1={`Sessão de ${it.servico_nome ?? it.rotulo}${it.duracao ? ` · ${it.duracao} min` : ''}`}
-                                                linha2={`${it.restantes} de ${it.quantidade_sessoes} ${it.quantidade_sessoes === 1 ? 'sessão restante' : 'sessões restantes'} · vendido em ${dataVenda}`} />
+                                                titulo={it.rotulo} duracao={it.duracao} restantes={it.restantes} total={it.quantidade_sessoes} />
                                         );
                                     })}
                                 </div>
+                                {itensCliente.some((it) => it.pagamento) && (
+                                    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[hsl(var(--muted-foreground))]">
+                                        {(Object.keys(PAGAMENTO_INFO) as (keyof typeof PAGAMENTO_INFO)[]).map((k) => (
+                                            <span key={k} className="inline-flex items-center gap-1">
+                                                <CircleDollarSign className={cn('h-3 w-3', PAGAMENTO_INFO[k].cor)} /> {PAGAMENTO_INFO[k].curto}
+                                            </span>
+                                        ))}
+                                    </p>
+                                )}
                             </div>
                         )}
 
@@ -758,34 +764,42 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
 /** Item já comprado pelo cliente (marcável). */
 const PAGAMENTO_INFO = {
-    PAGO: { label: 'Pago', cor: 'text-emerald-600' },
-    PENDENTE: { label: 'Pagamento pendente', cor: 'text-amber-500' },
-    ATRASADO: { label: 'Pagamento em atraso', cor: 'text-red-600' },
+    PAGO: { label: 'Pago', curto: 'pago', cor: 'text-emerald-600' },
+    PENDENTE: { label: 'Pagamento pendente', curto: 'pendente', cor: 'text-amber-500' },
+    ATRASADO: { label: 'Pagamento em atraso', curto: 'em atraso', cor: 'text-red-600' },
 } as const;
 
-function CartaoItem({ ativo, onClick, titulo, linha1, linha2, pacote, pagamento }: { ativo: boolean; onClick: () => void; titulo: string; linha1: string; linha2: string; pacote?: boolean; pagamento?: keyof typeof PAGAMENTO_INFO | null }) {
+/** Item já comprado: uma linha com nome, duração, sessões restantes (destaque) e o pagamento. */
+function CartaoItem({ ativo, onClick, titulo, duracao, restantes, total, pacote, pagamento }: {
+    ativo: boolean; onClick: () => void; titulo: string; duracao?: number | null; restantes?: number; total?: number; pacote?: boolean; pagamento?: keyof typeof PAGAMENTO_INFO | null;
+}) {
     const pg = pagamento ? PAGAMENTO_INFO[pagamento] : null;
     return (
         <button type="button" onClick={onClick} aria-pressed={ativo}
-            className={cn('flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors',
+            className={cn('flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 ring-1 ring-[hsl(var(--primary))]' : 'hover:bg-[hsl(var(--accent))]')}>
-            <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border', ativo && 'border-transparent bg-[hsl(var(--primary))] text-white')}>
+            <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded border', ativo && 'border-transparent bg-[hsl(var(--primary))] text-white')}>
                 {ativo && <Check className="h-3.5 w-3.5" />}
             </span>
             <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1.5 text-sm font-medium">
-                    {pacote && <Package className="h-3.5 w-3.5 shrink-0 text-blue-600" />}
-                    <span className="min-w-0 flex-1 truncate">{titulo}</span>
-                    {pg && (
-                        <span className={cn('inline-flex shrink-0 items-center', pg.cor)} title={pg.label} aria-label={pg.label}>
-                            <CircleDollarSign className="h-4 w-4" />
-                        </span>
-                    )}
+                <span className="flex items-start gap-1.5 text-sm font-medium leading-snug">
+                    {pacote && <Package className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-600" />}
+                    <span className="line-clamp-2">{titulo}</span>
                 </span>
-                {pg && pagamento !== 'PAGO' && <span className={cn('block text-xs font-medium', pg.cor)}>{pg.label}</span>}
-                <span className="block text-xs text-[hsl(var(--foreground))]/80">{linha1}</span>
-                {linha2 && <span className="block text-xs text-[hsl(var(--muted-foreground))]">{linha2}</span>}
+                {duracao ? <span className="block text-xs text-[hsl(var(--muted-foreground))]">{duracao} min</span> : null}
             </span>
+            {restantes != null && total != null && (
+                <span className="shrink-0 text-right leading-none" aria-label={`${restantes} de ${total} sessões restantes`}>
+                    <span className="text-lg font-bold tabular-nums text-[hsl(var(--primary))]">{restantes}</span>
+                    <span className="text-xs tabular-nums text-[hsl(var(--muted-foreground))]">/{total}</span>
+                    <span className="block text-[10px] uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{restantes === 1 ? 'restante' : 'restantes'}</span>
+                </span>
+            )}
+            {pg && (
+                <span className={cn('shrink-0', pg.cor)} title={pg.label} aria-label={pg.label}>
+                    <CircleDollarSign className="h-5 w-5" />
+                </span>
+            )}
         </button>
     );
 }
