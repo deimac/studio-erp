@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/useToast';
+import { Plus } from 'lucide-react';
 
 export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
     // Alerta customizado para data inválida
@@ -95,7 +96,11 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
 
     return (
         <>
-            <Button size="sm" onClick={() => { resetForm(); setOpen(true); }}>Novo Atendimento</Button>
+            <Button size="sm" className="gap-1.5" onClick={() => { resetForm(); setOpen(true); }}>
+                <Plus className="h-4 w-4" />
+                <span className="sm:hidden">Novo</span>
+                <span className="hidden sm:inline">Novo Atendimento</span>
+            </Button>
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
