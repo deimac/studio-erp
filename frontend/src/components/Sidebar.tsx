@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
     LayoutDashboard,
@@ -9,7 +10,11 @@ import {
     CalendarDays,
     DollarSign,
     Settings,
+    Smartphone,
 } from 'lucide-react';
+import { InstalarNoCelularDialog } from '@/components/instalar/InstalarNoCelularDialog';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { usePWA } from '@/hooks/usePWA';
 import { cn } from '@/lib/utils';
 
 type Props = { onNavigate: () => void };
@@ -27,6 +32,20 @@ const links = [
 
 export function Sidebar({ onNavigate }: Props) {
     const { isAdmin } = useAuth();
+    const { instalado } = usePWA();
+    const isMobile = useIsMobile();
+    const navigate = useNavigate();
+    const [qrAberto, setQrAberto] = useState(false);
+
+    // Celular: abre a página com o passo a passo. Computador: QR code para abrir no celular.
+    const instalarNoCelular = () => {
+        if (isMobile) {
+            onNavigate();
+            navigate('/instalar');
+        } else {
+            setQrAberto(true);
+        }
+    };
 
     return (
         <nav className="flex h-full flex-col gap-1 overflow-y-auto p-3 scrollbar-thin">
@@ -55,6 +74,18 @@ export function Sidebar({ onNavigate }: Props) {
                     </NavLink>
                 );
             })}
+
+            {!instalado && (
+                <button
+                    type="button"
+                    onClick={instalarNoCelular}
+                    className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]"
+                >
+                    <Smartphone className="h-4 w-4 shrink-0" />
+                    Instalar no celular
+                </button>
+            )}
+            <InstalarNoCelularDialog open={qrAberto} onOpenChange={setQrAberto} />
         </nav>
     );
 }

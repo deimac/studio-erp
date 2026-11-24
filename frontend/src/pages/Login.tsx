@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
+import { Smartphone } from 'lucide-react';
+import { usePWA } from '@/hooks/usePWA';
 import { useAuth } from '@/hooks/useAuth';
 import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
@@ -13,6 +15,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
     const [error, setError] = useState('');
+    const { instalado } = usePWA();
 
     const loginMutation = trpc.usuarios.login.useMutation({
         onSuccess(data) {
@@ -71,6 +74,12 @@ export default function Login() {
                             {loginMutation.isPending ? 'Entrando…' : 'Entrar'}
                         </Button>
                     </form>
+                    {!instalado && (
+                        <Link to="/instalar" className="mt-5 flex items-center justify-center gap-2 text-sm text-[hsl(var(--primary))] hover:underline">
+                            <Smartphone className="h-4 w-4" />
+                            Instalar no celular
+                        </Link>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -10,6 +10,7 @@ import Atendimentos from '@/pages/Atendimentos';
 import Agenda from '@/pages/Agenda';
 import Financeiro from '@/pages/Financeiro';
 import Configuracoes from '@/pages/Configuracoes';
+import Instalar from '@/pages/Instalar';
 
 function ProtectedRoute({ children, adminOnly = false }: { children?: React.ReactNode; adminOnly?: boolean }) {
     const { user } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
         <BrowserRouter>
             <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/instalar" element={<Instalar />} />
                 <Route path="/" element={<AppLayout />}>
                     <Route index element={<Dashboard />} />
                     <Route path="pessoas" element={<Pessoas />} />
