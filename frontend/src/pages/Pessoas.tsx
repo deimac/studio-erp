@@ -189,13 +189,13 @@ export default function Pessoas() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell">
-                                        {p.cpf_cnpj || '–'}
+                                        {p.cpf_cnpj || ''}
                                     </TableCell>
                                     <TableCell className="hidden sm:table-cell">
-                                        {p.telefone ? formatarTelefone(p.telefone) : '–'}
+                                        {p.telefone ? formatarTelefone(p.telefone) : ''}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
-                                        {p.email || '–'}
+                                        {p.email || ''}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={tipoBadge(p.tipo)}>{p.tipo}</Badge>

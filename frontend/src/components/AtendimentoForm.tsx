@@ -140,7 +140,7 @@ export function AtendimentoForm({ onSuccess }: { onSuccess?: () => void }) {
                                 <option value="">Selecionar…</option>
                                 {filteredVendas?.map((v) => (
                                     <option key={v.id} value={v.id}>
-                                        {v.pessoa_nome} – {v.servico_nome ?? v.pacote_nome ?? '?'} ({v.quantidade_sessoes} sessões)
+                                        {[v.pessoa_nome, v.servico_nome ?? v.pacote_nome].filter(Boolean).join(' – ')} ({v.quantidade_sessoes} sessões)
                                     </option>
                                 ))}
                             </select>

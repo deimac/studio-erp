@@ -330,7 +330,7 @@ export function ServicoForm({
                                             </Button>
                                             <div className="col-span-3 -mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
                                                 <span className="tabular-nums">
-                                                    {porSessao ? `sai a ${brl(porSessao)} por sessão` : '—'}
+                                                    {porSessao ? `sai a ${brl(porSessao)} por sessão` : ''}
                                                     {economia > 0 && <span className="text-emerald-700"> · {economia}% de desconto</span>}
                                                 </span>
                                                 <label className="flex items-center gap-1.5">

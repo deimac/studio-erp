@@ -45,7 +45,7 @@ export function LembretesDialog({ open, onOpenChange }: Props) {
                             <span className="w-12 font-mono font-semibold">{i.hora}</span>
                             <div className="min-w-0 flex-1">
                                 <p className="truncate font-medium">{i.cliente}</p>
-                                <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">{i.servicos ?? '—'} · {i.profissional}</p>
+                                <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">{[i.servicos, i.profissional].filter(Boolean).join(' · ')}</p>
                             </div>
                             {i.lembrete_enviado_em ? (
                                 <span className="inline-flex items-center gap-1 text-xs text-emerald-700"><CheckCircle2 className="h-4 w-4" /> enviado</span>

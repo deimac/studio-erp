@@ -1,5 +1,10 @@
 import { trpc } from '@/services/trpc';
-import { dataBR } from '@/lib/datas';
+import { diaISO } from '@/lib/datas';
+import { dataISO, paraDate } from '@/lib/agenda';
+import { cn } from '@/lib/utils';
+import { useEscopo } from '@/hooks/useEscopo';
+import { addDays, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -15,7 +20,37 @@ export const statusAtendimento: Record<string, { label: string; variant: 'defaul
     FALTOU: { label: 'Faltou', variant: 'secondary', icon: AlertCircle },
 };
 
-const fmtTime = (t: string | null) => t?.slice(0, 5) ?? '–';
+const fmtTime = (t: string | null) => t?.slice(0, 5) ?? '';
+
+/** "Hoje", "Amanhã" ou null. */
+function diaRelativo(iso: string) {
+    const hoje = new Date();
+    if (iso === dataISO(hoje)) return 'Hoje';
+    if (iso === dataISO(addDays(hoje, 1))) return 'Amanhã';
+    return null;
+}
+
+/** Data em formato de folhinha de calendário: dia da semana, dia grande e mês. */
+function Folhinha({ data, className }: { data: string; className?: string }) {
+    const iso = diaISO(data) ?? '';
+    if (!iso) return null;
+    const d = paraDate(iso);
+    const rel = diaRelativo(iso);
+    return (
+        <div className={cn(
+            'flex w-14 shrink-0 flex-col items-center overflow-hidden rounded-xl border text-center',
+            rel ? 'border-[hsl(var(--primary)/0.4)] bg-[hsl(var(--primary)/0.06)]' : 'border-[hsl(var(--border))] bg-white',
+            className,
+        )}>
+            <span className={cn('w-full py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                rel ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]')}>
+                {rel ?? format(d, 'EEE', { locale: ptBR }).replace('.', '').slice(0, 3)}
+            </span>
+            <span className="pt-0.5 text-xl font-bold leading-none tabular-nums">{format(d, 'd')}</span>
+            <span className="pb-1 text-[11px] text-[hsl(var(--muted-foreground))]">{format(d, 'MMM', { locale: ptBR }).replace('.', '')}</span>
+        </div>
+    );
+}
 
 /**
  * Lista de atendimentos usada na tela Atendimentos e no Dashboard:
@@ -26,6 +61,10 @@ export function ListaAtendimentos({ atendimentos, carregando, vazio = 'Nenhum at
     carregando: boolean;
     vazio?: string;
 }) {
+    // Na visão de um profissional só (Só meu / profissional logado) não repete quem atende
+    const { valor } = useEscopo();
+    const mostrarProfissional = valor !== 'MEU';
+    const colunas = mostrarProfissional ? 6 : 5;
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
@@ -64,20 +103,27 @@ export function ListaAtendimentos({ atendimentos, carregando, vazio = 'Nenhum at
                     const Icon = cfg.icon;
                     const aberto = a.status === 'AGENDADO' || a.status === 'CONFIRMADO';
                     return (
-                        <li key={a.id} className="space-y-2 p-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
+                        <li key={a.id} className="space-y-3 p-4">
+                            <div className="flex gap-3">
+                                <Folhinha data={a.data} />
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <p className="text-lg font-bold leading-tight tabular-nums">
+                                            {fmtTime(a.hora_inicio)}
+                                            <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]"> até {fmtTime(a.hora_fim)}</span>
+                                        </p>
+                                        <Badge variant={cfg.variant} className="shrink-0 gap-1">
+                                            <Icon className="h-3 w-3" />
+                                            {cfg.label}
+                                        </Badge>
+                                    </div>
                                     <p className="truncate font-semibold">{a.pessoa_nome}</p>
-                                    <p className="text-sm tabular-nums text-gray-500">{dataBR(a.data)} · {fmtTime(a.hora_inicio)}–{fmtTime(a.hora_fim)}</p>
+                                    <p className="truncate text-sm text-gray-600">
+                                        {a.servico_nome ?? a.pacote_nome ?? 'Serviço'}
+                                        {mostrarProfissional && ` · ${a.profissional_nome}`}
+                                    </p>
                                 </div>
-                                <Badge variant={cfg.variant} className="shrink-0 gap-1">
-                                    <Icon className="h-3 w-3" />
-                                    {cfg.label}
-                                </Badge>
                             </div>
-                            <p className="truncate text-sm text-gray-600">
-                                {a.servico_nome ?? a.pacote_nome ?? 'Serviço'} · {a.profissional_nome}
-                            </p>
                             {aberto && (
                                 <div className="grid grid-cols-3 gap-2 pt-1">
                                     <Button variant="outline" size="sm" className="h-10 gap-1 text-green-700" disabled={realizarMut.isPending} onClick={() => realizarMut.mutate({ id: a.id })}>
@@ -104,17 +150,17 @@ export function ListaAtendimentos({ atendimentos, carregando, vazio = 'Nenhum at
                             <TableHead>Data / Hora</TableHead>
                             <TableHead>Cliente</TableHead>
                             <TableHead className="hidden md:table-cell">Serviço</TableHead>
-                            <TableHead className="hidden lg:table-cell">Profissional</TableHead>
+                            {mostrarProfissional && <TableHead className="hidden lg:table-cell">Profissional</TableHead>}
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {carregando && (
-                            <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">Carregando…</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={colunas} className="py-8 text-center text-gray-400">Carregando…</TableCell></TableRow>
                         )}
                         {!carregando && atendimentos?.length === 0 && (
-                            <TableRow><TableCell colSpan={6} className="py-8 text-center text-gray-400">{vazio}</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={colunas} className="py-8 text-center text-gray-400">{vazio}</TableCell></TableRow>
                         )}
                         {atendimentos?.map((a) => {
                             const cfg = statusAtendimento[a.status] ?? statusAtendimento.AGENDADO;
@@ -122,11 +168,11 @@ export function ListaAtendimentos({ atendimentos, carregando, vazio = 'Nenhum at
                             return (
                                 <TableRow key={a.id}>
                                     <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Calendar className="h-4 w-4 text-gray-400" />
-                                            <div>
-                                                <p className="font-medium">{dataBR(a.data)}</p>
-                                                <p className="text-xs text-gray-400">{fmtTime(a.hora_inicio)} – {fmtTime(a.hora_fim)}</p>
+                                        <div className="flex items-center gap-3">
+                                            <Folhinha data={a.data} />
+                                            <div className="whitespace-nowrap">
+                                                <p className="text-base font-bold tabular-nums">{fmtTime(a.hora_inicio)}</p>
+                                                <p className="text-xs tabular-nums text-[hsl(var(--muted-foreground))]">até {fmtTime(a.hora_fim)}</p>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -146,9 +192,9 @@ export function ListaAtendimentos({ atendimentos, carregando, vazio = 'Nenhum at
                                                 </span>
                                                 <span>{a.pacote_nome}</span>
                                             </div>
-                                        ) : '–'}
+                                        ) : null}
                                     </TableCell>
-                                    <TableCell className="hidden lg:table-cell">{a.profissional_nome}</TableCell>
+                                    {mostrarProfissional && <TableCell className="hidden lg:table-cell">{a.profissional_nome}</TableCell>}
                                     <TableCell>
                                         <Badge variant={cfg.variant} className="gap-1">
                                             <Icon className="h-3 w-3" />

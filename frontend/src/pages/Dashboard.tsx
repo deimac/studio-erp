@@ -55,21 +55,21 @@ export default function Dashboard() {
                 <DashCard
                     title="Atendimentos hoje"
                     curto="Hoje"
-                    value={atendimentosQ.isLoading ? '–' : deHoje}
+                    value={atendimentosQ.isLoading ? 0 : deHoje}
                     icon={<CalendarCheck className="h-5 w-5 text-blue-600" />}
                     to="/atendimentos"
                 />
                 <DashCard
                     title="Pessoas"
                     curto="Pessoas"
-                    value={pessoasList.data?.length ?? '–'}
+                    value={pessoasList.data?.length ?? 0}
                     icon={<Users className="h-5 w-5 text-emerald-600" />}
                     to="/pessoas"
                 />
                 <DashCard
                     title="Vendas ativas"
                     curto="Vendas"
-                    value={vendasList.data?.length ?? '–'}
+                    value={vendasList.data?.length ?? 0}
                     icon={<ShoppingCart className="h-5 w-5 text-amber-600" />}
                     to="/vendas"
                 />
@@ -145,7 +145,7 @@ function PainelContas({ titulo, subtitulo, icone, corTotal, contas, carregando, 
                     <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">{subtitulo}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                    <p className={cn('text-lg font-bold tabular-nums', corTotal)}>{carregando ? '–' : moeda(total)}</p>
+                    <p className={cn('text-lg font-bold tabular-nums', corTotal)}>{moeda(carregando ? 0 : total)}</p>
                     {atrasadas > 0 && <p className="text-xs font-medium text-red-600">{atrasadas} atrasada{atrasadas > 1 ? 's' : ''}</p>}
                 </div>
             </div>

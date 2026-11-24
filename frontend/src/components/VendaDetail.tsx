@@ -30,7 +30,7 @@ const fmt = (v: string | number) =>
     Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const fmtDate = (v: string | Date | null | undefined) => {
-    if (!v) return '–';
+    if (!v) return '';
     // Normaliza para string yyyy-mm-dd
     let s: string;
     if (v instanceof Date) {

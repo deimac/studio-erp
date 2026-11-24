@@ -125,7 +125,7 @@ export default function Atendimentos() {
                                     <span className="min-w-0">
                                         <span className="block truncate text-xs text-[hsl(var(--muted-foreground))]">{f.label}</span>
                                         <span className={cn('block text-xl font-bold leading-tight tabular-nums', f.cor)}>
-                                            {atendQ.isLoading ? '–' : contagem(f)}
+                                            {atendQ.isLoading ? 0 : contagem(f)}
                                         </span>
                                         {!atendQ.isLoading && detalhe[f.chave] && (
                                             <span className="block truncate text-[11px] text-[hsl(var(--muted-foreground))]">{detalhe[f.chave]}</span>

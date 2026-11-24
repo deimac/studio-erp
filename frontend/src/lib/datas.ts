@@ -10,10 +10,10 @@ export function diaISO(v: string | Date | null | undefined): string | null {
     return m ? m[1] : null;
 }
 
-/** "2026-11-23" → "23/11/2026"; vazio → "–". */
+/** "2026-11-23" → "23/11/2026"; vazio → "". */
 export function dataBR(v: string | Date | null | undefined): string {
     const d = diaISO(v);
-    if (!d) return '–';
+    if (!d) return '';
     const [a, m, dia] = d.split('-');
     return `${dia}/${m}/${a}`;
 }

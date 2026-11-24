@@ -65,7 +65,7 @@ export default function Financeiro() {
         v == null ? 'R$ 0,00' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
     const fmtDate = (d: string | Date | null) => {
-        if (!d) return '–';
+        if (!d) return '';
         // Normaliza para string yyyy-mm-dd (sem usar new Date() para evitar problemas de timezone)
         let s: string;
         if (d instanceof Date) {
@@ -509,7 +509,7 @@ export default function Financeiro() {
                                         <p className="shrink-0 font-semibold tabular-nums">{fmt(f.valor)}</p>
                                     </div>
                                     <p className="truncate text-sm text-gray-600">
-                                        {f.pacote_nome ?? f.servico_nome ?? f.descricao ?? '–'}
+                                        {f.pacote_nome ?? f.servico_nome ?? f.descricao ?? ''}
                                         {f.quantidade_parcelas > 1 ? ` · ${f.parcela}/${f.quantidade_parcelas}` : ''}
                                     </p>
                                     <p className="text-xs">
@@ -576,12 +576,12 @@ export default function Financeiro() {
                                                     <span className="text-sm">{f.pacote_nome ?? f.servico_nome}</span>
                                                 </div>
                                             ) : (
-                                                <span className="text-sm text-gray-600">{f.descricao || '–'}</span>
+                                                <span className="text-sm text-gray-600">{f.descricao || ''}</span>
                                             )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="text-sm">
-                                                <p className="font-medium">{f.forma_pagamento_nome || '–'}</p>
+                                                <p className="font-medium">{f.forma_pagamento_nome || ''}</p>
                                                 {f.quantidade_parcelas && f.quantidade_parcelas > 1 && <p className="text-xs text-gray-400">Parcela {f.parcela} de {f.quantidade_parcelas}</p>}
                                             </div>
                                         </TableCell>

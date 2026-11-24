@@ -33,7 +33,7 @@ const fmt = (v: string | number) =>
     Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const fmtDate = (v: string | Date | null | undefined) => {
-    if (!v) return '–';
+    if (!v) return '';
     // Normaliza para string yyyy-mm-dd
     let s: string;
     if (v instanceof Date) {
@@ -215,7 +215,7 @@ export default function Vendas() {
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <p className="truncate font-semibold">{v.pessoa_nome}</p>
-                                            <p className="truncate text-sm text-gray-600">{v.pacote_nome ?? v.servico_nome ?? '–'}</p>
+                                            <p className="truncate text-sm text-gray-600">{v.pacote_nome ?? v.servico_nome ?? ''}</p>
                                         </div>
                                         <div className="shrink-0 text-right">
                                             <p className="font-semibold tabular-nums">{fmt(v.valor)}</p>
@@ -230,7 +230,7 @@ export default function Vendas() {
                                         <span>· {fmtDate(v.data_venda)}</span>
                                         {aberta ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                     </div>
-                                    {escopo === 'GERAL' && <p className="text-xs text-gray-500">por {v.profissional_nome ?? '—'} · {v.forma_pagamento_nome}</p>}
+                                    {escopo === 'GERAL' && <p className="text-xs text-gray-500">{[v.profissional_nome && `por ${v.profissional_nome}`, v.forma_pagamento_nome].filter(Boolean).join(' · ')}</p>}
                                 </button>
                                 {aberta && (
                                     <div className="border-t bg-[hsl(var(--muted))]/30">
@@ -309,8 +309,8 @@ export default function Vendas() {
                                             </TableCell>
                                             <TableCell>
                                                 <span className="font-medium">{v.pessoa_nome}</span>
-                                                {escopo === 'GERAL' && (
-                                                    <span className="block text-xs text-[hsl(var(--muted-foreground))]">por {v.profissional_nome ?? '—'}</span>
+                                                {escopo === 'GERAL' && v.profissional_nome && (
+                                                    <span className="block text-xs text-[hsl(var(--muted-foreground))]">por {v.profissional_nome}</span>
                                                 )}
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">
@@ -324,7 +324,7 @@ export default function Vendas() {
                                                             <Sparkles className="h-3.5 w-3.5" />
                                                         </span>
                                                     ) : null}
-                                                    <span>{v.pacote_nome ?? v.servico_nome ?? '–'}</span>
+                                                    <span>{v.pacote_nome ?? v.servico_nome ?? ''}</span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="hidden lg:table-cell">
