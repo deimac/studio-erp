@@ -17,9 +17,10 @@ import { AgendamentoDetalhe, nomesAtendimento, type EventoAgenda } from '@/compo
 import { BloqueioForm } from '@/components/agenda/BloqueioForm';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { LembretesDialog } from '@/components/agenda/LembretesDialog';
-import { AgendaDia } from '@/components/agenda/AgendaDia';
 import { AgendaLista } from '@/components/agenda/AgendaLista';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useEscopo } from '@/hooks/useEscopo';
+import { FaixaSemana } from '@/components/agenda/FaixaSemana';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 
@@ -84,7 +85,11 @@ export default function Agenda() {
     const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'));
     const [data, setData] = useState(new Date());
     const [colunas, setColunas] = useState<'profissional' | 'sala'>('profissional');
-    const [selProfs, setSelProfs] = useState<number[]>([]);
+    const [selProfsEscolhidos, setSelProfs] = useState<number[]>([]);
+    // Admin em "Só meu": mostra só a agenda dele (a chave fica no cabeçalho)
+    const { escopo } = useEscopo();
+    const soMeu = escopo === 'MEU' && !!user?.id;
+    const selProfs = soMeu ? [user!.id] : selProfsEscolhidos;
 
     const [form, setForm] = useState<{ open: boolean; inicial: AgendamentoInicial }>({ open: false, inicial: {} });
     const [detalhe, setDetalhe] = useState<EventoAgenda | null>(null);
@@ -387,6 +392,76 @@ export default function Agenda() {
         </>
     );
 
+    const calendario = (
+        <DnDCalendar
+            localizer={localizer}
+            culture="pt-BR"
+            messages={MENSAGENS}
+            toolbar={false}
+            view={view}
+            onView={setView}
+            views={['day', 'week', 'month', 'agenda']}
+            date={data}
+            onNavigate={(d) => setData(d)}
+            events={eventos}
+            backgroundEvents={fundos}
+            resources={recursos}
+            resourceIdAccessor={(r) => r.id}
+            resourceTitleAccessor={(r) => r.titulo}
+            min={minHora}
+            max={maxHora}
+            step={passoMin <= 15 ? passoMin : 15}
+            timeslots={passoMin <= 15 ? Math.round(60 / passoMin) : 4}
+            scrollToTime={new Date(2000, 0, 1, Math.max(minHora.getHours(), new Date().getHours() - 1))}
+            selectable
+            longPressThreshold={250}
+            onSelectSlot={novoNoSlot}
+            onSelectEvent={(e) => selecionar(e)}
+            onEventDrop={mover}
+            onEventResize={mover}
+            draggableAccessor={podeMexer}
+            resizableAccessor={podeMexer}
+            resizable
+            popup
+            dayLayoutAlgorithm="no-overlap"
+            slotPropGetter={slotPropGetter as any}
+            formats={{
+                timeGutterFormat: 'HH:mm',
+                eventTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
+                agendaTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
+                dayFormat: (d) => format(d, 'EEE dd/MM', { locale: ptBR }),
+                agendaDateFormat: (d) => format(d, "EEE, dd/MM", { locale: ptBR }),
+            }}
+            eventPropGetter={(e) => {
+                if (e.tipo === 'bloqueio') return { className: 'evt-bloqueio' };
+                const a = e.atendimento!;
+                const restrito = a.restrito;
+                return {
+                    className: cn('evt-atendimento', `evt-${a.status.toLowerCase()}`, restrito && 'evt-restrito'),
+                    style: { '--evt-cor': restrito ? '#94a3b8' : e.cor } as React.CSSProperties,
+                };
+            }}
+            components={{
+                event: ({ event }: { event: Evento }) => {
+                    if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
+                    const a = event.atendimento!;
+                    return (
+                        <div className="leading-tight">
+                            <div className="flex items-center gap-1">
+                                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_INFO[a.status as StatusAtendimento].ponto)} />
+                                <span className="truncate font-semibold">{event.title}</span>
+                            </div>
+                            {!a.restrito && nomesAtendimento(a) && (
+                                <div className="truncate opacity-80">{nomesAtendimento(a)}</div>
+                            )}
+                            {view !== 'day' && <div className="truncate opacity-70">{a.profissional_nome.split(' ')[0]}{a.sala_nome ? ` · ${a.sala_nome}` : ''}</div>}
+                        </div>
+                    );
+                },
+            }}
+        />
+    );
+
     if (mobile) {
         const t = view === 'day' ? format(data, "EEEE, d 'de' MMM", { locale: ptBR }) : tituloPeriodo(view, data);
         const titulo = t.charAt(0).toUpperCase() + t.slice(1);
@@ -423,25 +498,17 @@ export default function Agenda() {
                     </div>
                 </div>
 
-                {profissionais.length > 1 && (
+                {profissionais.length > 1 && !soMeu && (
                     <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 text-sm scrollbar-thin">{chipsProfissionais}</div>
                 )}
 
                 {view === 'day' ? (
-                    <AgendaDia
-                        data={data}
-                        onData={setData}
-                        atendimentos={dados?.atendimentos ?? []}
-                        bloqueios={dados?.bloqueios ?? []}
-                        horarios={dados?.horarios ?? []}
-                        profissionais={profissionais}
-                        visiveis={profsVisiveis}
-                        idReferencia={selProfs.length === 1 ? selProfs[0] : eu?.id}
-                        carregando={eventosQ.isLoading}
-                        onAbrir={setDetalhe}
-                        onNovo={novoAgendamento}
-                        onBloqueio={perguntarRemoverBloqueio}
-                    />
+                    <div className="space-y-2">
+                        <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} />
+                        <div className={cn('agenda-studio h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+                            {calendario}
+                        </div>
+                    </div>
                 ) : view === 'week' || view === 'agenda' ? (
                     <AgendaLista
                         de={de}
@@ -520,7 +587,7 @@ export default function Agenda() {
 
             {/* Filtros e ações secundárias */}
             <div className="flex flex-wrap items-center gap-2 text-sm">
-                {chipsProfissionais}
+                {!soMeu && chipsProfissionais}
 
                 {view === 'day' && salas.length > 0 && (
                     <div className="ml-2 flex items-center gap-1 rounded-md border p-0.5 text-xs">
@@ -543,73 +610,7 @@ export default function Agenda() {
 
             {/* Calendário */}
             <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
-                <DnDCalendar
-                    localizer={localizer}
-                    culture="pt-BR"
-                    messages={MENSAGENS}
-                    toolbar={false}
-                    view={view}
-                    onView={setView}
-                    views={['day', 'week', 'month', 'agenda']}
-                    date={data}
-                    onNavigate={(d) => setData(d)}
-                    events={eventos}
-                    backgroundEvents={fundos}
-                    resources={recursos}
-                    resourceIdAccessor={(r) => r.id}
-                    resourceTitleAccessor={(r) => r.titulo}
-                    min={minHora}
-                    max={maxHora}
-                    step={passoMin <= 15 ? passoMin : 15}
-                    timeslots={passoMin <= 15 ? Math.round(60 / passoMin) : 4}
-                    scrollToTime={new Date(2000, 0, 1, Math.max(minHora.getHours(), new Date().getHours() - 1))}
-                    selectable
-                    longPressThreshold={250}
-                    onSelectSlot={novoNoSlot}
-                    onSelectEvent={(e) => selecionar(e)}
-                    onEventDrop={mover}
-                    onEventResize={mover}
-                    draggableAccessor={podeMexer}
-                    resizableAccessor={podeMexer}
-                    resizable
-                    popup
-                    dayLayoutAlgorithm="no-overlap"
-                    slotPropGetter={slotPropGetter as any}
-                    formats={{
-                        timeGutterFormat: 'HH:mm',
-                        eventTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
-                        agendaTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
-                        dayFormat: (d) => format(d, 'EEE dd/MM', { locale: ptBR }),
-                        agendaDateFormat: (d) => format(d, "EEE, dd/MM", { locale: ptBR }),
-                    }}
-                    eventPropGetter={(e) => {
-                        if (e.tipo === 'bloqueio') return { className: 'evt-bloqueio' };
-                        const a = e.atendimento!;
-                        const restrito = a.restrito;
-                        return {
-                            className: cn('evt-atendimento', `evt-${a.status.toLowerCase()}`, restrito && 'evt-restrito'),
-                            style: { '--evt-cor': restrito ? '#94a3b8' : e.cor } as React.CSSProperties,
-                        };
-                    }}
-                    components={{
-                        event: ({ event }: { event: Evento }) => {
-                            if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
-                            const a = event.atendimento!;
-                            return (
-                                <div className="leading-tight">
-                                    <div className="flex items-center gap-1">
-                                        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_INFO[a.status as StatusAtendimento].ponto)} />
-                                        <span className="truncate font-semibold">{event.title}</span>
-                                    </div>
-                                    {!a.restrito && nomesAtendimento(a) && (
-                                        <div className="truncate opacity-80">{nomesAtendimento(a)}</div>
-                                    )}
-                                    {view !== 'day' && <div className="truncate opacity-70">{a.profissional_nome.split(' ')[0]}{a.sala_nome ? ` · ${a.sala_nome}` : ''}</div>}
-                                </div>
-                            );
-                        },
-                    }}
-                />
+                {calendario}
             </div>
 
             {/* Legenda */}
