@@ -85,7 +85,7 @@ export default function Servicos() {
 
 function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; protocolos: Protocolo[]; carregando: boolean }) {
     const { toast } = useToast();
-    const { user } = useAuth();
+    const { user, veTudo } = useAuth();
     const isAdmin = user?.perfil === 'ADMIN';
     const [busca, setBusca] = useState('');
     const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -119,7 +119,8 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
             return pa - pb || (a.ordem_modalidade ?? 0) - (b.ordem_modalidade ?? 0) || a.nome.localeCompare(b.nome, 'pt-BR');
         });
 
-    const podeEditar = (s: ServicoItem) => isAdmin || (s.id_profissional != null && s.id_profissional === user?.id);
+    // Sem dono = da clínica (do admin); do colega só no modo Clínica
+    const podeEditar = (s: ServicoItem) => veTudo || (s.id_profissional == null ? isAdmin : s.id_profissional === user?.id);
     const salvo = () => toast({ title: 'Serviço salvo', variant: 'success' });
 
     const filtros: { id: Filtro; rotulo: string }[] = [
@@ -310,8 +311,8 @@ function AbaPaginas({ todos, protocolos, carregando }: { todos: ServicoItem[]; p
 }
 
 function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
-    const { user } = useAuth();
-    const podeEditarTecnica = (t: any) => user?.perfil === 'ADMIN' || (t.id_profissional != null && t.id_profissional === user?.id);
+    const { user, veTudo } = useAuth();
+    const podeEditarTecnica = (t: any) => veTudo || (t.id_profissional == null ? user?.perfil === 'ADMIN' : t.id_profissional === user?.id);
     const utils = trpc.useUtils();
     const { toast } = useToast();
     const confirm = useConfirm();

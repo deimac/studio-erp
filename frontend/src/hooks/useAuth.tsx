@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { trpc } from '@/services/trpc';
 
 export type AuthUser = {
     id: number;
@@ -13,6 +14,11 @@ type AuthContextValue = {
     user: AuthUser | null;
     isAdmin: boolean;
     isProfissional: boolean;
+    /**
+     * Vê e mexe nos dados dos outros profissionais: só o admin no modo "Clínica".
+     * No modo "cada um cuida do seu", o admin continua administrando, mas vê só o dele.
+     */
+    veTudo: boolean;
     login: (token: string, user: AuthUser) => void;
     logout: () => void;
 };
@@ -43,6 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
     }, []);
 
+    // O modo de trabalho pode mudar em Configurações: vem sempre do servidor
+    const ehAdmin = user?.perfil === 'ADMIN';
+    const meQ = trpc.usuarios.me.useQuery(undefined, { enabled: !!token && ehAdmin, staleTime: 5 * 60_000 });
+    const veTudo = ehAdmin && Boolean((meQ.data as { ve_tudo?: boolean } | undefined)?.ve_tudo);
+
     // Auto-logout if token disappears from another tab
     useEffect(() => {
         const handler = (e: StorageEvent) => {
@@ -57,8 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             value={{
                 token,
                 user,
-                isAdmin: user?.perfil === 'ADMIN',
+                isAdmin: ehAdmin,
                 isProfissional: user?.perfil === 'PROFISSIONAL',
+                veTudo,
                 login,
                 logout,
             }}

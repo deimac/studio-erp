@@ -43,9 +43,10 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
     const [openLocal, setOpenLocal] = useState(false);
     const open = editando ? !!openProp : openLocal;
     const setOpen = (v: boolean) => (editando ? onOpenChange?.(v) : setOpenLocal(v));
-    const { user, isAdmin } = useAuth();
+    // Só no modo Clínica o admin lança venda em nome de outro profissional
+    const { user, veTudo: escolheVendedor } = useAuth();
     const [vendedor, setVendedor] = useState<number>(user?.id ?? 0);
-    const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open && isAdmin });
+    const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open && escolheVendedor });
 
     const pessoasQ = trpc.pessoas.listClientes.useQuery(undefined, { enabled: open });
     const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open });
@@ -124,7 +125,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
 
     // Serviço próprio de um profissional só pode ser vendido por ele
     const profVendedor = ((profsQ.data ?? []) as any[]).find((p) => p.id === vendedor);
-    const vendedorUsaClinica = !isAdmin || !profVendedor || profVendedor.perfil === 'ADMIN' || profVendedor.ve_servicos_clinica;
+    const vendedorUsaClinica = !escolheVendedor || !profVendedor || profVendedor.perfil === 'ADMIN' || profVendedor.ve_servicos_clinica;
     const servicoDoVendedor = (dono: number | null | undefined) => (dono == null && vendedorUsaClinica) || dono === vendedor;
     const servicos = ((servicosQ.data ?? []) as any[]).filter((s) => s.ativo !== false && servicoDoVendedor(s.id_profissional));
     const donoServico = new Map(((servicosQ.data ?? []) as any[]).map((s) => [s.id, s.id_profissional]));
@@ -216,7 +217,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                 pagamentos: pagamentosMexidos ? pags : undefined,
                 data_venda: dataVenda,
                 observacao: observacao || null,
-                ...(isAdmin ? { id_profissional: vendedor } : {}),
+                ...(escolheVendedor ? { id_profissional: vendedor } : {}),
             });
             return;
         }
@@ -237,7 +238,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
             })),
             data_venda: dataVenda,
             observacao: observacao || undefined,
-            ...(isAdmin ? { id_profissional: vendedor } : {}),
+            ...(escolheVendedor ? { id_profissional: vendedor } : {}),
         });
     }
 
@@ -276,7 +277,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                 <div className="space-y-6">
                     {/* Cliente e data */}
                     <div className="space-y-4">
-                        {isAdmin && (
+                        {escolheVendedor && (
                             <div className="space-y-1.5">
                                 <Label>Vendido por</Label>
                                 <select aria-label="Vendido por" className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={vendedor}

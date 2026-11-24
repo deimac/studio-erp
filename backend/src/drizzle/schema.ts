@@ -28,6 +28,8 @@ export const unidades = mysqlTable('unidades', {
     falta_regra: mysqlEnum('falta_regra', ['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']).notNull().default('PERGUNTAR'),
     /** Cada profissional define a própria regra de falta. */
     falta_por_profissional: dbBoolean('falta_por_profissional').notNull().default(false),
+    /** CLINICA: o admin vê os dados de todos. INDIVIDUAL: cada um vê só o seu (agenda mostra "Ocupado"). */
+    modo_trabalho: mysqlEnum('modo_trabalho', ['CLINICA', 'INDIVIDUAL']).notNull().default('CLINICA'),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
 });

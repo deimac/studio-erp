@@ -14,7 +14,7 @@ import {
 } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
-import { filtroDono, zEscopo } from '../../lib/escopo';
+import { condDono, zEscopo } from '../../lib/escopo';
 import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa, type DbOuTx } from '../acesso';
 import type { Sessao } from '../../lib/escopo';
 import { gravarVenda } from '../vendaGravar';
@@ -66,9 +66,9 @@ const zPagamento = z.object({
 const centavos = (v: number) => Math.round(v * 100);
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/** Vendedor da venda: só o admin escolhe outro profissional (ativo, da unidade). */
+/** Vendedor da venda: só o admin no modo Clínica escolhe outro profissional (ativo, da unidade). */
 async function validarVendedor(ctx: Ctx, idProfissional?: number | null): Promise<number> {
-    const admin = ctx.session.perfil === 'ADMIN';
+    const admin = ctx.session.veTudo;
     if (!admin && idProfissional && idProfissional !== ctx.session.id)
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode lançar vendas suas' });
     const vendedor = admin && idProfissional ? idProfissional : ctx.session.id;
@@ -119,7 +119,7 @@ async function validarPessoa(ctx: Ctx, idPessoa: number) {
         .where(and(eq(pessoas.id, idPessoa), eq(pessoas.id_unidade, ctx.session.unidadeId), isNull(pessoas.deleted_at), eq(pessoas.status, 'ATIVO')))
         .limit(1);
     if (!pessoa) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pessoa não encontrada' });
-    if (ctx.session.perfil !== 'ADMIN') await assertAcessoPessoa(ctx.db, ctx.session, idPessoa);
+    if (!ctx.session.veTudo) await assertAcessoPessoa(ctx.db, ctx.session, idPessoa);
 }
 
 async function validarFormas(ctx: Ctx, pagamentos: { id_forma_pagamento: number }[]) {
@@ -296,8 +296,8 @@ export const vendasRouter = createTRPCRouter({
                 isNull(vendas.deleted_at),
             ];
             // Profissional vê só as vendas dele; admin escolhe Geral / Só meu
-            const dono = filtroDono(ctx.session, input?.escopo);
-            if (dono != null) whereParts.push(eq(vendas.id_profissional, dono));
+            const dono = condDono(vendas.id_profissional, ctx.session, input?.escopo);
+            if (dono) whereParts.push(dono);
             if (input?.status) whereParts.push(eq(vendas.status, input.status));
 
             const rows = await ctx.db
@@ -475,7 +475,7 @@ export const vendasRouter = createTRPCRouter({
                 .from(vendas)
                 .where(eq(vendas.id, input.id))
                 .limit(1);
-            const vendedor = ctx.session.perfil === 'ADMIN'
+            const vendedor = ctx.session.veTudo
                 ? await validarVendedor(ctx, input.id_profissional ?? atual!.id_profissional ?? ctx.session.id)
                 : atual!.id_profissional ?? ctx.session.id;
 

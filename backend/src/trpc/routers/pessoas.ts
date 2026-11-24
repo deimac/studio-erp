@@ -2,8 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { and, eq, isNull, like, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { pessoaProfissionais, pessoas, vendas } from '../../drizzle/schema';
-import { filtroDono, zEscopo } from '../../lib/escopo';
-import { assertAcessoPessoa, pessoaDoProfissional, vincularPessoa } from '../acesso';
+import { zEscopo } from '../../lib/escopo';
+import { assertAcessoPessoa, pessoasVisiveis, vincularPessoa } from '../acesso';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { normalizarTelefone } from '../../lib/telefone';
 
@@ -30,8 +30,8 @@ export const pessoasRouter = createTRPCRouter({
                 isNull(pessoas.deleted_at),
             ];
             // Profissional só vê as pessoas que atende; admin escolhe Geral / Só meu
-            const dono = filtroDono(ctx.session, input?.escopo);
-            if (dono != null) whereParts.push(pessoaDoProfissional(dono));
+            const visiveis = pessoasVisiveis(ctx.session, input?.escopo);
+            if (visiveis) whereParts.push(visiveis);
             if (input?.tipo) whereParts.push(eq(pessoas.tipo, input.tipo));
             if (input?.status) whereParts.push(eq(pessoas.status, input.status));
             if (input?.search) {
@@ -57,7 +57,6 @@ export const pessoasRouter = createTRPCRouter({
     listClientes: protectedProcedure
         .input(z.object({ escopo: zEscopo }).optional())
         .query(async ({ ctx, input }) => {
-            const dono = filtroDono(ctx.session, input?.escopo);
             return ctx.db
                 .select({ id: pessoas.id, nome: pessoas.nome })
                 .from(pessoas)
@@ -67,7 +66,7 @@ export const pessoasRouter = createTRPCRouter({
                         isNull(pessoas.deleted_at),
                         eq(pessoas.status, 'ATIVO'),
                         or(eq(pessoas.tipo, 'CLIENTE'), eq(pessoas.tipo, 'AMBOS')),
-                        dono != null ? pessoaDoProfissional(dono) : undefined,
+                        pessoasVisiveis(ctx.session, input?.escopo),
                     ),
                 )
                 .orderBy(pessoas.nome);
@@ -178,7 +177,7 @@ export const pessoasRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             await assertAcessoPessoa(ctx.db, ctx.session, input.id);
 
-            if (ctx.session.perfil !== 'ADMIN') {
+            if (!ctx.session.veTudo) {
                 const vinculos = await ctx.db
                     .select({ id: pessoaProfissionais.id_profissional })
                     .from(pessoaProfissionais)

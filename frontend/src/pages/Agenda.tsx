@@ -76,7 +76,7 @@ function tituloPeriodo(view: View, data: Date) {
 }
 
 export default function Agenda() {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, veTudo } = useAuth();
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
@@ -272,7 +272,7 @@ export default function Agenda() {
         const rid = (slot as any).resourceId as number | undefined;
         const diaInteiro = view === 'month' || (e.getTime() - s.getTime()) % 86_400_000 === 0 && s.getHours() === 0;
         const idProf = usarRecursos && colunas === 'profissional' && rid ? rid : selProfs.length === 1 ? selProfs[0] : user?.id;
-        if (!isAdmin && idProf !== user?.id) return toast({ title: 'Você só pode agendar na sua própria agenda' });
+        if (!veTudo && idProf !== user?.id) return toast({ title: 'Você só pode agendar na sua própria agenda' });
         const duracao = (e.getTime() - s.getTime()) / 60_000;
         setForm({
             open: true,
@@ -330,7 +330,7 @@ export default function Agenda() {
     const passoMin = Math.min(...profsVisiveis.map((p) => p.intervalo_agenda_min ?? 30), 30);
 
     const novoAgendamento = (hora?: string) =>
-        setForm({ open: true, inicial: { data: dataISO(data), hora_inicio: hora, id_profissional: selProfs.length === 1 && isAdmin ? selProfs[0] : user?.id } });
+        setForm({ open: true, inicial: { data: dataISO(data), hora_inicio: hora, id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } });
 
     const chipsProfissionais = (
         <>
@@ -581,7 +581,7 @@ export default function Agenda() {
                         </button>
                     ))}
                 </div>
-                <Button size="sm" onClick={() => setForm({ open: true, inicial: { data: dataISO(data), id_profissional: selProfs.length === 1 && isAdmin ? selProfs[0] : user?.id } })}>
+                <Button size="sm" onClick={() => setForm({ open: true, inicial: { data: dataISO(data), id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } })}>
                     <Plus className="mr-1 h-4 w-4" /> Agendar
                 </Button>
             </div>

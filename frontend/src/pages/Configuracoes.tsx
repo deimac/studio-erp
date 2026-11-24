@@ -41,7 +41,8 @@ export default function Configuracoes() {
                 <TabsContent value="categorias" className="mt-4">
                     <CategoriasReceitasDespesasPanel />
                 </TabsContent>
-                <TabsContent value="usuarios" className="mt-4">
+                <TabsContent value="usuarios" className="mt-4 space-y-4">
+                    <ModoTrabalhoPanel />
                     <ProfissionaisPanel />
                 </TabsContent>
                 <TabsContent value="agenda" className="mt-4">
@@ -50,6 +51,57 @@ export default function Configuracoes() {
 
             </Tabs>
         </div>
+    );
+}
+
+/* ===== Como vocês trabalham (visão do admin) ===== */
+const OPCOES_MODO = [
+    {
+        id: 'CLINICA',
+        titulo: 'Clínica',
+        texto: 'O administrador acompanha as vendas, os clientes, os serviços e o financeiro de todos os profissionais.',
+    },
+    {
+        id: 'INDIVIDUAL',
+        titulo: 'Cada profissional cuida do seu',
+        texto: 'A agenda é dividida: os horários das outras aparecem só como "Ocupado". Vendas, clientes, serviços e financeiro ficam separados, inclusive para o administrador.',
+    },
+] as const;
+
+function ModoTrabalhoPanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const modoQ = trpc.unidades.modoTrabalho.useQuery();
+    const salvarMut = trpc.unidades.salvarModoTrabalho.useMutation({
+        onSuccess: async () => {
+            // Tudo muda de visão: recarrega as telas com o novo modo
+            await utils.invalidate();
+            toast({ title: 'Forma de trabalho salva', variant: 'success' });
+        },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const modo = salvarMut.isPending ? salvarMut.variables?.modo : modoQ.data;
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">Como vocês trabalham</CardTitle>
+                <p className="text-sm text-gray-500">Define o que o administrador vê dos outros profissionais. As configurações e o site continuam com o administrador.</p>
+            </CardHeader>
+            <CardContent className="space-y-2">
+                {OPCOES_MODO.map((o) => (
+                    <label key={o.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${modo === o.id ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5' : ''}`}>
+                        <input type="radio" name="modo_trabalho" className="mt-1" checked={modo === o.id}
+                            disabled={!modoQ.data || salvarMut.isPending}
+                            onChange={() => salvarMut.mutate({ modo: o.id })} />
+                        <span>
+                            <span className="block text-sm font-medium">{o.titulo}</span>
+                            <span className="block text-xs text-gray-500">{o.texto}</span>
+                        </span>
+                    </label>
+                ))}
+            </CardContent>
+        </Card>
     );
 }
 

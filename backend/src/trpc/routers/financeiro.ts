@@ -4,7 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { financeiro, vendas, pessoas, formasPagamento, receitasDespesas } from '../../drizzle/schema';
 import { rotuloVenda, vendaTemPacote } from '../vendaItens';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { filtroDono, podeGerenciar, zEscopo, type Sessao } from '../../lib/escopo';
+import { condDono, podeGerenciar, zEscopo, type Escopo, type Sessao } from '../../lib/escopo';
 import { vendaGerenciavel, type DbOuTx } from '../acesso';
 
 /* ── helpers ─────────────────────────────────────────────── */
@@ -53,8 +53,8 @@ export const financeiroRouter = createTRPCRouter({
         )
         .query(async ({ ctx, input }) => {
             const whereParts: any[] = [eq(vendas.id_unidade, ctx.session.unidadeId)];
-            const dono = filtroDono(ctx.session, input?.escopo);
-            if (dono != null) whereParts.push(eq(vendas.id_profissional, dono));
+            const escopo: Escopo | undefined = input?.escopo;
+            whereParts.push(condDono(vendas.id_profissional, ctx.session, escopo)); // and() ignora undefined
             if (input?.status) whereParts.push(eq(financeiro.status, input.status));
             if (input?.id_venda) whereParts.push(eq(financeiro.id_venda, input.id_venda));
 
@@ -92,7 +92,7 @@ export const financeiroRouter = createTRPCRouter({
         }))
         .query(async ({ ctx, input }) => {
             // Profissional vê só as vendas e lançamentos dele; admin escolhe Geral / Só meu
-            const dono = filtroDono(ctx.session, input.escopo);
+            const escopo: Escopo | undefined = input.escopo;
             // Query para VENDAS (para tipo RECEITA)
             let vendasData: any[] = [];
             if (input.tipo === 'RECEITA') {
@@ -100,7 +100,7 @@ export const financeiroRouter = createTRPCRouter({
                     isNotNull(financeiro.id_venda),
                     eq(vendas.id_unidade, ctx.session.unidadeId),
                 ];
-                if (dono != null) vendaWhereParts.push(eq(vendas.id_profissional, dono));
+                vendaWhereParts.push(condDono(vendas.id_profissional, ctx.session, escopo)); // and() ignora undefined
 
                 // Filtro de situação
                 if (input.situacao === 'PAGO') {
@@ -158,7 +158,7 @@ export const financeiroRouter = createTRPCRouter({
                 eq(receitasDespesas.tipo, input.tipo),
                 eq(pessoas.id_unidade, ctx.session.unidadeId),
             ];
-            if (dono != null) rdWhereParts.push(eq(receitasDespesas.id_profissional, dono));
+            rdWhereParts.push(condDono(receitasDespesas.id_profissional, ctx.session, escopo)); // and() ignora undefined
 
             // Filtro de situação
             if (input.situacao === 'PAGO') {

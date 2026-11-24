@@ -83,8 +83,13 @@ function hora(min: number) {
 
 const isAdmin = (s: Session) => s.perfil === 'ADMIN';
 
-/** Profissional só mexe na própria agenda; admin em todas. */
+/** Atendimentos: profissional só mexe na própria agenda; admin no modo Clínica em todas. */
 function assertPodeGerenciar(s: Session, idProfissional: number) {
+    if (!s.veTudo && idProfissional !== s.id) erro('FORBIDDEN', 'Você só pode alterar a sua própria agenda');
+}
+
+/** Configuração do profissional (expediente, cor, regras): ele mesmo ou o admin, em qualquer modo. */
+function assertPodeConfigurar(s: Session, idProfissional: number) {
     if (!isAdmin(s) && idProfissional !== s.id) erro('FORBIDDEN', 'Você só pode alterar a sua própria agenda');
 }
 
@@ -427,7 +432,7 @@ const horariosRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const id = input.id_profissional ?? ctx.session.id;
-            assertPodeGerenciar(ctx.session, id);
+            assertPodeConfigurar(ctx.session, id);
             await assertProfissional(ctx.db, ctx.session.unidadeId, id);
 
             const periodos = input.periodos.map((p) => ({ ...p, inicio: hhmmParaMin(p.hora_inicio), fim: hhmmParaMin(p.hora_fim) }));
@@ -550,7 +555,7 @@ const profissionaisRouter = createTRPCRouter({
             }),
         )
         .mutation(async ({ ctx, input }) => {
-            assertPodeGerenciar(ctx.session, input.id);
+            assertPodeConfigurar(ctx.session, input.id);
             if ((input.agenda_compartilhada !== undefined || input.ve_servicos_clinica !== undefined) && !isAdmin(ctx.session))
                 erro('FORBIDDEN', 'Só o administrador altera essas configurações');
             const { id, ...campos } = input;
@@ -811,9 +816,9 @@ export const agendaRouter = createTRPCRouter({
                 porAtendimento.set(s.id_atendimento, l);
             }
 
-            const admin = isAdmin(ctx.session);
+            const veTudo = ctx.session.veTudo;
             const atends = rows.map((r) => {
-                const restrito = !admin && r.id_profissional !== ctx.session.id;
+                const restrito = !veTudo && r.id_profissional !== ctx.session.id;
                 return {
                     ...r,
                     hora_inicio: r.hora_inicio.slice(0, 5),
@@ -896,7 +901,7 @@ export const agendaRouter = createTRPCRouter({
         // Editando: as sessões deste atendimento não contam como usadas
         const ignorar = input.id_atendimento ? sql`AND ax.id <> ${input.id_atendimento}` : sql``;
         // Só vendas do profissional do atendimento (as sem dono, legado, só para o admin)
-        const idProf = isAdmin(ctx.session) ? input.id_profissional ?? ctx.session.id : ctx.session.id;
+        const idProf = ctx.session.veTudo ? input.id_profissional ?? ctx.session.id : ctx.session.id;
         const rows = await ctx.db
             .select({
                 id: vendaItens.id,
@@ -989,7 +994,7 @@ export const agendaRouter = createTRPCRouter({
                 .where(and(eq(pessoas.id, input.id_pessoa), eq(pessoas.id_unidade, s.unidadeId), isNull(pessoas.deleted_at)))
                 .limit(1);
             if (!cliente) erro('NOT_FOUND', 'Cliente não encontrado');
-            if (!isAdmin(s)) await assertAcessoPessoa(ctx.db, s, input.id_pessoa);
+            if (!s.veTudo) await assertAcessoPessoa(ctx.db, s, input.id_pessoa);
 
             const usar = input.usar_itens.length ? input.usar_itens : input.id_venda_item ? [input.id_venda_item] : [];
             const titulo = input.titulo_livre?.trim() || null;
@@ -1272,7 +1277,7 @@ export const agendaRouter = createTRPCRouter({
             sql`${atendimentos.data} = ${input.data}`,
             inArray(atendimentos.status, STATUS_ABERTOS),
         ];
-        if (!isAdmin(ctx.session)) parts.push(eq(atendimentos.id_profissional, ctx.session.id));
+        if (!ctx.session.veTudo) parts.push(eq(atendimentos.id_profissional, ctx.session.id));
         const rows = await ctx.db
             .select({ id: atendimentos.id, lembrete_enviado_em: atendimentos.lembrete_enviado_em, status: atendimentos.status })
             .from(atendimentos)

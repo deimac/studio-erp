@@ -75,7 +75,7 @@ let seq = 0;
 const chave = () => ++seq;
 
 export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props) {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, veTudo } = useAuth();
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const editando = !!inicial.id;
@@ -428,7 +428,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         <div className={cn('grid gap-4', temSalas && 'sm:grid-cols-2')}>
                             <div className="space-y-1.5">
                                 <Label>Profissional *</Label>
-                                <select aria-label="Profissional" className={selectCls} value={idProf} disabled={!isAdmin || semCliente}
+                                <select aria-label="Profissional" className={selectCls} value={idProf} disabled={!veTudo || semCliente}
                                     onChange={(e) => { setIdProf(Number(e.target.value)); setNovos([]); setUsarItens([]); setItensTocados(false); }}>
                                     {((profsQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                 </select>

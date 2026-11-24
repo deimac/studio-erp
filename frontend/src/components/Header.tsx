@@ -8,7 +8,7 @@ type Props = { onMenuToggle: () => void };
 
 export function Header({ onMenuToggle }: Props) {
     const { user, logout } = useAuth();
-    const { valor: escopo, isAdmin } = useEscopo();
+    const { valor: escopo, podeEscolher } = useEscopo();
 
     return (
         <header className="sticky top-0 z-30 flex h-[var(--header-height)] items-center justify-between border-b border-[hsl(var(--border))] bg-white px-4 lg:px-6">
@@ -22,7 +22,7 @@ export function Header({ onMenuToggle }: Props) {
             </div>
 
             <div className="flex items-center gap-3">
-                {isAdmin && (
+                {podeEscolher && (
                     <div className="flex rounded-md border p-0.5 text-xs" title="O que as listas mostram">
                         {(['GERAL', 'MEU'] as const).map((e) => (
                             <button key={e} type="button" onClick={() => definirEscopo(e)}

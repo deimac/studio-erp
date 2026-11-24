@@ -70,7 +70,8 @@ export const usuariosRouter = createTRPCRouter({
             throw new TRPCError({ code: 'NOT_FOUND', message: 'Usuário não encontrado' });
         }
 
-        return usuarioDb;
+        // veTudo: vê os dados dos outros profissionais (admin no modo Clínica)
+        return { ...usuarioDb, ve_tudo: ctx.session.veTudo };
     }),
 
     list: adminProcedure.query(async ({ ctx }) => {

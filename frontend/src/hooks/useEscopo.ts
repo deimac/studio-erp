@@ -2,8 +2,9 @@ import { useSyncExternalStore } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * Visão do admin: "GERAL" (tudo) ou "MEU" (só o que é dele).
- * Profissional não escolhe: o backend sempre mostra só o dele (retorna undefined).
+ * Visão do admin no modo Clínica: "GERAL" (tudo) ou "MEU" (só o que é dele).
+ * Profissional, e o admin no modo "cada um cuida do seu", não escolhem:
+ * o backend sempre mostra só o dele (retorna undefined).
  */
 export type Escopo = 'GERAL' | 'MEU';
 
@@ -32,9 +33,10 @@ function assinar(f: () => void) {
     return () => ouvintes.delete(f);
 }
 
-/** Escopo atual para enviar às listas (undefined para profissional). */
-export function useEscopo(): { escopo: Escopo | undefined; valor: Escopo; isAdmin: boolean } {
-    const { isAdmin } = useAuth();
-    const valor = useSyncExternalStore(assinar, ler, ler);
-    return { escopo: isAdmin ? valor : undefined, valor, isAdmin };
+/** Escopo atual para enviar às listas (undefined para quem não escolhe). */
+export function useEscopo(): { escopo: Escopo | undefined; valor: Escopo; podeEscolher: boolean } {
+    const { veTudo } = useAuth();
+    const lido = useSyncExternalStore(assinar, ler, ler);
+    const valor: Escopo = veTudo ? lido : 'MEU';
+    return { escopo: veTudo ? valor : undefined, valor, podeEscolher: veTudo };
 }

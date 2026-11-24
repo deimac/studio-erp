@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { unidades } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
+const zModo = z.enum(['CLINICA', 'INDIVIDUAL']);
+
 export const unidadesRouter = createTRPCRouter({
     list: adminProcedure.query(async ({ ctx }) => {
         return ctx.db.select().from(unidades).orderBy(unidades.nome);
@@ -28,4 +30,18 @@ export const unidadesRouter = createTRPCRouter({
             await ctx.db.update(unidades).set(set).where(eq(unidades.id, input.id));
             return { ok: true };
         }),
+
+    /** Como a unidade do admin trabalha: Clínica (admin vê todos) ou cada um cuida do seu. */
+    modoTrabalho: adminProcedure.query(async ({ ctx }) => {
+        const [u] = await ctx.db.select({ modo: unidades.modo_trabalho }).from(unidades).where(eq(unidades.id, ctx.session.unidadeId)).limit(1);
+        return (u?.modo ?? 'CLINICA') as z.infer<typeof zModo>;
+    }),
+
+    salvarModoTrabalho: adminProcedure.input(z.object({ modo: zModo })).mutation(async ({ ctx, input }) => {
+        await ctx.db
+            .update(unidades)
+            .set({ modo_trabalho: input.modo, updated_at: new Date() })
+            .where(eq(unidades.id, ctx.session.unidadeId));
+        return { ok: true };
+    }),
 });

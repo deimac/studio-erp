@@ -91,7 +91,7 @@ export const atendimentosRouter = createTRPCRouter({
             if (input?.status) whereParts.push(eq(atendimentos.status, input.status));
             if (input?.id_venda) whereParts.push(eq(atendimentos.id_venda, input.id_venda));
 
-            if (ctx.session.perfil === 'PROFISSIONAL') {
+            if (!ctx.session.veTudo) {
                 whereParts.push(eq(atendimentos.id_profissional, ctx.session.id));
             } else if (input?.profissionalId) {
                 whereParts.push(eq(atendimentos.id_profissional, input.profissionalId));
@@ -140,7 +140,7 @@ export const atendimentosRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const profId = input.id_profissional ?? ctx.session.id;
-            if (ctx.session.perfil === 'PROFISSIONAL' && profId !== ctx.session.id)
+            if (!ctx.session.veTudo && profId !== ctx.session.id)
                 throw new TRPCError({ code: 'FORBIDDEN', message: 'Você só pode agendar na sua própria agenda' });
 
             const [prof] = await ctx.db.select({ id: usuarios.id, ativo: usuarios.ativo })
@@ -260,7 +260,7 @@ export const atendimentosRouter = createTRPCRouter({
             if (!a) throw new TRPCError({ code: 'NOT_FOUND', message: 'Atendimento não encontrado' });
             if (!(ABERTOS as readonly string[]).includes(a.status)) throw new TRPCError({ code: 'CONFLICT', message: 'Apenas agendado ou confirmado pode ser cancelado' });
 
-            if (ctx.session.perfil === 'PROFISSIONAL' && a.id_profissional !== ctx.session.id)
+            if (!ctx.session.veTudo && a.id_profissional !== ctx.session.id)
                 throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem permissão' });
 
             await ctx.db.update(atendimentos).set({ status: 'CANCELADO', updated_at: new Date() }).where(eq(atendimentos.id, input.id));
@@ -283,7 +283,7 @@ export const atendimentosRouter = createTRPCRouter({
             if (!a) throw new TRPCError({ code: 'NOT_FOUND', message: 'Atendimento não encontrado' });
             if (!(ABERTOS as readonly string[]).includes(a.status)) throw new TRPCError({ code: 'CONFLICT', message: 'Apenas agendado ou confirmado pode ser confirmado' });
 
-            if (ctx.session.perfil === 'PROFISSIONAL' && a.id_profissional !== ctx.session.id)
+            if (!ctx.session.veTudo && a.id_profissional !== ctx.session.id)
                 throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem permissão' });
 
             await ctx.db.update(atendimentos).set({ status: 'REALIZADO', updated_at: new Date() }).where(eq(atendimentos.id, input.id));
@@ -301,7 +301,7 @@ export const atendimentosRouter = createTRPCRouter({
             if (!a) throw new TRPCError({ code: 'NOT_FOUND', message: 'Atendimento não encontrado' });
             if (!(ABERTOS as readonly string[]).includes(a.status)) throw new TRPCError({ code: 'CONFLICT', message: 'Apenas agendado ou confirmado pode ser alterado' });
 
-            if (ctx.session.perfil === 'PROFISSIONAL' && a.id_profissional !== ctx.session.id)
+            if (!ctx.session.veTudo && a.id_profissional !== ctx.session.id)
                 throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem permissão' });
 
             await ctx.db.update(atendimentos).set({ status: 'FALTOU', updated_at: new Date() }).where(eq(atendimentos.id, input.id));
