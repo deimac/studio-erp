@@ -7,16 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, DollarSign, TrendingUp, CreditCard, CalendarDays, AlertCircle, Clock, CheckCircle, Sparkles, Package } from 'lucide-react';
 import { ReceitaDespesaForm } from '@/components/ReceitaDespesaForm';
 import { useAcoesDaTela, useAcoesRapidas } from '@/components/acoes/AcoesRapidas';
 import { Receipt } from 'lucide-react';
+import { RegistrarPagamentoDialog } from '@/components/RegistrarPagamentoDialog';
 import { EditarParcela } from '@/components/EditarParcela';
 import { useToast } from '@/hooks/useToast';
-import { maskMoney, unmaskMoney } from '@/lib/masks';
+import { unmaskMoney } from '@/lib/masks';
 
 export default function Financeiro() {
     const { toast } = useToast();
@@ -35,6 +33,7 @@ export default function Financeiro() {
     const [pgtoOpen, setPgtoOpen] = useState(false);
     const [pgtoId, setPgtoId] = useState<number | null>(null);
     const [pgtoValorParcela, setPgtoValorParcela] = useState(0);
+    const [pgtoDetalhe, setPgtoDetalhe] = useState('');
     const [pgtoData, setPgtoData] = useState(() => {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -249,6 +248,13 @@ export default function Financeiro() {
             const registroAtual = filtered.find((f) => f.id === parcelaId);
             if (registroAtual) {
                 setPgtoValorParcela(Number(registroAtual.valor));
+                setPgtoDetalhe(
+                    [
+                        registroAtual.cliente_nome,
+                        registroAtual.pacote_nome ?? registroAtual.servico_nome ?? registroAtual.descricao,
+                        (registroAtual.quantidade_parcelas ?? 1) > 1 ? `parcela ${registroAtual.parcela}/${registroAtual.quantidade_parcelas}` : '',
+                    ].filter(Boolean).join(' · '),
+                );
                 setPgtoData(getLocalDateString()); // Data de hoje como padrão
                 setPgtoParcial(false);
                 setPgtoValorPago('');
@@ -302,9 +308,6 @@ export default function Financeiro() {
         }
     };
 
-    const valorRestante = pgtoParcial
-        ? Math.max(0, pgtoValorParcela - unmaskMoney(pgtoValorPago))
-        : 0;
 
     const { abrirForm } = useAcoesRapidas();
     useAcoesDaTela([{ id: 'lancamento', label: 'Novo lançamento (receita ou despesa)', icone: Receipt, onSelect: () => abrirForm('lancamento') }]);
@@ -615,91 +618,26 @@ export default function Financeiro() {
             <EditarParcela lancamento={editando} onClose={() => setEditando(null)} onSaved={() => finQ.refetch()} />
 
             {/* Modal de Pagamento */}
-            <Dialog open={pgtoOpen} onOpenChange={setPgtoOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Registrar Pagamento</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            Valor da parcela: <strong>{fmt(pgtoValorParcela)}</strong>
-                        </p>
-
-                        <div className="space-y-1.5">
-                            <Label>Data de Pagamento</Label>
-                            <Input
-                                type="date"
-                                value={pgtoData}
-                                max={getLocalDateString()}
-                                onChange={(e) => setPgtoData(e.target.value)}
-                            />
-                        </div>
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={pgtoParcial}
-                                onChange={(e) => setPgtoParcial(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                            />
-                            <span className="text-sm">Realizar pagamento parcial</span>
-                        </label>
-
-                        {pgtoParcial && (
-                            <div className="space-y-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
-                                <div className="space-y-1.5">
-                                    <Label>Valor Pago (R$)</Label>
-                                    <Input
-                                        type="text"
-                                        inputMode="numeric"
-                                        placeholder="0,00"
-                                        value={pgtoValorPago}
-                                        onChange={(e) => setPgtoValorPago(maskMoney(e.target.value))}
-                                    />
-                                </div>
-                                <div>
-                                    <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                                        Valor Restante:{' '}
-                                    </span>
-                                    <strong className="text-sm">{fmt(valorRestante)}</strong>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label>Novo Vencimento</Label>
-                                    <Input
-                                        type="date"
-                                        min={getLocalDateString()}
-                                        value={pgtoNovoVenc}
-                                        onChange={(e) => setPgtoNovoVenc(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setPgtoOpen(false);
-                            }}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={submitPgto}
-                            disabled={
-                                updateParcelaMut.isPending ||
-                                !pgtoData ||
-                                (pgtoParcial && (!pgtoValorPago || !pgtoNovoVenc || unmaskMoney(pgtoValorPago) <= 0))
-                            }
-                        >
-                            {updateParcelaMut.isPending ? 'Registrando…' : 'Confirmar'}
-                        </Button>
-                    </DialogFooter>
-                    {updateParcelaMut.isError && (
-                        <p className="text-sm text-red-500 mt-2">{updateParcelaMut.error.message}</p>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <RegistrarPagamentoDialog
+                open={pgtoOpen}
+                onOpenChange={setPgtoOpen}
+                valor={pgtoValorParcela}
+                detalhe={pgtoDetalhe}
+                data={pgtoData}
+                onData={setPgtoData}
+                dataMax={getLocalDateString()}
+                parcial={pgtoParcial}
+                onParcial={setPgtoParcial}
+                valorPago={pgtoValorPago}
+                onValorPago={setPgtoValorPago}
+                novoVenc={pgtoNovoVenc}
+                onNovoVenc={setPgtoNovoVenc}
+                novoVencMin={getLocalDateString()}
+                salvando={updateParcelaMut.isPending}
+                erro={updateParcelaMut.isError ? updateParcelaMut.error.message : undefined}
+                onConfirmar={submitPgto}
+                onCancelar={() => setPgtoOpen(false)}
+            />
         </div>
     );
 }

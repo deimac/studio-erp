@@ -1,9 +1,8 @@
 import { useState, useRef } from 'react';
 import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
+import { RegistrarPagamentoDialog } from '@/components/RegistrarPagamentoDialog';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
@@ -23,9 +22,14 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/useToast';
-import { maskMoney, unmaskMoney } from '@/lib/masks';
+import { unmaskMoney } from '@/lib/masks';
 
 /* ── helpers ─── */
+/** Hoje no fuso do aparelho (AAAA-MM-DD). */
+const hojeLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const fmt = (v: string | number) =>
     Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -50,7 +54,7 @@ function parcelaDisplayStatus(
 ) {
     if (status === 'CANCELADO') return { label: 'Cancelada', color: 'text-gray-400 line-through' };
     if (dataPagamento) return { label: fmtDate(dataPagamento), color: 'text-green-600 font-medium' };
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = hojeLocal();
     if (dataVencimento && dataVencimento < hoje) return { label: 'Em atraso', color: 'text-red-500 font-medium' };
     return { label: 'Em aberto', color: 'text-yellow-600 font-medium' };
 }
@@ -106,13 +110,14 @@ export function VendaDetail({ venda }: Props) {
     const [pgtoOpen, setPgtoOpen] = useState(false);
     const [pgtoId, setPgtoId] = useState<number | null>(null);
     const [pgtoValorParcela, setPgtoValorParcela] = useState(0);
-    const [pgtoData, setPgtoData] = useState(new Date().toISOString().split('T')[0]);
+    const [pgtoData, setPgtoData] = useState(hojeLocal());
     const [pgtoParcial, setPgtoParcial] = useState(false);
     const [pgtoValorPago, setPgtoValorPago] = useState('');
     const [pgtoNovoVenc, setPgtoNovoVenc] = useState('');
     const [pgtoForma, setPgtoForma] = useState('');
     /** Parcela "a receber" sem forma: precisa escolher na baixa. */
     const [pgtoSemForma, setPgtoSemForma] = useState(false);
+    const [pgtoParcela, setPgtoParcela] = useState<number | null>(null);
     const pgtoFoiRemocaoRef = useRef(false);
 
     const pgtoMut = trpc.vendas.registrarPagamento.useMutation({
@@ -131,7 +136,7 @@ export function VendaDetail({ venda }: Props) {
     function openPgto(parcelaId: number, valor: number) {
         setPgtoId(parcelaId);
         setPgtoValorParcela(valor);
-        setPgtoData(new Date().toISOString().split('T')[0]);
+        setPgtoData(hojeLocal());
         setPgtoParcial(false);
         setPgtoValorPago('');
         setPgtoNovoVenc('');
@@ -165,9 +170,13 @@ export function VendaDetail({ venda }: Props) {
         });
     }
 
-    const valorRestante = pgtoParcial
-        ? Math.max(0, pgtoValorParcela - unmaskMoney(pgtoValorPago))
-        : 0;
+    /** Desistiu: fecha e desfaz a baixa feita ao ligar a chave. */
+    function cancelarPgto() {
+        setPgtoOpen(false);
+        if (pgtoId) {
+            pgtoMut.mutate({ id_financeiro: pgtoId, data_pagamento: null, parcial: false });
+        }
+    }
 
     /* Sessões realizadas (contagem de atendimentos REALIZADO) */
     const sessoesRealizadas =
@@ -300,13 +309,14 @@ export function VendaDetail({ venda }: Props) {
                                                                 // 1. Set payment date and update grid
                                                                 await pgtoMut.mutateAsync({
                                                                     id_financeiro: p.id,
-                                                                    data_pagamento: new Date().toISOString().split('T')[0],
+                                                                    data_pagamento: hojeLocal(),
                                                                     parcial: false,
                                                                 });
                                                                 // 2. Open modal with today's date
                                                                 setPgtoId(p.id);
+                                                                setPgtoParcela(p.parcela ?? null);
                                                                 setPgtoValorParcela(Number(p.valor));
-                                                                setPgtoData(new Date().toISOString().split('T')[0]);
+                                                                setPgtoData(hojeLocal());
                                                                 setPgtoParcial(false);
                                                                 setPgtoValorPago('');
                                                                 setPgtoNovoVenc('');
@@ -406,108 +416,27 @@ export function VendaDetail({ venda }: Props) {
             </div>
 
             {/* ── Modal: Registrar Pagamento ── */}
-            <Dialog open={pgtoOpen} onOpenChange={setPgtoOpen}>
-                <DialogContent className="max-w-sm">
-                    <DialogHeader>
-                        <DialogTitle>Registrar Pagamento</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                            Valor da parcela: <strong>{fmt(pgtoValorParcela)}</strong>
-                        </p>
-
-                        <div className="space-y-1.5">
-                            <Label>Pago com</Label>
-                            <select aria-label="Forma de pagamento" className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={pgtoForma}
-                                onChange={(e) => setPgtoForma(e.target.value)}>
-                                <option value="">{pgtoSemForma ? 'Escolha…' : 'Manter a combinada'}</option>
-                                {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                            </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label>Data de Pagamento</Label>
-                            <Input
-                                type="date"
-                                value={pgtoData}
-                                onChange={(e) => setPgtoData(e.target.value)}
-                            />
-                        </div>
-
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={pgtoParcial}
-                                onChange={(e) => setPgtoParcial(e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-300"
-                            />
-                            <span className="text-sm">Realizar pagamento parcial</span>
-                        </label>
-
-                        {pgtoParcial && (
-                            <div className="space-y-3 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 p-3">
-                                <div className="space-y-1.5">
-                                    <Label>Valor Pago (R$)</Label>
-                                    <Input
-                                        type="text"
-                                        inputMode="numeric"
-                                        placeholder="0,00"
-                                        value={pgtoValorPago}
-                                        onChange={(e) => setPgtoValorPago(maskMoney(e.target.value))}
-                                    />
-                                </div>
-                                <div>
-                                    <span className="text-sm text-[hsl(var(--muted-foreground))]">
-                                        Valor Restante:{' '}
-                                    </span>
-                                    <strong className="text-sm">{fmt(valorRestante)}</strong>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label>Novo Vencimento</Label>
-                                    <Input
-                                        type="date"
-                                        min={new Date().toISOString().split('T')[0]}
-                                        value={pgtoNovoVenc}
-                                        onChange={(e) => setPgtoNovoVenc(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setPgtoOpen(false);
-                                // revert switch and remove payment date
-                                if (pgtoId) {
-                                    pgtoMut.mutate({
-                                        id_financeiro: pgtoId,
-                                        data_pagamento: null,
-                                        parcial: false,
-                                    });
-                                }
-                            }}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={submitPgto}
-                            disabled={
-                                pgtoMut.isPending ||
-                                !pgtoData ||
-                                (pgtoSemForma && !pgtoForma) ||
-                                (pgtoParcial && (!pgtoValorPago || !pgtoNovoVenc || unmaskMoney(pgtoValorPago) <= 0))
-                            }
-                        >
-                            {pgtoMut.isPending ? 'Registrando…' : 'Confirmar'}
-                        </Button>
-                    </DialogFooter>
-                    {pgtoMut.isError && (
-                        <p className="text-sm text-red-500 mt-2">{pgtoMut.error.message}</p>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <RegistrarPagamentoDialog
+                open={pgtoOpen}
+                onOpenChange={(v) => { if (!v) cancelarPgto(); }}
+                valor={pgtoValorParcela}
+                detalhe={[venda.pessoa_nome, pgtoParcela ? `parcela ${pgtoParcela}` : ''].filter(Boolean).join(' · ')}
+                data={pgtoData}
+                onData={setPgtoData}
+                dataMax={hojeLocal()}
+                parcial={pgtoParcial}
+                onParcial={setPgtoParcial}
+                valorPago={pgtoValorPago}
+                onValorPago={setPgtoValorPago}
+                novoVenc={pgtoNovoVenc}
+                onNovoVenc={setPgtoNovoVenc}
+                novoVencMin={hojeLocal()}
+                forma={{ opcoes: formas, valor: pgtoForma, onChange: setPgtoForma, obrigatoria: pgtoSemForma }}
+                salvando={pgtoMut.isPending}
+                erro={pgtoMut.isError ? pgtoMut.error.message : undefined}
+                onConfirmar={submitPgto}
+                onCancelar={cancelarPgto}
+            />
         </>
     );
 }
