@@ -157,3 +157,32 @@
 .agenda-studio .rbc-addons-dnd .rbc-addons-dnd-resize-ns-anchor .rbc-addons-dnd-resize-ns-icon {
     border-top-color: var(--evt-cor, #64748b);
 }
+
+/* Semana no celular: 7 colunas apertadas */
+.agenda-compacta .rbc-header {
+    padding: 0.375rem 0;
+    font-size: 0.6875rem;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.agenda-compacta .rbc-time-gutter .rbc-label,
+.agenda-compacta .rbc-time-header-gutter {
+    padding: 0 3px;
+    font-size: 0.625rem;
+}
+.agenda-compacta .rbc-timeslot-group {
+    min-height: 48px;
+}
+.agenda-compacta .rbc-event.evt-atendimento {
+    padding: 1px 2px;
+    font-size: 0.625rem;
+    border-radius: 4px;
+}
+.agenda-compacta .rbc-event .rbc-event-label {
+    display: none;
+}
+.agenda-compacta .rbc-header {
+    white-space: normal;
+    line-height: 1.15;
+    word-spacing: 100vw; /* nome do dia em cima, número embaixo */
+}

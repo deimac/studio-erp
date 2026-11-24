@@ -62,6 +62,8 @@ const MENSAGENS = {
     showMore: (total: number) => `+${total} mais`,
 };
 
+const DIA_CURTO = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
 function periodo(view: View, data: Date): [Date, Date] {
     if (view === 'day') return [data, data];
     if (view === 'week') return [startOfWeek(data, { weekStartsOn: 1 }), endOfWeek(data, { weekStartsOn: 1 })];
@@ -439,7 +441,7 @@ export default function Agenda() {
                 timeGutterFormat: 'HH:mm',
                 eventTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
                 agendaTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
-                dayFormat: (d) => format(d, 'EEE dd/MM', { locale: ptBR }),
+                dayFormat: (d) => mobile ? `${DIA_CURTO[d.getDay()]} ${d.getDate()}` : format(d, 'EEE dd/MM', { locale: ptBR }),
                 agendaDateFormat: (d) => format(d, "EEE, dd/MM", { locale: ptBR }),
             }}
             eventPropGetter={(e) => {
@@ -455,6 +457,7 @@ export default function Agenda() {
                 event: ({ event }: { event: Evento }) => {
                     if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
                     const a = event.atendimento!;
+                    if (mobile && view === 'week') return <div className="truncate font-semibold leading-tight">{event.title.split(' ')[0]}</div>;
                     return (
                         <div className="leading-tight">
                             <div className="flex items-center gap-1">
@@ -519,11 +522,15 @@ export default function Agenda() {
                             {calendario}
                         </div>
                     </div>
-                ) : view === 'week' || view === 'agenda' ? (
+                ) : view === 'week' ? (
+                    <div className={cn('agenda-studio agenda-compacta h-[72vh] min-h-[440px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+                        {calendario}
+                    </div>
+                ) : view === 'agenda' ? (
                     <AgendaLista
                         de={de}
                         ate={ate}
-                        mostrarVazios={view === 'week'}
+                        mostrarVazios={false}
                         atendimentos={dados?.atendimentos ?? []}
                         bloqueios={dados?.bloqueios ?? []}
                         profissionais={profissionais}
