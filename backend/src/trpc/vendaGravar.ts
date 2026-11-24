@@ -4,7 +4,7 @@ import { dividirParcelas } from './vendaItens';
 
 /** Item já validado: serviço, pacote ou descrição livre. */
 export type ItemGravar = { id_servico?: number | null; id_pacote?: number | null; descricao?: string | null; quantidade_sessoes: number; valor: number };
-export type PagamentoGravar = { id_forma_pagamento: number; valor: number; parcelas: number; primeiro_vencimento: Date; pago: boolean };
+export type PagamentoGravar = { id_forma_pagamento: number | null; valor: number; parcelas: number; primeiro_vencimento: Date; pago: boolean };
 
 /**
  * Grava venda, itens e parcelas (deve rodar dentro de uma transação).
@@ -23,7 +23,7 @@ export async function gravarVenda(
             // Resumo (compatibilidade): 1º item, total de sessões, 1ª forma
             id_servico: primeiro.id_servico ?? null,
             id_pacote: primeiro.id_servico ? null : primeiro.id_pacote ?? null,
-            id_forma_pagamento: v.pagamentos[0].id_forma_pagamento,
+            id_forma_pagamento: v.pagamentos.find((p) => p.id_forma_pagamento)?.id_forma_pagamento ?? null,
             id_unidade: v.unidadeId,
             quantidade_sessoes: v.itens.reduce((t, i) => t + i.quantidade_sessoes, 0),
             valor: String(total) as any,

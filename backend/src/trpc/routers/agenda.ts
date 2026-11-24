@@ -15,14 +15,17 @@ import {
     usuarios,
     vendas,
     vendaItens,
+    atendimentoItens,
     unidades,
     formasPagamento,
 } from '../../drizzle/schema';
 import {
     STATUS_OCUPAM,
     calcularFim,
+    distribuirNovos,
     faltaConsome,
     regraFaltaEfetiva,
+    type NovoItemAgenda,
     type RegraFalta,
     conflitosImpeditivos,
     gerarOcorrencias,
@@ -42,8 +45,16 @@ import {
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
-import { CONSOME_SESSAO, rotuloItem, rotuloVenda } from '../vendaItens';
+import { CONSOME_SESSAO, rotuloItensAtendimento, rotuloVenda } from '../vendaItens';
 import { gravarVenda } from '../vendaGravar';
+import { normalizarTelefone } from '../../lib/telefone';
+
+/** Telefone em formato internacional; inválido → erro para o usuário corrigir. */
+function telefoneValido(v: string | null | undefined): string | null {
+    const n = normalizarTelefone(v);
+    if (n === undefined) erro('BAD_REQUEST', 'Telefone inválido: confira o país e o número');
+    return n ?? null;
+}
 import type { Session } from '../context';
 import type { db as Db } from '../../config/db';
 
@@ -116,61 +127,64 @@ async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: numbe
     return unicos.map((id) => rows.find((r) => r.id === id)!);
 }
 
-/** Sessões do item da venda já comprometidas (agendadas, confirmadas ou realizadas). */
+/** Sessões do item da venda já comprometidas (agendadas, confirmadas, realizadas ou faltas descontadas). */
 async function sessoesUsadas(db: DbOuTx, idItem: number, ignorarIds: number[] = []) {
     const parts = [
-        eq(atendimentos.id_venda_item, idItem),
+        eq(atendimentoItens.id_venda_item, idItem),
         or(inArray(atendimentos.status, [...STATUS_OCUPAM]), and(eq(atendimentos.status, 'FALTOU'), eq(atendimentos.falta_consome, true)))!,
     ];
     if (ignorarIds.length) parts.push(sql`${atendimentos.id} NOT IN (${sql.join(ignorarIds.map((i) => sql`${i}`), sql`, `)})`);
-    const [r] = await db.select({ n: sql<number>`COUNT(*)` }).from(atendimentos).where(and(...parts));
+    const [r] = await db
+        .select({ n: sql<number>`COUNT(*)` })
+        .from(atendimentoItens)
+        .innerJoin(atendimentos, eq(atendimentos.id, atendimentoItens.id_atendimento))
+        .where(and(...parts));
     return Number(r?.n ?? 0);
 }
 
 /**
- * Valida o vínculo do atendimento com a venda e devolve venda + item.
- * Com o item informado, usa ele; só com a venda (cliente antigo), pega o
- * primeiro item que ainda tenha sessões suficientes.
+ * Valida os itens já comprados que o atendimento vai usar (cliente, profissional,
+ * venda ativa e saldo para todas as datas). Devolve venda e serviço de cada um.
  */
-async function resolverVinculo(
+async function validarItens(
     db: DbOuTx,
     unidadeId: number,
-    alvo: { id_venda?: number | null; id_venda_item?: number | null },
+    ids: number[],
     idPessoa: number,
     novas: number,
     idProfissional: number,
     ignorarIds: number[] = [],
-): Promise<{ id_venda: number; id_venda_item: number }> {
-    let idVenda = alvo.id_venda ?? null;
-    if (alvo.id_venda_item) {
-        const [it] = await db.select({ id_venda: vendaItens.id_venda }).from(vendaItens).where(eq(vendaItens.id, alvo.id_venda_item)).limit(1);
-        if (!it) erro('NOT_FOUND', 'Item da venda não encontrado');
-        if (idVenda && idVenda !== it.id_venda) erro('BAD_REQUEST', 'O item não é desta venda');
-        idVenda = it.id_venda;
-    }
-    if (!idVenda) erro('BAD_REQUEST', 'Venda não informada');
-    const [v] = await db
-        .select({ id: vendas.id, status: vendas.status, id_pessoa: vendas.id_pessoa, deleted_at: vendas.deleted_at, dono: vendas.id_profissional })
-        .from(vendas)
-        .where(and(eq(vendas.id, idVenda), eq(vendas.id_unidade, unidadeId)))
-        .limit(1);
-    if (!v || v.deleted_at) erro('NOT_FOUND', 'Venda não encontrada');
-    if (v.status !== 'ATIVA') erro('CONFLICT', 'Venda não está ativa');
-    if (v.id_pessoa !== idPessoa) erro('BAD_REQUEST', 'A venda é de outro cliente');
-    if (v.dono != null && v.dono !== idProfissional) erro('BAD_REQUEST', 'A venda é de outro profissional');
-
-    const itens = await db
-        .select({ id: vendaItens.id, qtd: vendaItens.quantidade_sessoes })
-        .from(vendaItens)
-        .where(and(eq(vendaItens.id_venda, idVenda), ...(alvo.id_venda_item ? [eq(vendaItens.id, alvo.id_venda_item)] : [])))
-        .orderBy(asc(vendaItens.id));
-    let maior = 0;
-    for (const it of itens) {
+): Promise<{ id: number; id_venda: number; id_servico: number | null }[]> {
+    const unicos = [...new Set(ids)];
+    const out: { id: number; id_venda: number; id_servico: number | null }[] = [];
+    for (const id of unicos) {
+        const [it] = await db
+            .select({
+                id: vendaItens.id,
+                id_venda: vendaItens.id_venda,
+                qtd: vendaItens.quantidade_sessoes,
+                id_servico: sql<number | null>`COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico})`,
+                nome: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendaItens.id_servico}), ${vendaItens.descricao}, 'Item')`,
+                status: vendas.status,
+                id_pessoa: vendas.id_pessoa,
+                deleted_at: vendas.deleted_at,
+                dono: vendas.id_profissional,
+                unidade: vendas.id_unidade,
+            })
+            .from(vendaItens)
+            .innerJoin(vendas, eq(vendas.id, vendaItens.id_venda))
+            .leftJoin(pacotes, eq(pacotes.id, vendaItens.id_pacote))
+            .where(eq(vendaItens.id, id))
+            .limit(1);
+        if (!it || it.unidade !== unidadeId || it.deleted_at) erro('NOT_FOUND', 'Item da venda não encontrado');
+        if (it.status !== 'ATIVA') erro('CONFLICT', `"${it.nome}": a venda não está ativa`);
+        if (it.id_pessoa !== idPessoa) erro('BAD_REQUEST', `"${it.nome}" é de outro cliente`);
+        if (it.dono != null && it.dono !== idProfissional) erro('BAD_REQUEST', `"${it.nome}" foi vendido por outro profissional`);
         const restantes = it.qtd - (await sessoesUsadas(db, it.id, ignorarIds));
-        if (restantes >= novas) return { id_venda: idVenda, id_venda_item: it.id };
-        maior = Math.max(maior, restantes);
+        if (restantes < novas) erro('CONFLICT', `"${it.nome}" tem só ${Math.max(restantes, 0)} sessão(ões) disponível(is)`);
+        out.push({ id: it.id, id_venda: it.id_venda, id_servico: it.id_servico });
     }
-    return erro('CONFLICT', `Este item da venda tem só ${Math.max(maior, 0)} sessão(ões) disponível(is)`);
+    return out;
 }
 
 /** Regra de falta que vale para o profissional (da clínica ou a dele, se a clínica permitir). */
@@ -528,7 +542,7 @@ const profissionaisRouter = createTRPCRouter({
             z.object({
                 id: zId,
                 cor: z.string().max(20).nullable().optional(),
-                telefone: z.string().max(20).nullable().optional(),
+                telefone: z.string().max(25).nullable().optional(),
                 agenda_compartilhada: z.boolean().optional(),
                 ve_servicos_clinica: z.boolean().optional(),
                 /** Regra de falta própria (null = segue a da clínica). */
@@ -540,6 +554,7 @@ const profissionaisRouter = createTRPCRouter({
             if ((input.agenda_compartilhada !== undefined || input.ve_servicos_clinica !== undefined) && !isAdmin(ctx.session))
                 erro('FORBIDDEN', 'Só o administrador altera essas configurações');
             const { id, ...campos } = input;
+            if (campos.telefone !== undefined) campos.telefone = telefoneValido(campos.telefone);
             await ctx.db
                 .update(usuarios)
                 .set({ ...campos, updated_at: new Date() })
@@ -594,37 +609,128 @@ const profissionaisRouter = createTRPCRouter({
 
 /* ============================== router principal ============================== */
 
-/** Atendimento livre (sem serviço cadastrado): "Avaliação", "Retoque"… */
-const zExtra = z.object({
-    titulo: z.string().trim().min(2, 'Dê um nome ao atendimento').max(120),
-    duracao: z.number().int().min(5).max(600),
-    /** Valor cobrado (vazio/0 = sem cobrança). Com valor, vira uma venda. */
-    valor: z.number().min(0).optional(),
-    id_forma_pagamento: zId.optional(),
-    pago: z.boolean().optional(),
+/** Venda feita no próprio agendamento: serviços, pacotes e serviço sem cadastro. */
+const zVendaAgenda = z.object({
+    itens: z
+        .array(
+            z.object({
+                id_servico: zId.optional(),
+                id_pacote: zId.optional(),
+                /** Serviço sem cadastro. */
+                descricao: z.string().trim().min(2).max(120).optional(),
+                /** Preço da sessão (serviço/sem cadastro) ou total do pacote. */
+                valor: z.number().min(0),
+                /** Sessões do pacote. */
+                sessoes: z.number().int().positive().optional(),
+            }),
+        )
+        .min(1),
+    /** Vazio = tudo a receber, forma definida na baixa. */
+    pagamentos: z
+        .array(
+            z.object({
+                id_forma_pagamento: zId.nullable().optional(),
+                valor: z.number().positive(),
+                parcelas: z.number().int().positive().max(48).default(1),
+                vencimento: zData.optional(),
+                pago: z.boolean().default(false),
+            }),
+        )
+        .default([]),
 });
-type Extra = z.infer<typeof zExtra>;
+type VendaAgenda = z.infer<typeof zVendaAgenda>;
 
-/** Lança a venda do atendimento livre cobrado (uma por agendamento; recorrência multiplica). */
-async function cobrarExtra(tx: DbOuTx, s: Session, extra: Extra, idPessoa: number, idProf: number, vezes: number): Promise<number | null> {
-    if (!extra.valor || extra.valor <= 0) return null;
-    if (!extra.id_forma_pagamento) erro('BAD_REQUEST', 'Escolha a forma de pagamento do atendimento cobrado');
-    const [fp] = await tx
-        .select({ id: formasPagamento.id })
-        .from(formasPagamento)
-        .where(and(eq(formasPagamento.id, extra.id_forma_pagamento), eq(formasPagamento.ativo, true)))
-        .limit(1);
-    if (!fp) erro('NOT_FOUND', 'Forma de pagamento não encontrada');
+/**
+ * Lança a venda feita no agendamento e diz quais datas cada item cobre
+ * (avulso/sem cadastro: uma sessão por data; pacote: até acabar as sessões).
+ */
+async function venderNoAgendamento(tx: DbOuTx, s: Session, venda: VendaAgenda, idPessoa: number, idProf: number, datas: string[]) {
+    const usaClinica = await usaServicosClinica(tx, idProf);
+    const tipos: NovoItemAgenda[] = [];
+    const base: { id_servico?: number; id_pacote?: number; descricao?: string; id_servico_sessao: number | null }[] = [];
+    for (const it of venda.itens) {
+        const qtd = [it.id_servico, it.id_pacote, it.descricao].filter(Boolean).length;
+        if (qtd !== 1) erro('BAD_REQUEST', 'Cada item é um serviço, um pacote ou um serviço sem cadastro');
+        if (it.id_servico) {
+            const [sv] = await tx.select({ dono: servicos.id_profissional, ativo: servicos.ativo, nome: servicos.nome }).from(servicos).where(eq(servicos.id, it.id_servico)).limit(1);
+            if (!sv || !sv.ativo) erro('NOT_FOUND', 'Serviço não encontrado');
+            if (!servicoServeParaProfissional(sv.dono, idProf, usaClinica)) erro('BAD_REQUEST', `"${sv.nome}" não é deste profissional`);
+            tipos.push({ tipo: 'servico', sessoes: 1, valor: it.valor });
+            base.push({ id_servico: it.id_servico, id_servico_sessao: it.id_servico });
+        } else if (it.id_pacote) {
+            const [pk] = await tx
+                .select({ dono: servicos.id_profissional, status: pacotes.status, nome: pacotes.nome, sessoes: pacotes.quantidade_sessoes, id_servico: pacotes.id_servico })
+                .from(pacotes)
+                .leftJoin(servicos, eq(servicos.id, pacotes.id_servico))
+                .where(eq(pacotes.id, it.id_pacote))
+                .limit(1);
+            if (!pk || String(pk.status).toLowerCase() !== 'ativo') erro('NOT_FOUND', 'Pacote não encontrado');
+            if (!servicoServeParaProfissional(pk.dono ?? null, idProf, usaClinica)) erro('BAD_REQUEST', `"${pk.nome}" não é deste profissional`);
+            tipos.push({ tipo: 'pacote', sessoes: it.sessoes ?? pk.sessoes, valor: it.valor });
+            base.push({ id_pacote: it.id_pacote, id_servico_sessao: pk.id_servico ?? null });
+        } else {
+            tipos.push({ tipo: 'livre', sessoes: 1, valor: it.valor });
+            base.push({ descricao: it.descricao, id_servico_sessao: null });
+        }
+    }
+    const plano = distribuirNovos(tipos, datas.length);
+    // Itens sem valor (ex.: sem cadastro gratuito) não entram na venda
+    const cobrados = plano.map((p, i) => ({ ...p, ...base[i] })).filter((p) => p.valor > 0);
+    if (!cobrados.length) return { itens: [] as { id: number; datas: number[]; id_servico_sessao: number | null }[] };
+
+    const totalC = cobrados.reduce((t, p) => t + Math.round(p.valor * 100), 0);
     const hoje = dataParaDate(new Date().toISOString().slice(0, 10));
-    const total = Math.round(extra.valor * vezes * 100) / 100;
-    return gravarVenda(tx, {
+    const vencPadrao = dataParaDate(datas[0] < new Date().toISOString().slice(0, 10) ? new Date().toISOString().slice(0, 10) : datas[0]);
+    let pagamentos = venda.pagamentos;
+    if (!pagamentos.length) pagamentos = [{ id_forma_pagamento: null, valor: totalC / 100, parcelas: 1, pago: false }];
+    const pagoC = pagamentos.reduce((t, p) => t + Math.round(p.valor * 100), 0);
+    if (pagoC !== totalC) erro('BAD_REQUEST', `Os pagamentos somam R$ ${(pagoC / 100).toFixed(2)}, mas a venda é de R$ ${(totalC / 100).toFixed(2)}`);
+    for (const p of pagamentos) {
+        if (p.pago && !p.id_forma_pagamento) erro('BAD_REQUEST', 'Informe a forma do pagamento já recebido');
+        if (p.pago && p.parcelas > 1) erro('BAD_REQUEST', 'Só um pagamento à vista pode ser marcado como já recebido');
+        if (p.id_forma_pagamento) {
+            const [fp] = await tx.select({ id: formasPagamento.id }).from(formasPagamento)
+                .where(and(eq(formasPagamento.id, p.id_forma_pagamento), eq(formasPagamento.ativo, true))).limit(1);
+            if (!fp) erro('NOT_FOUND', 'Forma de pagamento não encontrada');
+        }
+    }
+
+    const idVenda = await gravarVenda(tx, {
         unidadeId: s.unidadeId,
         id_pessoa: idPessoa,
         vendedor: idProf,
         data_venda: hoje,
-        itens: [{ descricao: extra.titulo, quantidade_sessoes: vezes, valor: total }],
-        pagamentos: [{ id_forma_pagamento: extra.id_forma_pagamento, valor: total, parcelas: 1, primeiro_vencimento: hoje, pago: Boolean(extra.pago) }],
+        itens: cobrados.map((c) => ({ id_servico: c.id_servico, id_pacote: c.id_pacote, descricao: c.descricao, quantidade_sessoes: c.sessoes, valor: c.valor })),
+        pagamentos: pagamentos.map((p) => ({
+            id_forma_pagamento: p.id_forma_pagamento ?? null,
+            valor: p.valor,
+            parcelas: p.parcelas,
+            primeiro_vencimento: p.vencimento ? dataParaDate(p.vencimento) : vencPadrao,
+            pago: p.pago,
+        })),
     });
+    const ids = await tx.select({ id: vendaItens.id }).from(vendaItens).where(eq(vendaItens.id_venda, idVenda)).orderBy(asc(vendaItens.id));
+    return { idVenda, itens: cobrados.map((c, i) => ({ id: ids[i]!.id, datas: c.datas, id_servico_sessao: c.id_servico_sessao })) };
+}
+
+/** Itens de venda já ligados ao atendimento. */
+async function itensDoAtendimento(tx: DbOuTx, idAtendimento: number) {
+    return tx
+        .select({ id: vendaItens.id, id_venda: vendaItens.id_venda })
+        .from(atendimentoItens)
+        .innerJoin(vendaItens, eq(vendaItens.id, atendimentoItens.id_venda_item))
+        .where(eq(atendimentoItens.id_atendimento, idAtendimento));
+}
+
+/** Liga os itens de venda ao atendimento (substitui os vínculos anteriores). */
+async function ligarItens(tx: DbOuTx, idAtendimento: number, itens: { id: number; id_venda: number }[]) {
+    await tx.delete(atendimentoItens).where(eq(atendimentoItens.id_atendimento, idAtendimento));
+    if (itens.length) await tx.insert(atendimentoItens).values(itens.map((i) => ({ id_atendimento: idAtendimento, id_venda_item: i.id })));
+    // Colunas antigas guardam o 1º item (rótulos e regra de falta)
+    await tx
+        .update(atendimentos)
+        .set({ id_venda_item: itens[0]?.id ?? null, id_venda: itens[0]?.id_venda ?? null })
+        .where(eq(atendimentos.id, idAtendimento));
 }
 
 const zRecorrencia = z.object({ quantidade: z.number().int().min(2).max(52), intervalo_semanas: z.number().int().min(1).max(4).default(1) });
@@ -675,7 +781,8 @@ export const agendaRouter = createTRPCRouter({
                     observacoes: atendimentos.observacoes,
                     confirmado_em: atendimentos.confirmado_em,
                     lembrete_enviado_em: atendimentos.lembrete_enviado_em,
-                    venda_rotulo: sql<string | null>`COALESCE(${rotuloItem(atendimentos.id_venda_item)}, ${rotuloVenda(atendimentos.id_venda)})`,
+                    venda_rotulo: sql<string | null>`COALESCE(${rotuloItensAtendimento(atendimentos.id)}, ${rotuloVenda(atendimentos.id_venda)})`,
+                    itens_ids: sql<string | null>`(SELECT GROUP_CONCAT(aiz.id_venda_item) FROM atendimento_itens aiz WHERE aiz.id_atendimento = ${atendimentos.id})`,
                     id_venda_item: atendimentos.id_venda_item,
                     titulo_extra: atendimentos.titulo_extra,
                     duracao_extra: atendimentos.duracao_extra,
@@ -714,7 +821,7 @@ export const agendaRouter = createTRPCRouter({
                     restrito,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
-                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, titulo_extra: null, id_venda_extra: null }
+                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }
                         : {}),
                 };
             });
@@ -785,7 +892,9 @@ export const agendaRouter = createTRPCRouter({
         }),
 
     /** Itens (serviços e pacotes) das vendas ativas do cliente com sessões ainda disponíveis. */
-    vendasDoCliente: protectedProcedure.input(z.object({ id_pessoa: zId, id_profissional: zId.optional() })).query(async ({ ctx, input }) => {
+    vendasDoCliente: protectedProcedure.input(z.object({ id_pessoa: zId, id_profissional: zId.optional(), id_atendimento: zId.optional() })).query(async ({ ctx, input }) => {
+        // Editando: as sessões deste atendimento não contam como usadas
+        const ignorar = input.id_atendimento ? sql`AND ax.id <> ${input.id_atendimento}` : sql``;
         // Só vendas do profissional do atendimento (as sem dono, legado, só para o admin)
         const idProf = isAdmin(ctx.session) ? input.id_profissional ?? ctx.session.id : ctx.session.id;
         const rows = await ctx.db
@@ -795,8 +904,11 @@ export const agendaRouter = createTRPCRouter({
                 data_venda: vendas.data_venda,
                 quantidade_sessoes: vendaItens.quantidade_sessoes,
                 id_servico: sql<number | null>`COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico})`,
+                pacote: sql<number>`${vendaItens.id_pacote} IS NOT NULL`,
                 rotulo: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendaItens.id_servico}), 'Venda')`,
-                usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = ${vendaItens.id} AND ${CONSOME_SESSAO})`,
+                servico_nome: sql<string | null>`(SELECT s3.nome FROM servicos s3 WHERE s3.id = COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico}))`,
+                duracao: sql<number | null>`(SELECT s4.duracao_minutos FROM servicos s4 WHERE s4.id = COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico}))`,
+                usadas: sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN atendimentos ax ON ax.id = aix.id_atendimento WHERE aix.id_venda_item = ${vendaItens.id} AND ${CONSOME_SESSAO} ${ignorar})`,
             })
             .from(vendaItens)
             .innerJoin(vendas, eq(vendas.id, vendaItens.id_venda))
@@ -816,20 +928,20 @@ export const agendaRouter = createTRPCRouter({
             )
             .orderBy(vendas.data_venda, vendaItens.id);
         return rows
-            .map((r) => ({ ...r, usadas: Number(r.usadas), restantes: r.quantidade_sessoes - Number(r.usadas) }))
+            .map((r) => ({ ...r, pacote: Boolean(Number(r.pacote)), usadas: Number(r.usadas), restantes: r.quantidade_sessoes - Number(r.usadas) }))
             .filter((r) => r.restantes > 0);
     }),
 
     /** Cadastro rápido de cliente direto da agenda. */
     clienteRapido: protectedProcedure
-        .input(z.object({ nome: z.string().trim().min(2).max(150), telefone: z.string().max(20).optional() }))
+        .input(z.object({ nome: z.string().trim().min(2).max(150), telefone: z.string().max(25).optional() }))
         .mutation(async ({ ctx, input }) => {
             const [r] = await ctx.db
                 .insert(pessoas)
-                .values({ id_unidade: ctx.session.unidadeId, tipo: 'CLIENTE', nome: input.nome, telefone: input.telefone || null })
+                .values({ id_unidade: ctx.session.unidadeId, tipo: 'CLIENTE', nome: input.nome, telefone: telefoneValido(input.telefone) })
                 .$returningId();
             await vincularPessoa(ctx.db, r!.id, ctx.session.id);
-            return { id: r!.id, nome: input.nome, telefone: input.telefone ?? null };
+            return { id: r!.id, nome: input.nome, telefone: telefoneValido(input.telefone) };
         }),
 
     criar: protectedProcedure
@@ -841,12 +953,17 @@ export const agendaRouter = createTRPCRouter({
                 data: zData,
                 hora_inicio: zHora,
                 hora_fim: zHora.optional(),
+                /** Serviços da sessão (duração, nomes e WhatsApp). */
                 servicos: z.array(zId).default([]),
-                /** Atendimento livre (sozinho ou junto dos serviços). */
-                extra: zExtra.optional(),
-                id_venda: zId.nullable().optional(),
-                /** Item da venda (serviço ou pacote) do qual a sessão é consumida. */
+                /** Serviço sem cadastro: título e duração (cobrança vai em `venda`). */
+                titulo_livre: z.string().trim().max(120).optional(),
+                duracao_livre: z.number().int().min(5).max(600).optional(),
+                /** Itens já comprados que esta sessão usa (desconta 1 de cada). */
+                usar_itens: z.array(zId).default([]),
+                /** Compatibilidade: um item só. */
                 id_venda_item: zId.nullable().optional(),
+                /** Venda feita agora (serviços, pacotes, sem cadastro) e pagamento. */
+                venda: zVendaAgenda.optional(),
                 observacoes: z.string().max(2000).optional(),
                 recorrencia: zRecorrencia.optional(),
                 forcar: z.boolean().optional(),
@@ -867,11 +984,14 @@ export const agendaRouter = createTRPCRouter({
             if (!cliente) erro('NOT_FOUND', 'Cliente não encontrado');
             if (!isAdmin(s)) await assertAcessoPessoa(ctx.db, s, input.id_pessoa);
 
-            if (!input.servicos.length && !input.extra) erro('BAD_REQUEST', 'Escolha um serviço ou descreva o atendimento');
+            const usar = input.usar_itens.length ? input.usar_itens : input.id_venda_item ? [input.id_venda_item] : [];
+            const titulo = input.titulo_livre?.trim() || null;
+            if (!input.servicos.length && !titulo && !usar.length && !input.venda?.itens.length)
+                erro('BAD_REQUEST', 'Escolha um serviço para o agendamento');
             const servs = await carregarServicos(ctx.db, input.servicos, idProf);
             const inicio = hhmmParaMin(input.hora_inicio);
-            const duracoes = [...servs.map((x) => x.duracao), ...(input.extra ? [input.extra.duracao] : [])];
-            const fim = input.hora_fim ? hhmmParaMin(input.hora_fim) : calcularFim(inicio, duracoes);
+            const duracoes = [...servs.map((x) => x.duracao), ...(titulo && input.duracao_livre ? [input.duracao_livre] : [])];
+            const fim = input.hora_fim ? hhmmParaMin(input.hora_fim) : calcularFim(inicio, duracoes.length ? duracoes : [60]);
             if (fim <= inicio) erro('BAD_REQUEST', 'O horário final deve ser depois do inicial');
 
             const datas = input.recorrencia
@@ -896,9 +1016,7 @@ export const agendaRouter = createTRPCRouter({
                 if (!input.recorrencia && puladas.length) erro('CONFLICT', puladas[0].motivo);
                 if (!livres.length) erro('CONFLICT', 'Nenhuma data livre: ' + puladas.map((p) => `${p.data} (${p.motivo})`).join('; '));
 
-                const vinculo = input.id_venda || input.id_venda_item
-                    ? await resolverVinculo(tx, s.unidadeId, input, input.id_pessoa, livres.length, idProf)
-                    : null;
+                const jaComprados = await validarItens(tx, s.unidadeId, usar, input.id_pessoa, livres.length, idProf);
 
                 let idRecorrencia: number | null = null;
                 if (input.recorrencia) {
@@ -910,19 +1028,18 @@ export const agendaRouter = createTRPCRouter({
                 }
 
                 await vincularPessoa(tx, input.id_pessoa, idProf);
-                const idVendaExtra = input.extra ? await cobrarExtra(tx, s, input.extra, input.id_pessoa, idProf, livres.length) : null;
+                const vendido = input.venda ? await venderNoAgendamento(tx, s, input.venda, input.id_pessoa, idProf, livres) : null;
+
                 const criados: number[] = [];
-                for (const data of livres) {
+                for (const [i, data] of livres.entries()) {
                     const [r] = await tx
                         .insert(atendimentos)
                         .values({
                             id_unidade: s.unidadeId,
                             id_pessoa: input.id_pessoa,
-                            id_venda: vinculo?.id_venda ?? null,
-                            id_venda_item: vinculo?.id_venda_item ?? null,
-                            titulo_extra: input.extra?.titulo ?? null,
-                            duracao_extra: input.extra?.duracao ?? null,
-                            id_venda_extra: idVendaExtra,
+                            titulo_extra: titulo,
+                            duracao_extra: titulo ? input.duracao_livre ?? null : null,
+                            id_venda_extra: null,
                             id_profissional: idProf,
                             id_sala: idSala,
                             id_recorrencia: idRecorrencia,
@@ -935,16 +1052,18 @@ export const agendaRouter = createTRPCRouter({
                         })
                         .$returningId();
                     criados.push(r!.id);
+                    const novosDaData = (vendido?.itens ?? []).filter((it) => it.datas.includes(i)).map((it) => ({ id: it.id, id_venda: vendido!.idVenda! }));
+                    await ligarItens(tx, r!.id, [...jaComprados, ...novosDaData]);
                     if (servs.length)
                         await tx.insert(atendimentoServicos).values(
                             servs.map((sv) => ({ id_atendimento: r!.id, id_servico: sv.id, duracao_minutos: sv.duracao, valor: String(sv.valor) })),
                         );
                 }
-                return { ids: criados, puladas };
+                return { ids: criados, puladas, id_venda: vendido?.idVenda ?? null };
             });
         }),
 
-    /** Reagendar / mover / trocar sala, profissional ou serviços. */
+    /** Reagendar / mover / trocar sala, profissional, serviços ou itens usados; pode vender itens novos. */
     atualizar: protectedProcedure
         .input(
             z.object({
@@ -955,10 +1074,15 @@ export const agendaRouter = createTRPCRouter({
                 id_profissional: zId.optional(),
                 id_sala: zId.nullable().optional(),
                 servicos: z.array(zId).optional(),
-                /** Atendimento livre: objeto define/atualiza; null tira. */
-                extra: zExtra.nullable().optional(),
-                id_venda: zId.nullable().optional(),
+                /** Serviço sem cadastro: string define, null tira. */
+                titulo_livre: z.string().trim().max(120).nullable().optional(),
+                duracao_livre: z.number().int().min(5).max(600).nullable().optional(),
+                /** Itens já comprados usados (substitui os atuais). */
+                usar_itens: z.array(zId).optional(),
+                /** Compatibilidade: um item só (null desvincula). */
                 id_venda_item: zId.nullable().optional(),
+                /** Itens novos vendidos agora → nova venda. */
+                venda: zVendaAgenda.optional(),
                 observacoes: z.string().max(2000).nullable().optional(),
                 forcar: z.boolean().optional(),
                 /** Aplicar também às próximas ocorrências da recorrência. */
@@ -979,8 +1103,6 @@ export const agendaRouter = createTRPCRouter({
                 if (input.id_sala !== undefined) await assertSala(tx, s.unidadeId, idSala);
 
                 const servs = input.servicos ? await carregarServicos(tx, input.servicos, idProf) : null;
-                const temExtra = input.extra !== undefined ? !!input.extra : !!atual.titulo_extra;
-                if (servs && !servs.length && !temExtra) erro('BAD_REQUEST', 'Escolha um serviço ou descreva o atendimento');
                 if (!servs && idProf !== atual.id_profissional) {
                     // trocando de profissional: os serviços atuais precisam servir para o novo
                     const atuais = await tx
@@ -997,8 +1119,8 @@ export const agendaRouter = createTRPCRouter({
                 const inicio = input.hora_inicio ? hhmmParaMin(input.hora_inicio) : inicioAtual;
                 const fim = input.hora_fim
                     ? hhmmParaMin(input.hora_fim)
-                    : servs
-                      ? calcularFim(inicio, [...servs.map((x) => x.duracao), ...(input.extra ? [input.extra.duracao] : [])])
+                    : servs && servs.length
+                      ? calcularFim(inicio, servs.map((x) => x.duracao))
                       : inicio + duracaoAtual;
                 if (fim <= inicio) erro('BAD_REQUEST', 'O horário final deve ser depois do inicial');
 
@@ -1021,16 +1143,11 @@ export const agendaRouter = createTRPCRouter({
                     alvos = alvos.concat(proximos.map((p) => ({ id: p.id, data: somarDias(p.data, deltaDias) })));
                 }
 
-                // Vínculo com a venda: null desvincula; item/venda novos são validados
-                let vinculo: { id_venda: number | null; id_venda_item: number | null } | undefined;
-                const pedeVinculo = input.id_venda_item !== undefined || input.id_venda !== undefined;
-                if (pedeVinculo) {
-                    if (!input.id_venda_item && !input.id_venda) vinculo = { id_venda: null, id_venda_item: null };
-                    else if ((input.id_venda_item ?? atual.id_venda_item) === atual.id_venda_item && (input.id_venda ?? atual.id_venda) === atual.id_venda && atual.id_venda_item)
-                        vinculo = undefined; // sem mudança
-                    else
-                        vinculo = await resolverVinculo(tx, s.unidadeId, input, atual.id_pessoa, alvos.length, idProf, alvos.map((a) => a.id));
-                }
+                // Itens já comprados: lista nova substitui a atual
+                const usar = input.usar_itens ?? (input.id_venda_item !== undefined ? (input.id_venda_item ? [input.id_venda_item] : []) : undefined);
+                const jaComprados = usar
+                    ? await validarItens(tx, s.unidadeId, usar, atual.id_pessoa, alvos.length, idProf, alvos.map((a) => a.id))
+                    : null;
 
                 const c = await carregarContexto(tx, { unidadeId: s.unidadeId, datas: alvos.map((a) => a.data), idProfissional: idProf, idSala, travar: true });
                 const idsAlvo = new Set(alvos.map((a) => a.id));
@@ -1043,15 +1160,15 @@ export const agendaRouter = createTRPCRouter({
                     if (conflitos.length) erro('CONFLICT', `${alvo.data.split('-').reverse().join('/')}: ${mensagemConflitos(conflitos)}`);
                 }
 
-                // Atendimento livre: cobra uma vez (se ainda não houver venda dele)
-                let extraSet: Record<string, unknown> = {};
-                if (input.extra === null) extraSet = { titulo_extra: null, duracao_extra: null };
-                else if (input.extra) {
-                    const idVendaExtra = atual.id_venda_extra ?? (await cobrarExtra(tx, s, input.extra, atual.id_pessoa, idProf, alvos.length));
-                    extraSet = { titulo_extra: input.extra.titulo, duracao_extra: input.extra.duracao, id_venda_extra: idVendaExtra };
-                }
+                // Itens novos vendidos na edição → nova venda
+                const vendido = input.venda ? await venderNoAgendamento(tx, s, input.venda, atual.id_pessoa, idProf, alvos.map((a) => a.data)) : null;
 
-                for (const alvo of alvos) {
+                const livreSet =
+                    input.titulo_livre === undefined
+                        ? {}
+                        : { titulo_extra: input.titulo_livre?.trim() || null, duracao_extra: input.titulo_livre ? input.duracao_livre ?? null : null };
+
+                for (const [i, alvo] of alvos.entries()) {
                     await tx
                         .update(atendimentos)
                         .set({
@@ -1060,12 +1177,16 @@ export const agendaRouter = createTRPCRouter({
                             hora_fim: hora(fim),
                             id_profissional: idProf,
                             id_sala: idSala,
-                            ...(vinculo ? vinculo : {}),
-                            ...extraSet,
+                            ...livreSet,
                             ...(input.observacoes !== undefined && alvo.id === atual.id ? { observacoes: input.observacoes } : {}),
                             updated_at: new Date(),
                         })
                         .where(eq(atendimentos.id, alvo.id));
+                    if (jaComprados || vendido) {
+                        const base = jaComprados ?? (await itensDoAtendimento(tx, alvo.id));
+                        const novos = (vendido?.itens ?? []).filter((it) => it.datas.includes(i)).map((it) => ({ id: it.id, id_venda: vendido!.idVenda! }));
+                        await ligarItens(tx, alvo.id, [...base, ...novos]);
+                    }
                     if (servs) {
                         await tx.delete(atendimentoServicos).where(eq(atendimentoServicos.id_atendimento, alvo.id));
                         if (servs.length)
@@ -1074,7 +1195,7 @@ export const agendaRouter = createTRPCRouter({
                             );
                     }
                 }
-                return { ok: true, atualizados: alvos.length };
+                return { ok: true, atualizados: alvos.length, id_venda: vendido?.idVenda ?? null };
             });
         }),
 

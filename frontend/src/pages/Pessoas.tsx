@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/useToast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { hasVendasVinculadas } from '@/services/hasVendasVinculadas';
+import { formatarTelefone, linkTelefone } from '@/lib/telefone';
 
 const tipoBadge = (t: string) => {
     switch (t) {
@@ -54,7 +55,7 @@ export default function Pessoas() {
             p.nome.toLowerCase().includes(search.toLowerCase()) ||
             (p.email ?? '').toLowerCase().includes(search.toLowerCase()) ||
             (p.cpf_cnpj ?? '').includes(search) ||
-            (p.telefone ?? '').includes(search),
+            (p.telefone ?? '').replace(/\D/g, '').includes(search.replace(/\D/g, '') || '§'),
     );
 
     async function removerPessoa(p: { id: number; nome: string }) {
@@ -118,7 +119,7 @@ export default function Pessoas() {
                             <div className="min-w-0 flex-1">
                                 <p className="truncate font-semibold">{p.nome}</p>
                                 <p className="flex flex-wrap items-center gap-x-2 text-sm text-gray-500">
-                                    {p.telefone ? <a href={`tel:${p.telefone.replace(/\D/g, '')}`} className="tabular-nums text-[hsl(var(--primary))]">{p.telefone}</a> : 'Sem telefone'}
+                                    {p.telefone ? <a href={linkTelefone(p.telefone)} className="tabular-nums text-[hsl(var(--primary))]">{formatarTelefone(p.telefone)}</a> : 'Sem telefone'}
                                     <Badge variant={tipoBadge(p.tipo)} className="text-[10px]">{p.tipo}</Badge>
                                     {p.status !== 'ATIVO' && <Badge variant="destructive" className="text-[10px]">{p.status}</Badge>}
                                 </p>
@@ -182,7 +183,7 @@ export default function Pessoas() {
                                         {p.cpf_cnpj || '–'}
                                     </TableCell>
                                     <TableCell className="hidden sm:table-cell">
-                                        {p.telefone || '–'}
+                                        {p.telefone ? formatarTelefone(p.telefone) : '–'}
                                     </TableCell>
                                     <TableCell className="hidden lg:table-cell">
                                         {p.email || '–'}

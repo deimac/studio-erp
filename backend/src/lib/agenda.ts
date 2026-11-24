@@ -1,3 +1,4 @@
+import { telefoneWhatsApp } from './telefone';
 /**
  * Regras puras da agenda (sem banco): horários, conflitos, recorrência e WhatsApp.
  * Datas são strings 'YYYY-MM-DD'; horários são minutos desde 00:00.
@@ -227,10 +228,8 @@ export function mensagemWhatsApp(tipo: 'CONFIRMACAO' | 'LEMBRETE', d: DadosMensa
 
 /** Link wa.me; retorna null se o telefone não parecer um celular/fixo brasileiro. */
 export function linkWhatsApp(telefone: string | null | undefined, texto: string): string | null {
-    if (!telefone) return null;
-    let digitos = telefone.replace(/\D/g, '');
-    if (digitos.length === 10 || digitos.length === 11) digitos = `55${digitos}`;
-    if (digitos.length < 12 || digitos.length > 13) return null;
+    const digitos = telefoneWhatsApp(telefone);
+    if (!digitos) return null;
     return `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`;
 }
 
@@ -255,4 +254,24 @@ export function faltaConsome(regra: RegraFalta, resposta: boolean | undefined): 
     if (regra === 'DESCONTAR') return true;
     if (regra === 'DEVOLVER') return false;
     return resposta === undefined ? null : resposta;
+}
+
+/* ── Itens vendidos no agendamento ── */
+
+export type NovoItemAgenda = { tipo: 'servico' | 'pacote' | 'livre'; sessoes: number; valor: number };
+
+/**
+ * Como cada item vendido no agendamento cobre as datas (recorrência):
+ * serviço avulso e sem cadastro → uma sessão por data (N × preço);
+ * pacote → as datas usam o pacote até acabar as sessões.
+ * `valor` é o preço da sessão (avulso/livre) ou o total do pacote.
+ */
+export function distribuirNovos(itens: NovoItemAgenda[], nDatas: number) {
+    return itens.map((it) => {
+        if (it.tipo === 'pacote') {
+            const usa = Math.min(it.sessoes, nDatas);
+            return { sessoes: it.sessoes, valor: it.valor, datas: Array.from({ length: usa }, (_, i) => i) };
+        }
+        return { sessoes: nDatas, valor: Math.round(it.valor * nDatas * 100) / 100, datas: Array.from({ length: nDatas }, (_, i) => i) };
+    });
 }

@@ -111,6 +111,8 @@ export function VendaDetail({ venda }: Props) {
     const [pgtoValorPago, setPgtoValorPago] = useState('');
     const [pgtoNovoVenc, setPgtoNovoVenc] = useState('');
     const [pgtoForma, setPgtoForma] = useState('');
+    /** Parcela "a receber" sem forma: precisa escolher na baixa. */
+    const [pgtoSemForma, setPgtoSemForma] = useState(false);
     const pgtoFoiRemocaoRef = useRef(false);
 
     const pgtoMut = trpc.vendas.registrarPagamento.useMutation({
@@ -272,7 +274,7 @@ export function VendaDetail({ venda }: Props) {
                                     return (
                                         <TableRow key={p.id}>
                                             <TableCell className="font-medium">{p.parcela}</TableCell>
-                                            <TableCell>{(p as any).forma_pagamento_nome ?? '–'}</TableCell>
+                                            <TableCell>{(p as any).forma_pagamento_nome ?? <span className="text-amber-700">a definir</span>}</TableCell>
                                             <TableCell>{fmt(p.valor)}</TableCell>
                                             <TableCell>{fmtDate(p.data_vencimento)}</TableCell>
                                             <TableCell>
@@ -299,6 +301,7 @@ export function VendaDetail({ venda }: Props) {
                                                                 setPgtoValorPago('');
                                                                 setPgtoNovoVenc('');
                                                                 setPgtoForma((p as any).id_forma_pagamento ? String((p as any).id_forma_pagamento) : '');
+                                                                setPgtoSemForma(!(p as any).id_forma_pagamento);
                                                                 setPgtoOpen(true);
                                                             } else {
                                                                 pgtoFoiRemocaoRef.current = true;
@@ -401,7 +404,7 @@ export function VendaDetail({ venda }: Props) {
                             <Label>Pago com</Label>
                             <select aria-label="Forma de pagamento" className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={pgtoForma}
                                 onChange={(e) => setPgtoForma(e.target.value)}>
-                                <option value="">Manter a combinada</option>
+                                <option value="">{pgtoSemForma ? 'Escolha…' : 'Manter a combinada'}</option>
                                 {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
                             </select>
                         </div>
@@ -477,6 +480,7 @@ export function VendaDetail({ venda }: Props) {
                             disabled={
                                 pgtoMut.isPending ||
                                 !pgtoData ||
+                                (pgtoSemForma && !pgtoForma) ||
                                 (pgtoParcial && (!pgtoValorPago || !pgtoNovoVenc || unmaskMoney(pgtoValorPago) <= 0))
                             }
                         >

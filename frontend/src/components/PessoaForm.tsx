@@ -20,7 +20,8 @@ import {
     SelectItem,
 } from '@/components/ui/select';
 import { Plus } from 'lucide-react';
-import { maskCpf, maskCnpj, maskTelefone } from '@/lib/masks';
+import { maskCpf, maskCnpj } from '@/lib/masks';
+import { TelefoneInput } from '@/components/TelefoneInput';
 
 type PessoaData = {
     id?: number;
@@ -188,11 +189,7 @@ export function PessoaForm({ onSuccess, editData, trigger }: Props) {
                             </div>
                             <div className="space-y-1.5">
                                 <Label>Telefone</Label>
-                                <Input
-                                    value={telefone}
-                                    onChange={(e) => setTelefone(maskTelefone(e.target.value))}
-                                    placeholder="(00) 00000-0000"
-                                />
+                                <TelefoneInput value={telefone} onChange={setTelefone} />
                             </div>
                         </div>
 

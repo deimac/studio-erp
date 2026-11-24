@@ -13,6 +13,7 @@ import {
     profissionalHorarios,
     usuarios,
     vendaItens,
+    atendimentoItens,
 } from '../../drizzle/schema';
 import { CONSOME_SESSAO } from '../vendaItens';
 import { conflitosImpeditivos, hhmmParaMin, verificarConflitos } from '../../lib/agenda';
@@ -112,7 +113,7 @@ export const atendimentosRouter = createTRPCRouter({
                     // Joined data
                     pessoa_nome: sql<string>`${pessoas.nome}`.as('pessoa_nome'),
                     servico_nome: sql<string | null>`COALESCE(NULLIF(CONCAT_WS(', ', (SELECT GROUP_CONCAT(sx.nome ORDER BY sx.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos sx ON sx.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id}), ${atendimentos.titulo_extra}), ''), ${servicos.nome})`.as('servico_nome'),
-                    pacote_nome: sql<string | null>`COALESCE((SELECT pz.nome FROM venda_itens vz JOIN pacotes pz ON pz.id = vz.id_pacote WHERE vz.id = ${atendimentos.id_venda_item}), ${pacotes.nome})`.as('pacote_nome'),
+                    pacote_nome: sql<string | null>`COALESCE((SELECT GROUP_CONCAT(pz.nome SEPARATOR ' + ') FROM atendimento_itens az JOIN venda_itens vz ON vz.id = az.id_venda_item JOIN pacotes pz ON pz.id = vz.id_pacote WHERE az.id_atendimento = ${atendimentos.id}), ${pacotes.nome})`.as('pacote_nome'),
                     profissional_nome: sql<string>`${usuarios.nome}`.as('profissional_nome'),
                 })
                 .from(atendimentos)
@@ -169,7 +170,7 @@ export const atendimentosRouter = createTRPCRouter({
                     qtd: vendaItens.quantidade_sessoes,
                     // Nomes qualificados: em consulta de uma tabela só o Drizzle omite o prefixo
                     id_servico: sql<number | null>`COALESCE(venda_itens.id_servico, (SELECT pz.id_servico FROM pacotes pz WHERE pz.id = venda_itens.id_pacote))`,
-                    usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = venda_itens.id AND ${CONSOME_SESSAO})`,
+                    usadas: sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN atendimentos ax ON ax.id = aix.id_atendimento WHERE aix.id_venda_item = venda_itens.id AND ${CONSOME_SESSAO})`,
                 })
                 .from(vendaItens)
                 .where(eq(vendaItens.id_venda, input.id_venda))
@@ -238,6 +239,7 @@ export const atendimentosRouter = createTRPCRouter({
                     criado_por: ctx.session.id,
                 }).$returningId();
                 const id = ids[0]!.id;
+                if (item) await tx.insert(atendimentoItens).values({ id_atendimento: id, id_venda_item: item.id });
 
                 if (idServicoSessao) {
                     const [sv] = await tx.select({ duracao: servicos.duracao_minutos, valor: servicos.valor }).from(servicos).where(eq(servicos.id, idServicoSessao)).limit(1);

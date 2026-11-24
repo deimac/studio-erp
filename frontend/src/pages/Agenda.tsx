@@ -372,6 +372,7 @@ export default function Agenda() {
                             id_venda: e.id_venda,
                             id_venda_item: e.id_venda_item,
                             venda_rotulo: e.venda_rotulo,
+                            itens_ids: e.itens_ids ? String(e.itens_ids).split(',').map(Number) : [],
                             titulo_extra: e.titulo_extra,
                             duracao_extra: e.duracao_extra,
                             id_venda_extra: e.id_venda_extra,

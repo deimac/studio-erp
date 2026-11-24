@@ -214,9 +214,8 @@ export const vendas = mysqlTable(
             .references(() => pessoas.id),
         id_servico: int('id_servico').references(() => servicos.id),
         id_pacote: int('id_pacote').references(() => pacotes.id),
-        id_forma_pagamento: int('id_forma_pagamento')
-            .notNull()
-            .references(() => formasPagamento.id),
+        /** 1ª forma da venda; NULL = a receber, forma definida na baixa. */
+        id_forma_pagamento: int('id_forma_pagamento').references(() => formasPagamento.id),
         id_unidade: int('id_unidade')
             .notNull()
             .references(() => unidades.id),
@@ -258,6 +257,19 @@ export const vendaItens = mysqlTable(
     },
     (t) => ({
         vendaIdx: index('idx_vi_venda').on(t.id_venda),
+    }),
+);
+
+/** Itens de venda usados por um atendimento (cada um desconta 1 sessão). */
+export const atendimentoItens = mysqlTable(
+    'atendimento_itens',
+    {
+        id_atendimento: int('id_atendimento').notNull(),
+        id_venda_item: int('id_venda_item').notNull(),
+    },
+    (t) => ({
+        pk: primaryKey({ columns: [t.id_atendimento, t.id_venda_item] }),
+        itemIdx: index('idx_ai_item').on(t.id_venda_item),
     }),
 );
 

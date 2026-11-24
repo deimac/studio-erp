@@ -17,7 +17,7 @@ import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicos
 import { filtroDono, zEscopo } from '../../lib/escopo';
 import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa } from '../acesso';
 import { gravarVenda } from '../vendaGravar';
-import { formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
+import { atendimentosDaVenda, formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -205,8 +205,8 @@ export const vendasRouter = createTRPCRouter({
                     id_profissional: vendas.id_profissional,
                     profissional_nome: usuarios.nome,
                     temPagamento: sql<boolean>`EXISTS(SELECT 1 FROM financeiro f WHERE f.id_venda = ${vendas.id} AND f.data_pagamento IS NOT NULL)`.as('tem_pagamento'),
-                    temAtendimento: sql<boolean>`EXISTS(SELECT 1 FROM atendimentos a WHERE a.id_venda = ${vendas.id})`.as('tem_atendimento'),
-                    sessoes_realizadas: sql<number>`(SELECT COUNT(*) FROM atendimentos a WHERE a.id_venda = ${vendas.id} AND a.status = 'REALIZADO')`.as('sessoes_realizadas'),
+                    temAtendimento: sql<boolean>`EXISTS(SELECT 1 FROM atendimentos a WHERE a.id_venda = ${vendas.id} OR a.id IN ${atendimentosDaVenda(vendas.id)})`.as('tem_atendimento'),
+                    sessoes_realizadas: sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN venda_itens vix ON vix.id = aix.id_venda_item JOIN atendimentos a ON a.id = aix.id_atendimento WHERE vix.id_venda = ${vendas.id} AND a.status = 'REALIZADO')`.as('sessoes_realizadas'),
                 })
                 .from(vendas)
                 .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
@@ -506,7 +506,7 @@ export const vendasRouter = createTRPCRouter({
             const [atd] = await ctx.db
                 .select({ cnt: count() })
                 .from(atendimentos)
-                .where(eq(atendimentos.id_venda, input.id));
+                .where(or(eq(atendimentos.id_venda, input.id), sql`${atendimentos.id} IN ${atendimentosDaVenda(sql`${input.id}`)}`));
             if (Number(atd?.cnt) > 0) {
                 throw new TRPCError({
                     code: 'CONFLICT',
@@ -684,7 +684,7 @@ export const vendasRouter = createTRPCRouter({
                 })
                 .from(atendimentos)
                 .innerJoin(usuarios, eq(atendimentos.id_profissional, usuarios.id))
-                .where(eq(atendimentos.id_venda, input.id_venda))
+                .where(or(eq(atendimentos.id_venda, input.id_venda), sql`${atendimentos.id} IN ${atendimentosDaVenda(sql`${input.id_venda}`)}`))
                 .orderBy(atendimentos.data, atendimentos.hora_inicio);
         }),
 });

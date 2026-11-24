@@ -39,7 +39,7 @@ export function rotuloItem(idItem: AnyColumn | SQL): SQL<string | null> {
 
 /** Sessões do item já comprometidas (agendadas, confirmadas, realizadas ou faltas descontadas). */
 export function usadasDoItem(idItem: AnyColumn | SQL): SQL<number> {
-    return sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = ${idItem} AND ${CONSOME_SESSAO})`;
+    return sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN atendimentos ax ON ax.id = aix.id_atendimento WHERE aix.id_venda_item = ${idItem} AND ${CONSOME_SESSAO})`;
 }
 
 /**
@@ -54,4 +54,19 @@ export function dividirParcelas(valor: number, n: number): number[] {
     const lista = Array.from({ length: n }, () => base);
     lista[n - 1] = Math.round((valor - base * (n - 1)) * 100) / 100;
     return lista;
+}
+
+/** "Pacote Pernas + Retoque": itens de venda usados pelo atendimento. */
+export function rotuloItensAtendimento(idAtendimento: AnyColumn | SQL): SQL<string | null> {
+    return sql<string | null>`(SELECT GROUP_CONCAT(${nomeItem} ORDER BY vix.id SEPARATOR ' + ')
+        FROM atendimento_itens aix
+        JOIN venda_itens vix ON vix.id = aix.id_venda_item
+        LEFT JOIN pacotes px ON px.id = vix.id_pacote
+        LEFT JOIN servicos sx ON sx.id = vix.id_servico
+        WHERE aix.id_atendimento = ${idAtendimento})`;
+}
+
+/** Atendimentos ligados à venda (por qualquer item dela, ou pelo vínculo antigo). */
+export function atendimentosDaVenda(idVenda: AnyColumn | SQL): SQL {
+    return sql`(SELECT aix.id_atendimento FROM atendimento_itens aix JOIN venda_itens vix ON vix.id = aix.id_venda_item WHERE vix.id_venda = ${idVenda})`;
 }

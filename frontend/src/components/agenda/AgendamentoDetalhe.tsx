@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { CalendarClock, CheckCircle2, DoorOpen, MessageCircle, Package, Pencil, Repeat, UserX, XCircle } from 'lucide-react';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataBR, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
+import { formatarTelefone, linkTelefone } from '@/lib/telefone';
 
 export type EventoAgenda = {
     id: number;
@@ -23,6 +24,7 @@ export type EventoAgenda = {
     pessoa_telefone: string | null;
     id_venda: number | null;
     id_venda_item: number | null;
+    itens_ids?: string | null;
     venda_rotulo: string | null;
     id_recorrencia: number | null;
     observacoes: string | null;
@@ -141,7 +143,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
                             {evento.venda_rotulo && (
                                 <div className="flex items-center gap-2"><Package className="h-4 w-4 text-[hsl(var(--muted-foreground))]" /> {evento.venda_rotulo}</div>
                             )}
-                            {evento.pessoa_telefone && <div className="text-[hsl(var(--muted-foreground))]">Tel.: {evento.pessoa_telefone}</div>}
+                            {evento.pessoa_telefone && <a href={linkTelefone(evento.pessoa_telefone)} className="block text-[hsl(var(--muted-foreground))]">Tel.: {formatarTelefone(evento.pessoa_telefone)}</a>}
                             {evento.observacoes && <p className="rounded-md bg-[hsl(var(--muted))] p-2 text-[hsl(var(--muted-foreground))]">{evento.observacoes}</p>}
                             {evento.lembrete_enviado_em && (
                                 <p className="text-xs text-emerald-700">WhatsApp enviado em {new Date(evento.lembrete_enviado_em).toLocaleString('pt-BR')}</p>

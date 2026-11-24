@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Trash2 } from 'lucide-react';
 import { DIAS_SEMANA, PALETA } from '@/lib/agenda';
+import { TelefoneInput } from '@/components/TelefoneInput';
 import { cn } from '@/lib/utils';
 
 type Periodo = { dia_semana: number; hora_inicio: string; hora_fim: string };
@@ -107,7 +108,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                     </div>
                     <div className="space-y-1.5">
                         <Label>Telefone</Label>
-                        <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(43) 99999-9999" />
+                        <TelefoneInput value={telefone} onChange={setTelefone} />
                     </div>
                     <div className="space-y-1.5">
                         <Label>Grade da agenda</Label>

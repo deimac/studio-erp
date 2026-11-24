@@ -5,6 +5,14 @@ import { pessoaProfissionais, pessoas, vendas } from '../../drizzle/schema';
 import { filtroDono, zEscopo } from '../../lib/escopo';
 import { assertAcessoPessoa, pessoaDoProfissional, vincularPessoa } from '../acesso';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { normalizarTelefone } from '../../lib/telefone';
+
+/** Telefone em formato internacional; inválido → erro para o usuário corrigir. */
+function telefoneValido(v: string | null | undefined): string | null {
+    const n = normalizarTelefone(v);
+    if (n === undefined) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Telefone inválido: confira o país e o número' });
+    return n;
+}
 
 export const pessoasRouter = createTRPCRouter({
     list: protectedProcedure
@@ -94,7 +102,7 @@ export const pessoasRouter = createTRPCRouter({
                 tipo: z.enum(['CLIENTE', 'FORNECEDOR', 'AMBOS']),
                 nome: z.string().min(1).max(150),
                 cpf_cnpj: z.string().max(18).optional(),
-                telefone: z.string().max(20).optional(),
+                telefone: z.string().max(25).optional(),
                 email: z.string().max(150).optional(),
                 data_nascimento: z.string().optional(),
                 observacao: z.string().optional(),
@@ -118,7 +126,7 @@ export const pessoasRouter = createTRPCRouter({
                 tipo: input.tipo,
                 nome: input.nome,
                 cpf_cnpj: input.cpf_cnpj || null,
-                telefone: input.telefone || null,
+                telefone: telefoneValido(input.telefone),
                 email: input.email || null,
                 data_nascimento: input.data_nascimento ? new Date(input.data_nascimento) : null,
                 observacao: input.observacao || null,
@@ -136,7 +144,7 @@ export const pessoasRouter = createTRPCRouter({
                 tipo: z.enum(['CLIENTE', 'FORNECEDOR', 'AMBOS']).optional(),
                 nome: z.string().min(1).max(150).optional(),
                 cpf_cnpj: z.string().max(18).optional().nullable(),
-                telefone: z.string().max(20).optional().nullable(),
+                telefone: z.string().max(25).optional().nullable(),
                 email: z.string().max(150).optional().nullable(),
                 data_nascimento: z.string().optional().nullable(),
                 observacao: z.string().optional().nullable(),
@@ -150,7 +158,7 @@ export const pessoasRouter = createTRPCRouter({
             if (input.tipo !== undefined) set.tipo = input.tipo;
             if (input.nome !== undefined) set.nome = input.nome;
             if (input.cpf_cnpj !== undefined) set.cpf_cnpj = input.cpf_cnpj;
-            if (input.telefone !== undefined) set.telefone = input.telefone;
+            if (input.telefone !== undefined) set.telefone = telefoneValido(input.telefone);
             if (input.email !== undefined) set.email = input.email;
             if (input.data_nascimento !== undefined)
                 set.data_nascimento = input.data_nascimento ? new Date(input.data_nascimento) : null;
