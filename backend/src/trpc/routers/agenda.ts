@@ -14,6 +14,7 @@ import {
     servicos,
     usuarios,
     vendas,
+    vendaItens,
 } from '../../drizzle/schema';
 import {
     STATUS_OCUPAM,
@@ -36,6 +37,7 @@ import {
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
+import { rotuloItem, rotuloVenda } from '../vendaItens';
 import type { Session } from '../context';
 import type { db as Db } from '../../config/db';
 
@@ -107,17 +109,38 @@ async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: numbe
     return unicos.map((id) => rows.find((r) => r.id === id)!);
 }
 
-/** Sessões da venda já comprometidas (agendadas, confirmadas ou realizadas). */
-async function sessoesUsadas(db: DbOuTx, idVenda: number, ignorarIds: number[] = []) {
-    const parts = [eq(atendimentos.id_venda, idVenda), inArray(atendimentos.status, [...STATUS_OCUPAM])];
+/** Sessões do item da venda já comprometidas (agendadas, confirmadas ou realizadas). */
+async function sessoesUsadas(db: DbOuTx, idItem: number, ignorarIds: number[] = []) {
+    const parts = [eq(atendimentos.id_venda_item, idItem), inArray(atendimentos.status, [...STATUS_OCUPAM])];
     if (ignorarIds.length) parts.push(sql`${atendimentos.id} NOT IN (${sql.join(ignorarIds.map((i) => sql`${i}`), sql`, `)})`);
     const [r] = await db.select({ n: sql<number>`COUNT(*)` }).from(atendimentos).where(and(...parts));
     return Number(r?.n ?? 0);
 }
 
-async function assertVenda(db: DbOuTx, unidadeId: number, idVenda: number, idPessoa: number, novas: number, idProfissional: number) {
+/**
+ * Valida o vínculo do atendimento com a venda e devolve venda + item.
+ * Com o item informado, usa ele; só com a venda (cliente antigo), pega o
+ * primeiro item que ainda tenha sessões suficientes.
+ */
+async function resolverVinculo(
+    db: DbOuTx,
+    unidadeId: number,
+    alvo: { id_venda?: number | null; id_venda_item?: number | null },
+    idPessoa: number,
+    novas: number,
+    idProfissional: number,
+    ignorarIds: number[] = [],
+): Promise<{ id_venda: number; id_venda_item: number }> {
+    let idVenda = alvo.id_venda ?? null;
+    if (alvo.id_venda_item) {
+        const [it] = await db.select({ id_venda: vendaItens.id_venda }).from(vendaItens).where(eq(vendaItens.id, alvo.id_venda_item)).limit(1);
+        if (!it) erro('NOT_FOUND', 'Item da venda não encontrado');
+        if (idVenda && idVenda !== it.id_venda) erro('BAD_REQUEST', 'O item não é desta venda');
+        idVenda = it.id_venda;
+    }
+    if (!idVenda) erro('BAD_REQUEST', 'Venda não informada');
     const [v] = await db
-        .select({ id: vendas.id, status: vendas.status, id_pessoa: vendas.id_pessoa, qtd: vendas.quantidade_sessoes, deleted_at: vendas.deleted_at, dono: vendas.id_profissional })
+        .select({ id: vendas.id, status: vendas.status, id_pessoa: vendas.id_pessoa, deleted_at: vendas.deleted_at, dono: vendas.id_profissional })
         .from(vendas)
         .where(and(eq(vendas.id, idVenda), eq(vendas.id_unidade, unidadeId)))
         .limit(1);
@@ -125,9 +148,19 @@ async function assertVenda(db: DbOuTx, unidadeId: number, idVenda: number, idPes
     if (v.status !== 'ATIVA') erro('CONFLICT', 'Venda não está ativa');
     if (v.id_pessoa !== idPessoa) erro('BAD_REQUEST', 'A venda é de outro cliente');
     if (v.dono != null && v.dono !== idProfissional) erro('BAD_REQUEST', 'A venda é de outro profissional');
-    const usadas = await sessoesUsadas(db, idVenda);
-    const restantes = v.qtd - usadas;
-    if (novas > restantes) erro('CONFLICT', `A venda tem só ${Math.max(restantes, 0)} sessão(ões) disponível(is)`);
+
+    const itens = await db
+        .select({ id: vendaItens.id, qtd: vendaItens.quantidade_sessoes })
+        .from(vendaItens)
+        .where(and(eq(vendaItens.id_venda, idVenda), ...(alvo.id_venda_item ? [eq(vendaItens.id, alvo.id_venda_item)] : [])))
+        .orderBy(asc(vendaItens.id));
+    let maior = 0;
+    for (const it of itens) {
+        const restantes = it.qtd - (await sessoesUsadas(db, it.id, ignorarIds));
+        if (restantes >= novas) return { id_venda: idVenda, id_venda_item: it.id };
+        maior = Math.max(maior, restantes);
+    }
+    return erro('CONFLICT', `Este item da venda tem só ${Math.max(maior, 0)} sessão(ões) disponível(is)`);
 }
 
 /** Profissionais ativos da unidade com agenda compartilhada. */
@@ -221,6 +254,7 @@ async function buscarAtendimento(db: DbOuTx, unidadeId: number, id: number) {
             id: atendimentos.id,
             id_pessoa: atendimentos.id_pessoa,
             id_venda: atendimentos.id_venda,
+            id_venda_item: atendimentos.id_venda_item,
             id_profissional: atendimentos.id_profissional,
             id_sala: atendimentos.id_sala,
             id_recorrencia: atendimentos.id_recorrencia,
@@ -556,14 +590,13 @@ export const agendaRouter = createTRPCRouter({
                     observacoes: atendimentos.observacoes,
                     confirmado_em: atendimentos.confirmado_em,
                     lembrete_enviado_em: atendimentos.lembrete_enviado_em,
-                    venda_rotulo: sql<string | null>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendas.id_servico}))`,
+                    venda_rotulo: sql<string | null>`COALESCE(${rotuloItem(atendimentos.id_venda_item)}, ${rotuloVenda(atendimentos.id_venda)})`,
+                    id_venda_item: atendimentos.id_venda_item,
                 })
                 .from(atendimentos)
                 .innerJoin(usuarios, eq(usuarios.id, atendimentos.id_profissional))
                 .innerJoin(pessoas, eq(pessoas.id, atendimentos.id_pessoa))
                 .leftJoin(salas, eq(salas.id, atendimentos.id_sala))
-                .leftJoin(vendas, eq(vendas.id, atendimentos.id_venda))
-                .leftJoin(pacotes, eq(pacotes.id, vendas.id_pacote))
                 .where(and(...parts))
                 .orderBy(atendimentos.data, atendimentos.hora_inicio);
 
@@ -592,7 +625,7 @@ export const agendaRouter = createTRPCRouter({
                     restrito,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
-                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, venda_rotulo: null }
+                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null }
                         : {}),
                 };
             });
@@ -662,21 +695,23 @@ export const agendaRouter = createTRPCRouter({
             });
         }),
 
-    /** Vendas ativas do cliente com sessões ainda disponíveis. */
+    /** Itens (serviços e pacotes) das vendas ativas do cliente com sessões ainda disponíveis. */
     vendasDoCliente: protectedProcedure.input(z.object({ id_pessoa: zId, id_profissional: zId.optional() })).query(async ({ ctx, input }) => {
         // Só vendas do profissional do atendimento (as sem dono, legado, só para o admin)
         const idProf = isAdmin(ctx.session) ? input.id_profissional ?? ctx.session.id : ctx.session.id;
         const rows = await ctx.db
             .select({
-                id: vendas.id,
+                id: vendaItens.id,
+                id_venda: vendas.id,
                 data_venda: vendas.data_venda,
-                quantidade_sessoes: vendas.quantidade_sessoes,
-                id_servico: sql<number | null>`COALESCE(${vendas.id_servico}, ${pacotes.id_servico})`,
-                rotulo: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendas.id_servico}), 'Venda')`,
-                usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos a WHERE a.id_venda = ${vendas.id} AND a.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`,
+                quantidade_sessoes: vendaItens.quantidade_sessoes,
+                id_servico: sql<number | null>`COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico})`,
+                rotulo: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendaItens.id_servico}), 'Venda')`,
+                usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos a WHERE a.id_venda_item = ${vendaItens.id} AND a.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`,
             })
-            .from(vendas)
-            .leftJoin(pacotes, eq(pacotes.id, vendas.id_pacote))
+            .from(vendaItens)
+            .innerJoin(vendas, eq(vendas.id, vendaItens.id_venda))
+            .leftJoin(pacotes, eq(pacotes.id, vendaItens.id_pacote))
             .where(
                 and(
                     eq(vendas.id_pessoa, input.id_pessoa),
@@ -688,7 +723,7 @@ export const agendaRouter = createTRPCRouter({
                         : eq(vendas.id_profissional, idProf),
                 ),
             )
-            .orderBy(vendas.data_venda);
+            .orderBy(vendas.data_venda, vendaItens.id);
         return rows
             .map((r) => ({ ...r, usadas: Number(r.usadas), restantes: r.quantidade_sessoes - Number(r.usadas) }))
             .filter((r) => r.restantes > 0);
@@ -717,6 +752,8 @@ export const agendaRouter = createTRPCRouter({
                 hora_fim: zHora.optional(),
                 servicos: z.array(zId).min(1, 'Escolha ao menos um serviço'),
                 id_venda: zId.nullable().optional(),
+                /** Item da venda (serviço ou pacote) do qual a sessão é consumida. */
+                id_venda_item: zId.nullable().optional(),
                 observacoes: z.string().max(2000).optional(),
                 recorrencia: zRecorrencia.optional(),
                 forcar: z.boolean().optional(),
@@ -764,7 +801,9 @@ export const agendaRouter = createTRPCRouter({
                 if (!input.recorrencia && puladas.length) erro('CONFLICT', puladas[0].motivo);
                 if (!livres.length) erro('CONFLICT', 'Nenhuma data livre: ' + puladas.map((p) => `${p.data} (${p.motivo})`).join('; '));
 
-                if (input.id_venda) await assertVenda(tx, s.unidadeId, input.id_venda, input.id_pessoa, livres.length, idProf);
+                const vinculo = input.id_venda || input.id_venda_item
+                    ? await resolverVinculo(tx, s.unidadeId, input, input.id_pessoa, livres.length, idProf)
+                    : null;
 
                 let idRecorrencia: number | null = null;
                 if (input.recorrencia) {
@@ -783,7 +822,8 @@ export const agendaRouter = createTRPCRouter({
                         .values({
                             id_unidade: s.unidadeId,
                             id_pessoa: input.id_pessoa,
-                            id_venda: input.id_venda ?? null,
+                            id_venda: vinculo?.id_venda ?? null,
+                            id_venda_item: vinculo?.id_venda_item ?? null,
                             id_profissional: idProf,
                             id_sala: idSala,
                             id_recorrencia: idRecorrencia,
@@ -816,6 +856,7 @@ export const agendaRouter = createTRPCRouter({
                 id_sala: zId.nullable().optional(),
                 servicos: z.array(zId).min(1).optional(),
                 id_venda: zId.nullable().optional(),
+                id_venda_item: zId.nullable().optional(),
                 observacoes: z.string().max(2000).nullable().optional(),
                 forcar: z.boolean().optional(),
                 /** Aplicar também às próximas ocorrências da recorrência. */
@@ -876,8 +917,15 @@ export const agendaRouter = createTRPCRouter({
                     alvos = alvos.concat(proximos.map((p) => ({ id: p.id, data: somarDias(p.data, deltaDias) })));
                 }
 
-                if (input.id_venda && input.id_venda !== atual.id_venda) {
-                    await assertVenda(tx, s.unidadeId, input.id_venda, atual.id_pessoa, alvos.length, idProf);
+                // Vínculo com a venda: null desvincula; item/venda novos são validados
+                let vinculo: { id_venda: number | null; id_venda_item: number | null } | undefined;
+                const pedeVinculo = input.id_venda_item !== undefined || input.id_venda !== undefined;
+                if (pedeVinculo) {
+                    if (!input.id_venda_item && !input.id_venda) vinculo = { id_venda: null, id_venda_item: null };
+                    else if ((input.id_venda_item ?? atual.id_venda_item) === atual.id_venda_item && (input.id_venda ?? atual.id_venda) === atual.id_venda && atual.id_venda_item)
+                        vinculo = undefined; // sem mudança
+                    else
+                        vinculo = await resolverVinculo(tx, s.unidadeId, input, atual.id_pessoa, alvos.length, idProf, alvos.map((a) => a.id));
                 }
 
                 const c = await carregarContexto(tx, { unidadeId: s.unidadeId, datas: alvos.map((a) => a.data), idProfissional: idProf, idSala, travar: true });
@@ -900,7 +948,7 @@ export const agendaRouter = createTRPCRouter({
                             hora_fim: hora(fim),
                             id_profissional: idProf,
                             id_sala: idSala,
-                            ...(input.id_venda !== undefined ? { id_venda: input.id_venda } : {}),
+                            ...(vinculo ? vinculo : {}),
                             ...(input.observacoes !== undefined && alvo.id === atual.id ? { observacoes: input.observacoes } : {}),
                             updated_at: new Date(),
                         })

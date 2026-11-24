@@ -12,6 +12,7 @@ import {
     pacotes,
     profissionalHorarios,
     usuarios,
+    vendaItens,
 } from '../../drizzle/schema';
 import { conflitosImpeditivos, hhmmParaMin, verificarConflitos } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
@@ -110,7 +111,7 @@ export const atendimentosRouter = createTRPCRouter({
                     // Joined data
                     pessoa_nome: sql<string>`${pessoas.nome}`.as('pessoa_nome'),
                     servico_nome: sql<string | null>`COALESCE((SELECT GROUP_CONCAT(sx.nome ORDER BY sx.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos sx ON sx.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id}), ${servicos.nome})`.as('servico_nome'),
-                    pacote_nome: sql<string | null>`${pacotes.nome}`.as('pacote_nome'),
+                    pacote_nome: sql<string | null>`COALESCE((SELECT pz.nome FROM venda_itens vz JOIN pacotes pz ON pz.id = vz.id_pacote WHERE vz.id = ${atendimentos.id_venda_item}), ${pacotes.nome})`.as('pacote_nome'),
                     profissional_nome: sql<string>`${usuarios.nome}`.as('profissional_nome'),
                 })
                 .from(atendimentos)
@@ -159,6 +160,22 @@ export const atendimentosRouter = createTRPCRouter({
                 .limit(1);
             if (!vd) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
             if (vd.status !== 'ATIVA') throw new TRPCError({ code: 'CONFLICT', message: 'Venda não está ativa' });
+
+            // Item da venda com sessão disponível (venda pode ter vários serviços/pacotes)
+            const itensVenda = await ctx.db
+                .select({
+                    id: vendaItens.id,
+                    qtd: vendaItens.quantidade_sessoes,
+                    // Nomes qualificados: em consulta de uma tabela só o Drizzle omite o prefixo
+                    id_servico: sql<number | null>`COALESCE(venda_itens.id_servico, (SELECT pz.id_servico FROM pacotes pz WHERE pz.id = venda_itens.id_pacote))`,
+                    usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = venda_itens.id AND ax.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`,
+                })
+                .from(vendaItens)
+                .where(eq(vendaItens.id_venda, input.id_venda))
+                .orderBy(vendaItens.id);
+            const item = itensVenda.find((i) => i.qtd - Number(i.usadas) > 0) ?? null;
+            if (itensVenda.length && !item) throw new TRPCError({ code: 'CONFLICT', message: 'A venda não tem mais sessões disponíveis' });
+            const idServicoSessao = item?.id_servico ?? vd.id_servico;
 
             const data = normalizeDateOnly(input.data);
             const dataTxt = input.data.slice(0, 10);
@@ -210,6 +227,7 @@ export const atendimentosRouter = createTRPCRouter({
                     id_unidade: ctx.session.unidadeId,
                     id_pessoa: vd.id_pessoa,
                     id_venda: input.id_venda,
+                    id_venda_item: item?.id ?? null,
                     id_profissional: profId,
                     data,
                     hora_inicio: normalizeTime(input.hora_inicio),
@@ -220,9 +238,9 @@ export const atendimentosRouter = createTRPCRouter({
                 }).$returningId();
                 const id = ids[0]!.id;
 
-                if (vd.id_servico) {
-                    const [sv] = await tx.select({ duracao: servicos.duracao_minutos, valor: servicos.valor }).from(servicos).where(eq(servicos.id, vd.id_servico)).limit(1);
-                    if (sv) await tx.insert(atendimentoServicos).values({ id_atendimento: id, id_servico: vd.id_servico, duracao_minutos: sv.duracao, valor: String(sv.valor) });
+                if (idServicoSessao) {
+                    const [sv] = await tx.select({ duracao: servicos.duracao_minutos, valor: servicos.valor }).from(servicos).where(eq(servicos.id, idServicoSessao)).limit(1);
+                    if (sv) await tx.insert(atendimentoServicos).values({ id_atendimento: id, id_servico: idServicoSessao, duracao_minutos: sv.duracao, valor: String(sv.valor) });
                 }
                 return { id };
             });

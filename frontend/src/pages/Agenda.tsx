@@ -370,6 +370,8 @@ export default function Agenda() {
                             hora_fim: e.hora_fim,
                             servicos: e.servicos.map((s) => s.id),
                             id_venda: e.id_venda,
+                            id_venda_item: e.id_venda_item,
+                            venda_rotulo: e.venda_rotulo,
                             observacoes: e.observacoes,
                         },
                     });

@@ -1,7 +1,8 @@
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { financeiro, vendas, pessoas, formasPagamento, servicos, pacotes, receitasDespesas } from '../../drizzle/schema';
+import { financeiro, vendas, pessoas, formasPagamento, receitasDespesas } from '../../drizzle/schema';
+import { rotuloVenda, vendaTemPacote } from '../vendaItens';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { filtroDono, podeGerenciar, zEscopo, type Sessao } from '../../lib/escopo';
 import { vendaGerenciavel, type DbOuTx } from '../acesso';
@@ -73,7 +74,7 @@ export const financeiroRouter = createTRPCRouter({
                 .from(financeiro)
                 .innerJoin(vendas, eq(financeiro.id_venda, vendas.id))
                 .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
-                .innerJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
+                .leftJoin(formasPagamento, eq(formasPagamento.id, sql`COALESCE(${financeiro.id_forma_pagamento}, ${vendas.id_forma_pagamento})`))
                 .where(and(...whereParts))
                 .orderBy(financeiro.data_vencimento);
         }),
@@ -130,8 +131,8 @@ export const financeiroRouter = createTRPCRouter({
                         id_receita_despesa: financeiro.id_receita_despesa,
                         cliente_nome: pessoas.nome,
                         cliente_id: pessoas.id,
-                        servico_nome: servicos.nome,
-                        pacote_nome: pacotes.nome,
+                        servico_nome: sql<string | null>`IF(${vendaTemPacote(vendas.id)}, NULL, ${rotuloVenda(vendas.id)})`.as('servico_nome'),
+                        pacote_nome: sql<string | null>`IF(${vendaTemPacote(vendas.id)}, ${rotuloVenda(vendas.id)}, NULL)`.as('pacote_nome'),
                         parcela: financeiro.parcela,
                         forma_pagamento_nome: formasPagamento.nome,
                         data_lancamento: financeiro.data_lancamento,
@@ -144,9 +145,7 @@ export const financeiroRouter = createTRPCRouter({
                     .from(financeiro)
                     .innerJoin(vendas, eq(financeiro.id_venda, vendas.id))
                     .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
-                    .leftJoin(servicos, eq(vendas.id_servico, servicos.id))
-                    .leftJoin(pacotes, eq(vendas.id_pacote, pacotes.id))
-                    .leftJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
+                    .leftJoin(formasPagamento, eq(formasPagamento.id, sql`COALESCE(${financeiro.id_forma_pagamento}, ${vendas.id_forma_pagamento})`))
                     .where(and(...vendaWhereParts));
 
                 vendasData = vendaRows.map((row: any) => ({ ...row, sourceType: 'VENDA' }));

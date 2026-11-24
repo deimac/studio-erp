@@ -236,6 +236,23 @@ export const vendas = mysqlTable(
     }),
 );
 
+/** Itens da venda: cada serviço avulso ou pacote vendido, com as sessões e o valor dele. */
+export const vendaItens = mysqlTable(
+    'venda_itens',
+    {
+        id: serial('id').primaryKey(),
+        id_venda: int('id_venda').notNull().references(() => vendas.id, { onDelete: 'cascade' }),
+        id_servico: int('id_servico').references(() => servicos.id),
+        id_pacote: int('id_pacote').references(() => pacotes.id),
+        quantidade_sessoes: int('quantidade_sessoes').notNull(),
+        valor: decimal('valor', { precision: 10, scale: 2 }).notNull(),
+        created_at: timestamp('created_at').defaultNow(),
+    },
+    (t) => ({
+        vendaIdx: index('idx_vi_venda').on(t.id_venda),
+    }),
+);
+
 /* =========================================================================
    Categorias Receitas/Despesas
    ========================================================================= */
@@ -317,6 +334,8 @@ export const atendimentos = mysqlTable(
         id_pessoa: int('id_pessoa').notNull().references(() => pessoas.id),
         // Venda/pacote é opcional: quando presente, o atendimento consome uma sessão dela
         id_venda: int('id_venda').references(() => vendas.id, { onDelete: 'cascade' }),
+        /** Item da venda do qual o atendimento consome a sessão. */
+        id_venda_item: int('id_venda_item'),
         id_profissional: int('id_profissional')
             .notNull()
             .references(() => usuarios.id),
@@ -454,6 +473,8 @@ export const financeiro = mysqlTable(
         id: serial('id').primaryKey(),
         id_venda: int('id_venda').references(() => vendas.id, { onDelete: 'cascade' }),
         id_receita_despesa: int('id_receita_despesa').references(() => receitasDespesas.id, { onDelete: 'cascade' }),
+        /** Forma de pagamento desta parcela (venda pode combinar Pix, cartão…). */
+        id_forma_pagamento: int('id_forma_pagamento'),
         parcela: int('parcela').notNull().default(1),
         valor: decimal('valor', { precision: 10, scale: 2 }).notNull(),
         data_lancamento: date('data_lancamento').notNull(),

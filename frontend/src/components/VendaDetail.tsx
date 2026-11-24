@@ -96,6 +96,12 @@ export function VendaDetail({ venda }: Props) {
     /* ── Atendimentos ── */
     const atendQ = trpc.vendas.listAtendimentos.useQuery({ id_venda: venda.id });
 
+    /* ── Itens da venda (serviços e pacotes) ── */
+    const detalheQ = trpc.vendas.getById.useQuery({ id: venda.id });
+    const itens = ((detalheQ.data as any)?.itens ?? []) as { id: number; rotulo: string | null; id_pacote: number | null; quantidade_sessoes: number; valor: string; usadas: number; restantes: number }[];
+    const formasQ = trpc.formasPagamento.list.useQuery();
+    const formas = ((formasQ.data ?? []) as any[]).filter((f) => f.ativo !== false);
+
     /* ── Pagamento modal ── */
     const [pgtoOpen, setPgtoOpen] = useState(false);
     const [pgtoId, setPgtoId] = useState<number | null>(null);
@@ -104,6 +110,7 @@ export function VendaDetail({ venda }: Props) {
     const [pgtoParcial, setPgtoParcial] = useState(false);
     const [pgtoValorPago, setPgtoValorPago] = useState('');
     const [pgtoNovoVenc, setPgtoNovoVenc] = useState('');
+    const [pgtoForma, setPgtoForma] = useState('');
     const pgtoFoiRemocaoRef = useRef(false);
 
     const pgtoMut = trpc.vendas.registrarPagamento.useMutation({
@@ -152,6 +159,7 @@ export function VendaDetail({ venda }: Props) {
             parcial: pgtoParcial,
             valor_pago: pgtoParcial ? unmaskMoney(pgtoValorPago) : undefined,
             novo_vencimento: pgtoParcial ? pgtoNovoVenc : undefined,
+            id_forma_pagamento: pgtoForma ? Number(pgtoForma) : undefined,
         });
     }
 
@@ -165,19 +173,41 @@ export function VendaDetail({ venda }: Props) {
 
     return (
         <>
-            <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-6 py-4">
-                <Tabs defaultValue="financeiro">
-                    <TabsList className="w-full">
-                        <TabsTrigger value="observacoes" className="flex-1">
+            <div className="border-t border-[hsl(var(--border))] bg-[hsl(var(--muted))]/30 px-3 py-4 sm:px-6">
+                <Tabs defaultValue="itens">
+                    <TabsList className="w-full justify-start overflow-x-auto">
+                        <TabsTrigger value="itens" className="flex-1 px-1.5 text-xs sm:px-3 sm:text-sm">
+                            Itens
+                        </TabsTrigger>
+                        <TabsTrigger value="observacoes" className="flex-1 px-1.5 text-xs sm:px-3 sm:text-sm">
                             Observações
                         </TabsTrigger>
-                        <TabsTrigger value="financeiro" className="flex-1">
+                        <TabsTrigger value="financeiro" className="flex-1 px-1.5 text-xs sm:px-3 sm:text-sm">
                             Financeiro
                         </TabsTrigger>
-                        <TabsTrigger value="atendimentos" className="flex-1">
+                        <TabsTrigger value="atendimentos" className="flex-1 px-1.5 text-xs sm:px-3 sm:text-sm">
                             Atendimentos
                         </TabsTrigger>
                     </TabsList>
+
+                    {/* ── Tab: Itens ── */}
+                    <TabsContent value="itens">
+                        <ul className="divide-y rounded-lg border bg-white">
+                            {detalheQ.isLoading && <li className="px-3 py-4 text-center text-sm text-gray-400">Carregando…</li>}
+                            {itens.map((i) => (
+                                <li key={i.id} className="flex items-center gap-3 px-3 py-2.5">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium">{i.rotulo ?? 'Item'}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {i.usadas} de {i.quantidade_sessoes} {i.quantidade_sessoes === 1 ? 'sessão usada' : 'sessões usadas'}
+                                            {i.restantes > 0 ? ` · ${i.restantes} ${i.restantes === 1 ? 'restante' : 'restantes'}` : ' · concluído'}
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 text-sm tabular-nums">{fmt(i.valor)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </TabsContent>
 
                     {/* ── Tab: Observações ── */}
                     <TabsContent value="observacoes">
@@ -209,6 +239,7 @@ export function VendaDetail({ venda }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Parcela</TableHead>
+                                    <TableHead>Forma</TableHead>
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Vencimento</TableHead>
                                     <TableHead>Data Pagamento</TableHead>
@@ -218,14 +249,14 @@ export function VendaDetail({ venda }: Props) {
                             <TableBody>
                                 {parcelasQ.isLoading && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-gray-400 py-6">
+                                        <TableCell colSpan={6} className="text-center text-gray-400 py-6">
                                             Carregando…
                                         </TableCell>
                                     </TableRow>
                                 )}
                                 {parcelasQ.data?.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center text-gray-400 py-6">
+                                        <TableCell colSpan={6} className="text-center text-gray-400 py-6">
                                             Nenhuma parcela
                                         </TableCell>
                                     </TableRow>
@@ -241,6 +272,7 @@ export function VendaDetail({ venda }: Props) {
                                     return (
                                         <TableRow key={p.id}>
                                             <TableCell className="font-medium">{p.parcela}</TableCell>
+                                            <TableCell>{(p as any).forma_pagamento_nome ?? '–'}</TableCell>
                                             <TableCell>{fmt(p.valor)}</TableCell>
                                             <TableCell>{fmtDate(p.data_vencimento)}</TableCell>
                                             <TableCell>
@@ -266,6 +298,7 @@ export function VendaDetail({ venda }: Props) {
                                                                 setPgtoParcial(false);
                                                                 setPgtoValorPago('');
                                                                 setPgtoNovoVenc('');
+                                                                setPgtoForma((p as any).id_forma_pagamento ? String((p as any).id_forma_pagamento) : '');
                                                                 setPgtoOpen(true);
                                                             } else {
                                                                 pgtoFoiRemocaoRef.current = true;
@@ -363,6 +396,15 @@ export function VendaDetail({ venda }: Props) {
                         <p className="text-sm text-[hsl(var(--muted-foreground))]">
                             Valor da parcela: <strong>{fmt(pgtoValorParcela)}</strong>
                         </p>
+
+                        <div className="space-y-1.5">
+                            <Label>Pago com</Label>
+                            <select aria-label="Forma de pagamento" className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={pgtoForma}
+                                onChange={(e) => setPgtoForma(e.target.value)}>
+                                <option value="">Manter a combinada</option>
+                                {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                            </select>
+                        </div>
 
                         <div className="space-y-1.5">
                             <Label>Data de Pagamento</Label>

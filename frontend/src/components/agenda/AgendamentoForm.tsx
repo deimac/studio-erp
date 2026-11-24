@@ -25,6 +25,8 @@ export type AgendamentoInicial = {
     hora_fim?: string;
     servicos?: number[];
     id_venda?: number | null;
+    id_venda_item?: number | null;
+    venda_rotulo?: string | null;
     observacoes?: string | null;
 };
 
@@ -75,7 +77,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setHoraFim(inicial.hora_fim ?? '');
         setFimManual(!!inicial.id || (!!inicial.hora_fim && !inicial.servicos));
         setServicosSel(inicial.servicos ?? []);
-        setIdVenda(inicial.id_venda ?? null);
+        setIdVenda(inicial.id_venda_item ?? null);
         setObservacoes(inicial.observacoes ?? '');
         setRepetir(false);
         setQtdRepeticoes(4);
@@ -178,7 +180,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
             hora_inicio: horaInicio,
             hora_fim: horaFim || undefined,
             servicos: servicosSel,
-            id_venda: idVenda,
+            id_venda_item: idVenda,
             forcar,
         };
         if (editando) {
@@ -332,7 +334,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     {/* Venda / pacote */}
                     {idPessoa && (
                         <div className="space-y-1.5">
-                            <Label>Vincular a venda/pacote</Label>
+                            <Label>Usar sessão de uma venda</Label>
                             <select aria-label="Venda" className={selectCls} value={idVenda ?? ''}
                                 onChange={(e) => {
                                     const v = e.target.value ? Number(e.target.value) : null;
@@ -341,8 +343,8 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                     if (venda?.id_servico && !servicosSel.length) setServicosSel([venda.id_servico]);
                                 }}>
                                 <option value="">Avulso (sem venda)</option>
-                                {inicial.id_venda && !vendas.some((v) => v.id === inicial.id_venda) && (
-                                    <option value={inicial.id_venda}>Venda #{inicial.id_venda} (atual)</option>
+                                {inicial.id_venda_item && !vendas.some((v) => v.id === inicial.id_venda_item) && (
+                                    <option value={inicial.id_venda_item}>{inicial.venda_rotulo ?? `Venda #${inicial.id_venda}`} (atual)</option>
                                 )}
                                 {vendas.map((v) => (
                                     <option key={v.id} value={v.id}>{v.rotulo} — {v.restantes} de {v.quantidade_sessoes} sessões restantes</option>

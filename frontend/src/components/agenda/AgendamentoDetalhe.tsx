@@ -22,6 +22,7 @@ export type EventoAgenda = {
     pessoa_nome: string;
     pessoa_telefone: string | null;
     id_venda: number | null;
+    id_venda_item: number | null;
     venda_rotulo: string | null;
     id_recorrencia: number | null;
     observacoes: string | null;

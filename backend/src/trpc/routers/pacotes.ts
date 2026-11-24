@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { pacotes, servicos } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeEditarServico } from '../../lib/servicosAcesso';
-import { vendas } from '../../drizzle/schema';
+import { vendas, vendaItens } from '../../drizzle/schema';
 
 /** Status do pacote sempre em minúsculas ('ativo' | 'inativo'), como o site filtra. */
 const zStatus = z
@@ -149,7 +149,8 @@ export const pacotesRouter = createTRPCRouter({
         .mutation(async ({ ctx, input }) => {
             await pacoteEditavel(ctx, input.id);
             const [venda] = await ctx.db.select({ id: vendas.id }).from(vendas).where(eq(vendas.id_pacote, input.id)).limit(1);
-            if (venda)
+            const [item] = await ctx.db.select({ id: vendaItens.id }).from(vendaItens).where(eq(vendaItens.id_pacote, input.id)).limit(1);
+            if (venda || item)
                 throw new TRPCError({ code: 'CONFLICT', message: 'Este pacote já foi vendido: desative em vez de excluir' });
 
             await ctx.db.delete(pacotes).where(eq(pacotes.id, input.id));

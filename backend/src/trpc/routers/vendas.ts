@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull, isNotNull, sql, count } from 'drizzle-orm';
+import { and, eq, isNull, isNotNull, sql, count, or, exists } from 'drizzle-orm';
 import { z } from 'zod';
 import {
     vendas,
@@ -10,11 +10,13 @@ import {
     formasPagamento,
     atendimentos,
     usuarios,
+    vendaItens,
 } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { filtroDono, zEscopo } from '../../lib/escopo';
 import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa } from '../acesso';
+import { dividirParcelas, formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -27,6 +29,17 @@ function normalizeDateOnly(value: string) {
 
 function toDateStr(d: Date) {
     return d.toISOString().split('T')[0];
+}
+
+/** Campos de nome usados pelas telas: pacote_nome quando há pacote, senão servico_nome. */
+function nomesVenda(r: { itens_rotulo: string | null; tem_pacote: unknown; formas_rotulo: string | null; forma_pagamento_nome: string | null }) {
+    const temPacote = Boolean(Number(r.tem_pacote));
+    return {
+        tem_pacote: temPacote,
+        pacote_nome: temPacote ? r.itens_rotulo : null,
+        servico_nome: temPacote ? null : r.itens_rotulo,
+        forma_pagamento_nome: r.formas_rotulo ?? r.forma_pagamento_nome,
+    };
 }
 
 /* ── router ──────────────────────────────────────────────── */
@@ -58,7 +71,10 @@ export const vendasRouter = createTRPCRouter({
                 .from(vendas)
                 .where(
                     and(
-                        eq(vendas.id_pacote, input.id_pacote),
+                        or(
+                            eq(vendas.id_pacote, input.id_pacote),
+                            exists(ctx.db.select({ x: sql`1` }).from(vendaItens).where(and(eq(vendaItens.id_venda, vendas.id), eq(vendaItens.id_pacote, input.id_pacote)))),
+                        ),
                         eq(vendas.id_unidade, ctx.session.unidadeId),
                         isNull(vendas.deleted_at),
                     ),
@@ -181,8 +197,9 @@ export const vendasRouter = createTRPCRouter({
                     motivo_encerramento: vendas.motivo_encerramento,
                     created_at: vendas.created_at,
                     pessoa_nome: pessoas.nome,
-                    servico_nome: servicos.nome,
-                    pacote_nome: pacotes.nome,
+                    itens_rotulo: rotuloVenda(vendas.id).as('itens_rotulo'),
+                    tem_pacote: vendaTemPacote(vendas.id).as('tem_pacote'),
+                    formas_rotulo: formasDaVenda(vendas.id).as('formas_rotulo'),
                     forma_pagamento_nome: formasPagamento.nome,
                     id_profissional: vendas.id_profissional,
                     profissional_nome: usuarios.nome,
@@ -192,15 +209,14 @@ export const vendasRouter = createTRPCRouter({
                 })
                 .from(vendas)
                 .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
-                .leftJoin(servicos, eq(vendas.id_servico, servicos.id))
-                .leftJoin(pacotes, eq(vendas.id_pacote, pacotes.id))
-                .innerJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
+                .leftJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
                 .leftJoin(usuarios, eq(usuarios.id, vendas.id_profissional))
                 .where(and(...whereParts))
                 .orderBy(vendas.created_at);
 
             return rows.map((r) => ({
                 ...r,
+                ...nomesVenda(r),
                 temPagamento: Boolean(r.temPagamento),
                 temAtendimento: Boolean(r.temAtendimento),
                 sessoes_realizadas: Number(r.sessoes_realizadas) || 0,
@@ -229,15 +245,14 @@ export const vendasRouter = createTRPCRouter({
                     status: vendas.status,
                     motivo_encerramento: vendas.motivo_encerramento,
                     pessoa_nome: pessoas.nome,
-                    servico_nome: servicos.nome,
-                    pacote_nome: pacotes.nome,
+                    itens_rotulo: rotuloVenda(vendas.id).as('itens_rotulo'),
+                    tem_pacote: vendaTemPacote(vendas.id).as('tem_pacote'),
+                    formas_rotulo: formasDaVenda(vendas.id).as('formas_rotulo'),
                     forma_pagamento_nome: formasPagamento.nome,
                 })
                 .from(vendas)
                 .innerJoin(pessoas, eq(vendas.id_pessoa, pessoas.id))
-                .leftJoin(servicos, eq(vendas.id_servico, servicos.id))
-                .leftJoin(pacotes, eq(vendas.id_pacote, pacotes.id))
-                .innerJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
+                .leftJoin(formasPagamento, eq(vendas.id_forma_pagamento, formasPagamento.id))
                 .where(
                     and(
                         eq(vendas.id, input.id),
@@ -247,23 +262,60 @@ export const vendasRouter = createTRPCRouter({
                 )
                 .limit(1);
             if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venda não encontrada' });
-            return row;
+            const itens = await ctx.db
+                .select({
+                    id: vendaItens.id,
+                    id_servico: vendaItens.id_servico,
+                    id_pacote: vendaItens.id_pacote,
+                    quantidade_sessoes: vendaItens.quantidade_sessoes,
+                    valor: vendaItens.valor,
+                    // Nome qualificado: em consulta de uma tabela só o Drizzle omite o prefixo
+                    rotulo: rotuloItem(sql.raw('`venda_itens`.`id`')).as('rotulo'),
+                    usadas: usadasDoItem(sql.raw('`venda_itens`.`id`')).as('usadas'),
+                })
+                .from(vendaItens)
+                .where(eq(vendaItens.id_venda, input.id))
+                .orderBy(vendaItens.id);
+            return {
+                ...row,
+                ...nomesVenda(row),
+                itens: itens.map((i) => ({ ...i, usadas: Number(i.usadas), restantes: i.quantidade_sessoes - Number(i.usadas) })),
+            };
         }),
 
     /* ============= Criação (lançar venda) ============= */
-    /** Admin vende qualquer serviço; profissional vende os da clínica e os próprios. */
+    /**
+     * Venda com um ou mais itens (serviço avulso ou pacote) e uma ou mais formas
+     * de pagamento, cada uma com as suas parcelas. A soma dos pagamentos fecha o total.
+     * Admin vende qualquer serviço; profissional vende os da clínica (se liberado) e os próprios.
+     */
     create: protectedProcedure
         .input(
             z.object({
                 id_pessoa: z.number().int().positive(),
-                id_servico: z.number().int().positive().optional(),
-                id_pacote: z.number().int().positive().optional(),
-                id_forma_pagamento: z.number().int().positive(),
-                quantidade_sessoes: z.number().int().positive(),
-                valor: z.number().positive(),
+                itens: z
+                    .array(
+                        z.object({
+                            id_servico: z.number().int().positive().optional(),
+                            id_pacote: z.number().int().positive().optional(),
+                            quantidade_sessoes: z.number().int().positive(),
+                            valor: z.number().positive(),
+                        }),
+                    )
+                    .min(1, 'Adicione ao menos um item'),
+                pagamentos: z
+                    .array(
+                        z.object({
+                            id_forma_pagamento: z.number().int().positive(),
+                            valor: z.number().positive(),
+                            parcelas: z.number().int().positive().max(48).default(1),
+                            primeiro_vencimento: z.string().min(1),
+                            /** Já recebido no ato (só pagamento sem parcelamento). */
+                            pago: z.boolean().default(false),
+                        }),
+                    )
+                    .min(1, 'Informe como o cliente vai pagar'),
                 data_venda: z.string().min(1),
-                data_primeiro_vencimento: z.string().min(1),
-                quantidade_parcelas: z.number().int().positive().default(1),
                 observacao: z.string().optional(),
                 /** Vendedor: só o admin escolhe; padrão = usuário logado. */
                 id_profissional: z.number().int().positive().optional(),
@@ -282,23 +334,29 @@ export const vendasRouter = createTRPCRouter({
                     .limit(1);
                 if (!u?.ativo) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Profissional inválido ou inativo' });
             }
-            /* Validações de regra de negócio */
-            if (!input.id_servico && !input.id_pacote) {
-                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Informe serviço ou pacote' });
+
+            /* Regras de negócio */
+            for (const it of input.itens) {
+                if (!it.id_servico === !it.id_pacote)
+                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cada item é um serviço OU um pacote' });
             }
-            if (input.id_servico && input.id_pacote) {
-                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Informe apenas serviço OU pacote' });
+            const centavos = (v: number) => Math.round(v * 100);
+            const total = input.itens.reduce((t, i) => t + centavos(i.valor), 0);
+            const pago = input.pagamentos.reduce((t, p) => t + centavos(p.valor), 0);
+            if (total !== pago) {
+                const fmt = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                throw new TRPCError({ code: 'BAD_REQUEST', message: `Os pagamentos somam ${fmt(pago)}, mas a venda é de ${fmt(total)}` });
             }
 
             const hoje = toDateStr(new Date());
             if (input.data_venda > hoje) {
                 throw new TRPCError({ code: 'BAD_REQUEST', message: 'Data da venda não pode ser futura' });
             }
-            if (input.data_primeiro_vencimento < input.data_venda) {
-                throw new TRPCError({
-                    code: 'BAD_REQUEST',
-                    message: 'Data do primeiro vencimento deve ser igual ou posterior à data da venda',
-                });
+            for (const p of input.pagamentos) {
+                if (p.primeiro_vencimento < input.data_venda)
+                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'O vencimento deve ser igual ou posterior à data da venda' });
+                if (p.pago && p.parcelas > 1)
+                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Só um pagamento à vista pode ser marcado como já recebido' });
             }
 
             /* Validar pessoa */
@@ -317,81 +375,98 @@ export const vendasRouter = createTRPCRouter({
             if (!pessoa) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pessoa não encontrada' });
             if (!admin) await assertAcessoPessoa(ctx.db, ctx.session, input.id_pessoa);
 
-            /* Validar forma de pagamento */
-            const [fp] = await ctx.db
-                .select({ id: formasPagamento.id })
-                .from(formasPagamento)
-                .where(and(eq(formasPagamento.id, input.id_forma_pagamento), eq(formasPagamento.ativo, true)))
-                .limit(1);
-            if (!fp) throw new TRPCError({ code: 'NOT_FOUND', message: 'Forma de pagamento não encontrada' });
-
-            /* Validar serviço ou pacote */
-            if (input.id_servico) {
-                const [srv] = await ctx.db
-                    .select({ id: servicos.id, dono: servicos.id_profissional })
-                    .from(servicos)
-                    .where(and(eq(servicos.id, input.id_servico), eq(servicos.ativo, true)))
+            /* Validar formas de pagamento */
+            for (const p of input.pagamentos) {
+                const [fp] = await ctx.db
+                    .select({ id: formasPagamento.id })
+                    .from(formasPagamento)
+                    .where(and(eq(formasPagamento.id, p.id_forma_pagamento), eq(formasPagamento.ativo, true)))
                     .limit(1);
-                if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
-                if (!servicoServeParaProfissional(srv.dono, vendedor, await usaServicosClinica(ctx.db, vendedor)))
-                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço próprio de outro profissional' });
-            }
-            if (input.id_pacote) {
-                const [pkt] = await ctx.db
-                    .select({ id: pacotes.id, dono: servicos.id_profissional })
-                    .from(pacotes)
-                    .leftJoin(servicos, eq(servicos.id, pacotes.id_servico))
-                    .where(and(eq(pacotes.id, input.id_pacote), eq(pacotes.status, 'ativo')))
-                    .limit(1);
-                if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
-                if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor, await usaServicosClinica(ctx.db, vendedor)))
-                    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço próprio de outro profissional' });
+                if (!fp) throw new TRPCError({ code: 'NOT_FOUND', message: 'Forma de pagamento não encontrada' });
             }
 
-            /* Criar venda + parcelas em transação */
+            /* Validar serviços e pacotes */
+            const usaClinica = await usaServicosClinica(ctx.db, vendedor);
+            for (const it of input.itens) {
+                if (it.id_servico) {
+                    const [srv] = await ctx.db
+                        .select({ id: servicos.id, dono: servicos.id_profissional })
+                        .from(servicos)
+                        .where(and(eq(servicos.id, it.id_servico), eq(servicos.ativo, true)))
+                        .limit(1);
+                    if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
+                    if (!servicoServeParaProfissional(srv.dono, vendedor, usaClinica))
+                        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço próprio de outro profissional' });
+                } else {
+                    const [pkt] = await ctx.db
+                        .select({ id: pacotes.id, dono: servicos.id_profissional })
+                        .from(pacotes)
+                        .leftJoin(servicos, eq(servicos.id, pacotes.id_servico))
+                        .where(and(eq(pacotes.id, it.id_pacote!), eq(pacotes.status, 'ativo')))
+                        .limit(1);
+                    if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
+                    if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor, usaClinica))
+                        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço próprio de outro profissional' });
+                }
+            }
+
+            // Colunas antigas da venda guardam o 1º item (o banco exige serviço OU pacote)
+            const primeiro = input.itens[0];
+            const totalSessoes = input.itens.reduce((t, i) => t + i.quantidade_sessoes, 0);
+            const totalParcelas = input.pagamentos.reduce((t, p) => t + p.parcelas, 0);
+            const dataVenda = normalizeDateOnly(input.data_venda);
+
+            /* Criar venda, itens e parcelas em transação */
             return ctx.db.transaction(async (tx) => {
                 const ids = await tx.insert(vendas).values({
                     id_pessoa: input.id_pessoa,
-                    id_servico: input.id_servico ?? null,
-                    id_pacote: input.id_pacote ?? null,
-                    id_forma_pagamento: input.id_forma_pagamento,
+                    // Resumo (compatibilidade): 1º item, total de sessões, 1ª forma
+                    id_servico: primeiro.id_servico ?? null,
+                    id_pacote: primeiro.id_pacote ?? null,
+                    id_forma_pagamento: input.pagamentos[0].id_forma_pagamento,
                     id_unidade: ctx.session.unidadeId,
-                    quantidade_sessoes: input.quantidade_sessoes,
-                    valor: String(input.valor) as any,
-                    data_venda: normalizeDateOnly(input.data_venda),
-                    quantidade_parcelas: input.quantidade_parcelas,
+                    quantidade_sessoes: totalSessoes,
+                    valor: String(total / 100) as any,
+                    data_venda: dataVenda,
+                    quantidade_parcelas: totalParcelas,
                     observacao: input.observacao || null,
                     status: 'ATIVA',
                     id_profissional: vendedor,
                 }).$returningId();
 
-                const vendaId = ids[0]?.id;
+                const vendaId = ids[0]!.id;
                 await vincularPessoa(tx, input.id_pessoa, vendedor);
 
-                /* Gerar parcelas no financeiro */
-                const numParcelas = input.quantidade_parcelas;
-                const valorParcela = Math.round((input.valor / numParcelas) * 100) / 100;
-                const dataVenda = normalizeDateOnly(input.data_venda);
-                const primVenc = normalizeDateOnly(input.data_primeiro_vencimento);
-
-                for (let i = 0; i < numParcelas; i++) {
-                    const vencimento = new Date(primVenc);
-                    vencimento.setMonth(vencimento.getMonth() + i);
-
-                    // Última parcela ajusta centavos
-                    const vlr =
-                        i === numParcelas - 1
-                            ? input.valor - valorParcela * (numParcelas - 1)
-                            : valorParcela;
-
-                    await tx.insert(financeiro).values({
+                for (const it of input.itens) {
+                    await tx.insert(vendaItens).values({
                         id_venda: vendaId,
-                        parcela: i + 1,
-                        valor: String(Math.round(vlr * 100) / 100) as any,
-                        data_lancamento: dataVenda,
-                        data_vencimento: vencimento,
-                        status: 'PENDENTE',
+                        id_servico: it.id_servico ?? null,
+                        id_pacote: it.id_pacote ?? null,
+                        quantidade_sessoes: it.quantidade_sessoes,
+                        valor: String(it.valor) as any,
                     });
+                }
+
+                /* Parcelas: numeradas em sequência, cada uma com a sua forma */
+                let numero = 0;
+                for (const p of input.pagamentos) {
+                    const primVenc = normalizeDateOnly(p.primeiro_vencimento);
+                    const valores = dividirParcelas(p.valor, p.parcelas);
+                    for (let i = 0; i < p.parcelas; i++) {
+                        numero += 1;
+                        const vencimento = new Date(primVenc);
+                        vencimento.setMonth(vencimento.getMonth() + i);
+                        await tx.insert(financeiro).values({
+                            id_venda: vendaId,
+                            id_forma_pagamento: p.id_forma_pagamento,
+                            parcela: numero,
+                            valor: String(valores[i]) as any,
+                            data_lancamento: dataVenda,
+                            data_vencimento: vencimento,
+                            data_pagamento: p.pago ? dataVenda : null,
+                            status: p.pago ? 'PAGO' : 'PENDENTE',
+                        });
+                    }
                 }
 
                 return { id: vendaId };
@@ -509,8 +584,11 @@ export const vendasRouter = createTRPCRouter({
                     data_vencimento: financeiro.data_vencimento,
                     data_pagamento: financeiro.data_pagamento,
                     status: financeiro.status,
+                    id_forma_pagamento: financeiro.id_forma_pagamento,
+                    forma_pagamento_nome: formasPagamento.nome,
                 })
                 .from(financeiro)
+                .leftJoin(formasPagamento, eq(formasPagamento.id, financeiro.id_forma_pagamento))
                 .where(eq(financeiro.id_venda, input.id_venda))
                 .orderBy(financeiro.parcela, financeiro.data_vencimento);
         }),
@@ -524,6 +602,8 @@ export const vendasRouter = createTRPCRouter({
                 parcial: z.boolean().default(false),
                 valor_pago: z.number().positive().optional(),
                 novo_vencimento: z.string().optional(),
+                /** Forma com que o cliente pagou (se diferente da combinada). */
+                id_forma_pagamento: z.number().int().positive().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -536,6 +616,7 @@ export const vendasRouter = createTRPCRouter({
                     valor: financeiro.valor,
                     data_pagamento: financeiro.data_pagamento,
                     status: financeiro.status,
+                    id_forma_pagamento: financeiro.id_forma_pagamento,
                 })
                 .from(financeiro)
                 .where(eq(financeiro.id, input.id_financeiro))
@@ -567,6 +648,12 @@ export const vendasRouter = createTRPCRouter({
                 }
             }
             const valorParcela = Number(parcela.valor);
+            if (input.id_forma_pagamento) {
+                const [fp] = await ctx.db.select({ id: formasPagamento.id }).from(formasPagamento)
+                    .where(and(eq(formasPagamento.id, input.id_forma_pagamento), eq(formasPagamento.ativo, true))).limit(1);
+                if (!fp) throw new TRPCError({ code: 'NOT_FOUND', message: 'Forma de pagamento não encontrada' });
+            }
+            const forma = input.id_forma_pagamento && input.data_pagamento ? { id_forma_pagamento: input.id_forma_pagamento } : {};
 
             if (!input.parcial) {
                 /* Pagamento integral ou remoção de pagamento */
@@ -575,6 +662,7 @@ export const vendasRouter = createTRPCRouter({
                     .set({
                         data_pagamento: input.data_pagamento === null ? null : dtPgto,
                         status: input.data_pagamento === null ? 'PENDENTE' : 'PAGO',
+                        ...forma,
                     })
                     .where(eq(financeiro.id, input.id_financeiro));
 
@@ -606,12 +694,14 @@ export const vendasRouter = createTRPCRouter({
                         valor: String(input.valor_pago) as any,
                         data_pagamento: dtPgto,
                         status: 'PAGO',
+                        ...forma,
                     })
                     .where(eq(financeiro.id, input.id_financeiro));
 
                 // Criar parcela com valor restante
                 await tx.insert(financeiro).values({
                     id_venda: parcela.id_venda,
+                    id_forma_pagamento: parcela.id_forma_pagamento,
                     parcela: parcela.parcela, // mesmo número para identificação
                     valor: String(valorRestante) as any,
                     data_lancamento: dtPgto || new Date(),
