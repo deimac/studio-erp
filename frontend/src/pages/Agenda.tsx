@@ -85,7 +85,8 @@ export default function Agenda() {
     const [view, setView] = useState<View>(() => (window.innerWidth < 768 ? 'day' : 'week'));
     const [data, setData] = useState(new Date());
     const [colunas, setColunas] = useState<'profissional' | 'sala'>('profissional');
-    const [selProfsEscolhidos, setSelProfs] = useState<number[]>([]);
+    // Abre sempre na agenda de quem está logado; "Todos" mostra todo mundo
+    const [selProfsEscolhidos, setSelProfs] = useState<number[]>(() => (user?.id ? [user.id] : []));
     // Admin em "Só meu": mostra só a agenda dele (a chave fica no cabeçalho)
     const { escopo } = useEscopo();
     const soMeu = escopo === 'MEU' && !!user?.id;
