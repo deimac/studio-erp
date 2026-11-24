@@ -377,7 +377,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     <DialogTitle>{editando ? 'Editar agendamento' : 'Novo agendamento'}</DialogTitle>
                 </DialogHeader>
 
-                <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); salvar(); }}>
+                <form className="min-w-0 space-y-6" onSubmit={(e) => { e.preventDefault(); salvar(); }}>
                     {/* 1. Cliente */}
                     <div className="space-y-1.5">
                         <Label>Cliente *</Label>
@@ -423,7 +423,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
                     {semCliente && <p className="rounded-md bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">Escolha ou cadastre o cliente para continuar.</p>}
 
-                    <fieldset disabled={semCliente} className={cn('min-w-0 space-y-5', semCliente && 'pointer-events-none opacity-40')}>
+                    <fieldset disabled={semCliente} className={cn('min-w-0 space-y-6', semCliente && 'pointer-events-none opacity-40')}>
                         <div className={cn('grid gap-4', temSalas && 'sm:grid-cols-2')}>
                             <div className="space-y-1.5">
                                 <Label>Profissional *</Label>
@@ -499,7 +499,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                             <div className="flex items-start gap-2">
                                                 {n.tipo === 'pacote' ? <Package className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" /> : n.tipo === 'livre' ? <PenLine className="mt-2.5 h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" /> : <span className="h-4 w-4 shrink-0" />}
                                                 {n.tipo === 'livre' ? (
-                                                    <Input className="h-9 flex-1" placeholder="Descreva o serviço (ex.: Avaliação)" maxLength={120} value={n.nome}
+                                                    <Input className="h-9 flex-1" placeholder="Nome (ex.: Avaliação)" maxLength={120} value={n.nome}
                                                         autoFocus onChange={(e) => alterarNovo(n.chave, { nome: e.target.value })} />
                                                 ) : (
                                                     <p className="min-w-0 flex-1 text-sm font-medium">{n.nome}{n.tipo === 'pacote' ? ` · ${n.sessoes} sessões` : ''}</p>
@@ -509,7 +509,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                                     <Trash2 className="h-4 w-4" />
                                                 </button>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-3 pl-6">
+                                            <div className="grid grid-cols-2 gap-3 sm:pl-6">
                                                 {n.tipo === 'livre' && (
                                                     <label className="space-y-1 text-xs text-[hsl(var(--muted-foreground))]">
                                                         Duração (min)
@@ -517,7 +517,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                                     </label>
                                                 )}
                                                 <label className={cn('space-y-1 text-xs text-[hsl(var(--muted-foreground))]', n.tipo !== 'livre' && 'col-span-2 sm:col-span-1')}>
-                                                    {n.tipo === 'pacote' ? 'Valor do pacote' : n.tipo === 'livre' ? 'Valor (vazio = sem cobrança)' : 'Valor da sessão'}
+                                                    {n.tipo === 'pacote' ? 'Valor do pacote' : n.tipo === 'livre' ? 'Valor (opcional)' : 'Valor da sessão'}
                                                     <Input inputMode="decimal" placeholder="0,00" value={n.valor} onChange={(e) => alterarNovo(n.chave, { valor: maskMoney(e.target.value) })} />
                                                 </label>
                                             </div>
@@ -567,17 +567,17 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         </div>
 
                         {/* 4. Data, início, duração e fim */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="col-span-2 space-y-1.5 sm:col-span-1">
+                        <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
+                            <div className="col-span-2 min-w-0 space-y-1.5 sm:col-span-1">
                                 <Label>Data *</Label>
                                 <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
                             </div>
-                            <div className="col-span-2 grid grid-cols-2 gap-4 sm:col-span-1">
-                                <div className="space-y-1.5">
+                            <div className="col-span-2 grid min-w-0 grid-cols-2 gap-3 sm:col-span-1 sm:gap-4">
+                                <div className="min-w-0 space-y-1.5">
                                     <Label>Início *</Label>
                                     <Input type="time" step={300} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
                                 </div>
-                                <div className="space-y-1.5">
+                                <div className="min-w-0 space-y-1.5">
                                     <Label>Fim</Label>
                                     <Input type="time" step={300} value={horaFim}
                                         onChange={(e) => {
@@ -592,14 +592,14 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         </div>
                         <div className="space-y-1.5">
                             <Label>Duração <span className="font-normal text-[hsl(var(--muted-foreground))]">· {duracao} min{duracaoPadrao > 0 && duracao !== duracaoPadrao ? ` (padrão ${duracaoPadrao})` : ''}</span></Label>
-                            <div className="flex flex-wrap items-center gap-1.5">
+                            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
                                 {[30, 45, 60, 75, 90, 120].map((m) => (
                                     <button key={m} type="button" onClick={() => { setDuracao(m); setDuracaoManual(true); }}
                                         className={cn('h-9 rounded-full border px-3 text-sm tabular-nums transition-colors', duracao === m ? 'border-transparent bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
                                         {m}
                                     </button>
                                 ))}
-                                <Input type="number" min={5} max={600} step={5} aria-label="Outra duração em minutos" className="h-9 w-20"
+                                <Input type="number" min={5} max={600} step={5} aria-label="Outra duração em minutos" className="col-span-2 h-9 sm:w-24"
                                     value={[30, 45, 60, 75, 90, 120].includes(duracao) ? '' : duracao} placeholder="outra"
                                     onChange={(e) => { const v = Number(e.target.value); if (v > 0) { setDuracao(v); setDuracaoManual(true); } }} />
                             </div>

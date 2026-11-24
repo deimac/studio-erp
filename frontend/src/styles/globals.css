@@ -85,3 +85,27 @@ body {
     background: hsl(var(--muted-foreground) / 0.3);
     border-radius: 999px;
 }
+/* ── Celular ─────────────────────────────────────────────────────────
+   iPhone dá zoom ao focar campo com letra < 16px e o layout "estoura".
+   Campos de data/hora no iPhone ignoram a largura e passam da coluna. */
+@media (max-width: 767px) {
+    input:not([type='checkbox']):not([type='radio']),
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+}
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+    -webkit-appearance: none;
+    appearance: none;
+}
+input[type='date']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.5em;
+}
