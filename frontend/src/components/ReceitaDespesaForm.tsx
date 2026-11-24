@@ -124,7 +124,7 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
                     </Button>
                 </DialogTrigger>
             )}
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Novo Lançamento</DialogTitle>
                 </DialogHeader>

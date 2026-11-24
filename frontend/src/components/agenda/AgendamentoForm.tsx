@@ -342,7 +342,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{editando ? 'Editar agendamento' : 'Novo agendamento'}</DialogTitle>
                 </DialogHeader>

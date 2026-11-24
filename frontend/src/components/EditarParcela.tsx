@@ -66,7 +66,7 @@ export function EditarParcela({ lancamento, onClose, onSaved }: Props) {
     return (
         <>
             <Dialog open={!!lancamento} onOpenChange={(v) => { if (!v) onClose(); }}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle>Editar lançamento</DialogTitle>
                     </DialogHeader>

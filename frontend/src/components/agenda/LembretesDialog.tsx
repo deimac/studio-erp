@@ -29,7 +29,7 @@ export function LembretesDialog({ open, onOpenChange }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>Lembretes por WhatsApp</DialogTitle>
                 </DialogHeader>

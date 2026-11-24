@@ -105,7 +105,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
 
     return (
         <Dialog open={aberto} onOpenChange={(v) => { if (!v) { setCancelando(false); setFaltando(false); setMotivo(''); setCancelarSerie(false); } onOpenChange(v); }}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <div className="flex items-center gap-2">
                         <span className={cn('rounded-full border px-2 py-0.5 text-xs font-medium', info.classe)}>{info.label}</span>

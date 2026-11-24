@@ -256,7 +256,7 @@ export function ServicoForm({
                 </Button>
             )}
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-h-[92vh] w-full max-w-xl overflow-y-auto px-6">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
                             {servico ? 'Editar serviço' : protocolo && idProtocoloPadrao ? `Novo serviço em ${protocolo.nome}` : 'Novo serviço'}

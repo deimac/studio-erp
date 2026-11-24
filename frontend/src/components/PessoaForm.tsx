@@ -138,7 +138,7 @@ export function PessoaForm({ onSuccess, editData, trigger, open: openProp, onOpe
                 </Button>
             )}
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>{isEdit ? 'Editar Pessoa' : 'Nova Pessoa'}</DialogTitle>
                     </DialogHeader>

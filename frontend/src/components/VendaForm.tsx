@@ -264,7 +264,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                     </Button>
                 </DialogTrigger>
             )}
-            <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{editando ? 'Editar venda' : 'Nova venda'}</DialogTitle>
                 </DialogHeader>

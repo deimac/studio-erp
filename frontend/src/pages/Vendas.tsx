@@ -413,7 +413,7 @@ export default function Vendas() {
 
             {/* Modal: Encerrar Venda */}
             <Dialog open={!!encerrarId} onOpenChange={(open) => !open && setEncerrarId(null)}>
-                <DialogContent className="max-w-sm">
+                <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle>Encerrar Venda</DialogTitle>
                     </DialogHeader>

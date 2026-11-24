@@ -109,7 +109,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
                 {trigger ?? (protocolo ? 'Editar página' : 'Nova página do site')}
             </Button>
             <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="w-full max-w-2xl px-6">
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{protocolo ? `Página do site: ${protocolo.nome}` : 'Nova página do site (protocolo)'}</DialogTitle>
                     </DialogHeader>
