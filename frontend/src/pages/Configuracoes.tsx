@@ -14,19 +14,22 @@ import { Label } from '@/components/ui/label';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { PALETA, corPadrao } from '@/lib/agenda';
 import { CalendarDays } from 'lucide-react';
+import { PersonalizarBarra } from '@/components/acoes/PersonalizarBarra';
 
 export default function Configuracoes() {
     return (
         <div className="space-y-6">
             <h2 className="text-xl font-bold tracking-tight">Configurações</h2>
             <Tabs defaultValue="formas">
-                <TabsList>
+                {/* Celular: as abas quebram em linhas em vez de passar da tela */}
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:inline-flex sm:w-auto">
                     <TabsTrigger value="formas">Formas de Pagamento</TabsTrigger>
                     <TabsTrigger value="unidades">Unidades</TabsTrigger>
                     <TabsTrigger value="categorias">Categorias</TabsTrigger>
                     <TabsTrigger value="usuarios">Profissionais</TabsTrigger>
                     <TabsTrigger value="agenda">Agenda</TabsTrigger>
                     <TabsTrigger value="site">Site</TabsTrigger>
+                    <TabsTrigger value="barra">Barra do celular</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="formas" className="mt-4">
@@ -47,6 +50,12 @@ export default function Configuracoes() {
                 </TabsContent>
                 <TabsContent value="agenda" className="mt-4">
                     <AgendaRegrasPanel />
+                </TabsContent>
+                <TabsContent value="barra" className="mt-4">
+                    <Card>
+                        <CardHeader className="pb-3"><CardTitle className="text-base">Barra de atalhos do celular</CardTitle></CardHeader>
+                        <CardContent><PersonalizarBarra /></CardContent>
+                    </Card>
                 </TabsContent>
 
             </Tabs>
@@ -320,7 +329,7 @@ function ProfissionaisPanel() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
                 <CardTitle className="text-sm">Profissionais / Usuários</CardTitle>
                 <Button size="sm" onClick={() => setOpen(true)}>Novo Profissional</Button>
             </CardHeader>
@@ -330,23 +339,31 @@ function ProfissionaisPanel() {
                         <TableRow>
                             <TableHead>Nome</TableHead>
                             <TableHead className="hidden sm:table-cell">Email</TableHead>
-                            <TableHead>Perfil</TableHead>
-                            <TableHead>Status</TableHead>
+                            <TableHead className="hidden sm:table-cell">Perfil</TableHead>
+                            <TableHead className="hidden sm:table-cell">Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {usersQ.data?.map((u) => (
                             <TableRow key={u.id}>
-                                <TableCell className="font-medium">{u.nome}</TableCell>
+                                <TableCell className="font-medium">
+                                    {u.nome}
+                                    {/* Celular: perfil e status embaixo do nome (as colunas somem) */}
+                                    <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
+                                        <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{u.perfil}</Badge>
+                                        <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                                    </div>
+                                </TableCell>
                                 <TableCell className="hidden sm:table-cell text-gray-400">{u.email}</TableCell>
-                                <TableCell>
+                                <TableCell className="hidden sm:table-cell">
                                     <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{u.perfil}</Badge>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="hidden sm:table-cell">
                                     <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
+                                    <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end">
                                     {u.ativo && (
                                         <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAgendaDe(((agendaProfsQ.data ?? []) as any[]).find((p) => p.id === u.id) ?? { id: u.id, nome: u.nome })}>
                                             <CalendarDays className="mr-1 h-3.5 w-3.5" /> Agenda
@@ -355,6 +372,7 @@ function ProfissionaisPanel() {
                                     <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: u.id, ativo: !u.ativo })}>
                                         {u.ativo ? 'Desativar' : 'Ativar'}
                                     </Button>
+                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}

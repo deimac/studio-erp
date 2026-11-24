@@ -39,12 +39,18 @@ type Props = {
     onSuccess: () => void;
     editData?: PessoaData;
     trigger?: React.ReactNode;
+    /** Controlado por fora (ex.: botão + do rodapé): sem botão próprio. */
+    open?: boolean;
+    onOpenChange?: (v: boolean) => void;
 };
 
-export function PessoaForm({ onSuccess, editData, trigger }: Props) {
+export function PessoaForm({ onSuccess, editData, trigger, open: openProp, onOpenChange }: Props) {
     const isEdit = !!editData?.id;
     const { toast } = useToast();
-    const [open, setOpen] = useState(false);
+    const controlado = openProp !== undefined;
+    const [openLocal, setOpenLocal] = useState(false);
+    const open = controlado ? openProp : openLocal;
+    const setOpen = (v: boolean) => (controlado ? onOpenChange?.(v) : setOpenLocal(v));
 
     const [tipo, setTipo] = useState(editData?.tipo ?? 'CLIENTE');
     const [nome, setNome] = useState(editData?.nome ?? '');
@@ -121,14 +127,16 @@ export function PessoaForm({ onSuccess, editData, trigger }: Props) {
 
     return (
         <>
-            <Button
-                variant={isEdit ? 'ghost' : 'default'}
-                size="sm"
-                onClick={handleOpenClick}
-                className={isEdit ? 'h-8 px-2 text-xs' : ''}
-            >
-                {trigger ?? (isEdit ? 'Editar' : <><Plus className="mr-2 h-4 w-4" /> Nova Pessoa</>)}
-            </Button>
+            {!controlado && (
+                <Button
+                    variant={isEdit ? 'ghost' : 'default'}
+                    size="sm"
+                    onClick={handleOpenClick}
+                    className={isEdit ? 'h-8 px-2 text-xs' : ''}
+                >
+                    {trigger ?? (isEdit ? 'Editar' : <><Plus className="mr-2 h-4 w-4" /> Nova Pessoa</>)}
+                </Button>
+            )}
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>

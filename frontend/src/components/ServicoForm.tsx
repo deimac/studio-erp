@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,6 +58,7 @@ export function ServicoForm({
     idProtocoloPadrao,
     variant,
     triggerClassName,
+    abrirSinal,
 }: {
     servico?: Servico;
     onSuccess?: () => void;
@@ -67,6 +68,8 @@ export function ServicoForm({
     variant?: 'default' | 'ghost' | 'outline';
     /** Quando informado, o gatilho vira um botão simples com estas classes (ex.: linha inteira clicável). */
     triggerClassName?: string;
+    /** Muda de valor (>0) para abrir por fora, ex.: botão + do rodapé. */
+    abrirSinal?: number;
 }) {
     const { toast } = useToast();
     const { isAdmin } = useAuth();
@@ -238,9 +241,14 @@ export function ServicoForm({
         }
     }
 
+    useEffect(() => {
+        if (abrirSinal) abrir();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [abrirSinal]);
+
     return (
         <>
-            {triggerClassName ? (
+            {abrirSinal !== undefined ? null : triggerClassName ? (
                 <button type="button" className={triggerClassName} onClick={abrir}>{trigger}</button>
             ) : (
                 <Button size="sm" variant={variant ?? (servico ? 'ghost' : 'default')} onClick={abrir}>

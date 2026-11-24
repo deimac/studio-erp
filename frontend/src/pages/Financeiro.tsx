@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, DollarSign, TrendingUp, CreditCard, CalendarDays, AlertCircle, Clock, CheckCircle, Sparkles, Package } from 'lucide-react';
 import { ReceitaDespesaForm } from '@/components/ReceitaDespesaForm';
+import { useAcoesDaTela, useAcoesRapidas } from '@/components/acoes/AcoesRapidas';
+import { Receipt } from 'lucide-react';
 import { EditarParcela } from '@/components/EditarParcela';
 import { useToast } from '@/hooks/useToast';
 import { maskMoney, unmaskMoney } from '@/lib/masks';
@@ -304,6 +306,9 @@ export default function Financeiro() {
         ? Math.max(0, pgtoValorParcela - unmaskMoney(pgtoValorPago))
         : 0;
 
+    const { abrirForm } = useAcoesRapidas();
+    useAcoesDaTela([{ id: 'lancamento', label: 'Novo lançamento (receita ou despesa)', icone: Receipt, onSelect: () => abrirForm('lancamento') }]);
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -413,7 +418,7 @@ export default function Financeiro() {
                         ))}
                     </div>
 
-                    <div className="h-6 w-px bg-gray-200" />
+                    <div className="hidden h-6 w-px bg-gray-200 sm:block" />
 
                     {/* Tipo de Data */}
                     <div className="flex items-center gap-1.5">
@@ -428,7 +433,7 @@ export default function Financeiro() {
                         ))}
                     </div>
 
-                    <div className="h-6 w-px bg-gray-200" />
+                    <div className="hidden h-6 w-px bg-gray-200 sm:block" />
 
                     {/* Intervalo de datas */}
                     <div className="flex items-center gap-1.5">
@@ -478,10 +483,10 @@ export default function Financeiro() {
                         </div>
                     </div>
 
-                    <div className="h-6 w-px bg-gray-200" />
+                    <div className="hidden h-6 w-px bg-gray-200 sm:block" />
 
                     {/* Busca */}
-                    <div className="relative flex-1 min-w-[180px] max-w-[250px]">
+                    <div className="relative w-full min-w-[180px] flex-1 sm:w-auto sm:max-w-[250px]">
                         <Search className="absolute left-2.5 top-1.5 h-3.5 w-3.5 text-gray-400" />
                         <Input placeholder={`Buscar ${tipo === 'RECEITA' ? 'cliente' : 'fornecedor'}...`} className="h-7 pl-8 text-xs" value={search} onChange={(e) => setSearch(e.target.value)} />
                     </div>

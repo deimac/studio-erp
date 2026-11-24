@@ -22,10 +22,18 @@ import {
 import { Plus } from 'lucide-react';
 import { maskMoney } from '@/lib/masks';
 
-type Props = { onSuccess: () => void };
+type Props = {
+    onSuccess: () => void;
+    /** Controlado por fora (ex.: botão + do rodapé): sem botão próprio. */
+    open?: boolean;
+    onOpenChange?: (v: boolean) => void;
+};
 
-export function ReceitaDespesaForm({ onSuccess }: Props) {
-    const [open, setOpen] = useState(false);
+export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: Props) {
+    const controlado = openProp !== undefined;
+    const [openLocal, setOpenLocal] = useState(false);
+    const open = controlado ? openProp : openLocal;
+    const setOpen = (v: boolean) => (controlado ? onOpenChange?.(v) : setOpenLocal(v));
 
     /* selects com busca */
     const pessoasQ = trpc.pessoas.list.useQuery();
@@ -112,11 +120,13 @@ export function ReceitaDespesaForm({ onSuccess }: Props) {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Novo Lançamento
-                </Button>
-            </DialogTrigger>
+            {!controlado && (
+                <DialogTrigger asChild>
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" /> Novo Lançamento
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Novo Lançamento</DialogTitle>

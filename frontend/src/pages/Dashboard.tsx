@@ -51,21 +51,24 @@ export default function Dashboard() {
             </div>
 
             {/* Summary cards */}
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <DashCard
                     title="Atendimentos hoje"
+                    curto="Hoje"
                     value={atendimentosQ.isLoading ? '–' : deHoje}
                     icon={<CalendarCheck className="h-5 w-5 text-blue-600" />}
                     to="/atendimentos"
                 />
                 <DashCard
                     title="Pessoas"
+                    curto="Pessoas"
                     value={pessoasList.data?.length ?? '–'}
                     icon={<Users className="h-5 w-5 text-emerald-600" />}
                     to="/pessoas"
                 />
                 <DashCard
                     title="Vendas ativas"
+                    curto="Vendas"
                     value={vendasList.data?.length ?? '–'}
                     icon={<ShoppingCart className="h-5 w-5 text-amber-600" />}
                     to="/vendas"
@@ -73,7 +76,7 @@ export default function Dashboard() {
             </div>
 
             {/* Contas */}
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <PainelContas
                     titulo="A receber hoje"
                     subtitulo="Vencendo hoje e atrasadas"
@@ -137,11 +140,11 @@ function PainelContas({ titulo, subtitulo, icone, corTotal, contas, carregando, 
         <Card className="flex flex-col">
             <div className="flex items-center gap-3 border-b border-[hsl(var(--border))] p-4">
                 {icone}
-                <div className="min-w-0">
-                    <h3 className="font-semibold">{titulo}</h3>
-                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{subtitulo}</p>
+                <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-semibold">{titulo}</h3>
+                    <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">{subtitulo}</p>
                 </div>
-                <div className="ml-auto text-right">
+                <div className="shrink-0 text-right">
                     <p className={cn('text-lg font-bold tabular-nums', corTotal)}>{carregando ? '–' : moeda(total)}</p>
                     {atrasadas > 0 && <p className="text-xs font-medium text-red-600">{atrasadas} atrasada{atrasadas > 1 ? 's' : ''}</p>}
                 </div>
@@ -157,7 +160,7 @@ function PainelContas({ titulo, subtitulo, icone, corTotal, contas, carregando, 
                         const parcela = (c.quantidade_parcelas ?? 1) > 1 ? ` · parcela ${c.parcela}/${c.quantidade_parcelas}` : '';
                         return (
                             <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                     <p className="truncate text-sm font-medium">{c.cliente_nome}</p>
                                     <p className="truncate text-xs text-[hsl(var(--muted-foreground))]">
                                         {descricao}{parcela}{c.forma_pagamento_nome ? ` · ${c.forma_pagamento_nome}` : ''}
@@ -166,9 +169,9 @@ function PainelContas({ titulo, subtitulo, icone, corTotal, contas, carregando, 
                                 <div className="shrink-0 text-right">
                                     <p className="text-sm font-semibold tabular-nums">{moeda(Number(c.valor))}</p>
                                     {atrasada ? (
-                                        <Badge variant="destructive" className="text-[11px]">Atrasada · {dataBR(venc)}</Badge>
+                                        <Badge variant="destructive" className="whitespace-nowrap text-[11px]">Atrasada · {dataBR(venc)}</Badge>
                                     ) : venc === hojeISO ? (
-                                        <Badge variant="secondary" className="text-[11px]">Vence hoje</Badge>
+                                        <Badge variant="secondary" className="whitespace-nowrap text-[11px]">Vence hoje</Badge>
                                     ) : (
                                         <p className="text-xs tabular-nums text-[hsl(var(--muted-foreground))]">{dataBR(venc)}</p>
                                     )}
@@ -185,15 +188,21 @@ function PainelContas({ titulo, subtitulo, icone, corTotal, contas, carregando, 
     );
 }
 
-function DashCard({ title, value, icon, to }: { title: string; value: string | number; icon: React.ReactNode; to: string }) {
+function DashCard({ title, curto, value, icon, to }: { title: string; curto: string; value: string | number; icon: React.ReactNode; to: string }) {
     return (
-        <Link to={to}>
-            <Card className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5">
-                <CardContent className="flex items-center gap-4 p-5">
+        <Link to={to} className="min-w-0">
+            <Card className="h-full cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md">
+                {/* Celular: compacto, os três lado a lado */}
+                <CardContent className="flex flex-col items-center gap-1 p-3 text-center sm:hidden">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[hsl(var(--muted))]">{icon}</div>
+                    <p className="text-xl font-bold leading-tight">{value}</p>
+                    <p className="w-full truncate text-[11px] font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{curto}</p>
+                </CardContent>
+                <CardContent className="hidden items-center gap-4 p-5 sm:flex">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[hsl(var(--muted))]">
                         {icon}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                         <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{title}</p>
                         <p className="text-2xl font-bold">{value}</p>
                     </div>

@@ -41,8 +41,10 @@ const novaChave = () => `k${++seq}`;
 export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: Props) {
     const editando = !!idVenda;
     const [openLocal, setOpenLocal] = useState(false);
-    const open = editando ? !!openProp : openLocal;
-    const setOpen = (v: boolean) => (editando ? onOpenChange?.(v) : setOpenLocal(v));
+    // Controlado por fora (edição ou o botão + do rodapé): sem botão próprio
+    const controlado = editando || openProp !== undefined;
+    const open = controlado ? !!openProp : openLocal;
+    const setOpen = (v: boolean) => (controlado ? onOpenChange?.(v) : setOpenLocal(v));
     // Só no modo Clínica o admin lança venda em nome de outro profissional
     const { user, veTudo: escolheVendedor } = useAuth();
     const [vendedor, setVendedor] = useState<number>(user?.id ?? 0);
@@ -258,7 +260,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
 
     return (
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-            {!editando && (
+            {!controlado && (
                 <DialogTrigger asChild>
                     <Button>
                         <Plus className="mr-2 h-4 w-4" /> Nova Venda

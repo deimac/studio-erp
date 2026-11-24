@@ -12,6 +12,8 @@ import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { resolveImageUrl } from '@/lib/media';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { useAcoesDaTela } from '@/components/acoes/AcoesRapidas';
+import { Scissors } from 'lucide-react';
 
 const SITE_URL = 'https://tsmassoterapeuta.com.br';
 const fmt = (v: string | number) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -122,6 +124,9 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
     // Sem dono = da clínica (do admin); do colega só no modo Clínica
     const podeEditar = (s: ServicoItem) => veTudo || (s.id_profissional == null ? isAdmin : s.id_profissional === user?.id);
     const salvo = () => toast({ title: 'Serviço salvo', variant: 'success' });
+    // Botão + do rodapé (celular)
+    const [novoSinal, setNovoSinal] = useState(0);
+    useAcoesDaTela([{ id: 'servico', label: 'Novo serviço', icone: Scissors, onSelect: () => setNovoSinal((n) => n + 1) }]);
 
     const filtros: { id: Filtro; rotulo: string }[] = [
         { id: 'todos', rotulo: 'Todos' },
@@ -139,6 +144,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                 </div>
                 <div className="sm:ml-auto">
                     <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
+                    <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />
                 </div>
             </div>
 

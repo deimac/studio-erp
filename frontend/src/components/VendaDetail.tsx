@@ -241,10 +241,10 @@ export function VendaDetail({ venda }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Parcela</TableHead>
-                                    <TableHead>Forma</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Forma</TableHead>
                                     <TableHead>Valor</TableHead>
-                                    <TableHead>Vencimento</TableHead>
-                                    <TableHead>Data Pagamento</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Vencimento</TableHead>
+                                    <TableHead>Situação</TableHead>
                                     <TableHead className="text-center">Pago</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -273,10 +273,20 @@ export function VendaDetail({ venda }: Props) {
                                     const canToggle = p.status !== 'CANCELADO';
                                     return (
                                         <TableRow key={p.id}>
-                                            <TableCell className="font-medium">{p.parcela}</TableCell>
-                                            <TableCell>{(p as any).forma_pagamento_nome ?? <span className="text-amber-700">a definir</span>}</TableCell>
-                                            <TableCell>{fmt(p.valor)}</TableCell>
-                                            <TableCell>{fmtDate(p.data_vencimento)}</TableCell>
+                                            <TableCell className="font-medium">
+                                                {p.parcela}
+                                                {/* Celular: forma embaixo da parcela (a coluna some) */}
+                                                <div className="text-xs font-normal text-[hsl(var(--muted-foreground))] sm:hidden">
+                                                    {(p as any).forma_pagamento_nome ?? <span className="text-amber-700">a definir</span>}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">{(p as any).forma_pagamento_nome ?? <span className="text-amber-700">a definir</span>}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                {fmt(p.valor)}
+                                                {/* Celular: vencimento embaixo do valor */}
+                                                <div className="text-xs text-[hsl(var(--muted-foreground))] sm:hidden">vence {fmtDate(p.data_vencimento)}</div>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">{fmtDate(p.data_vencimento)}</TableCell>
                                             <TableCell>
                                                 <span className={display.color}>{display.label}</span>
                                             </TableCell>
@@ -341,7 +351,7 @@ export function VendaDetail({ venda }: Props) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Data</TableHead>
-                                    <TableHead>Horário</TableHead>
+                                    <TableHead className="hidden sm:table-cell">Horário</TableHead>
                                     <TableHead>Profissional</TableHead>
                                     <TableHead>Status</TableHead>
                                 </TableRow>
@@ -363,8 +373,14 @@ export function VendaDetail({ venda }: Props) {
                                 )}
                                 {atendQ.data?.map((a) => (
                                     <TableRow key={a.id}>
-                                        <TableCell>{fmtDate(a.data)}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="whitespace-nowrap">
+                                            {fmtDate(a.data)}
+                                            {/* Celular: horário embaixo da data (a coluna some) */}
+                                            <div className="text-xs text-[hsl(var(--muted-foreground))] sm:hidden">
+                                                {a.hora_inicio?.slice(0, 5)} – {a.hora_fim?.slice(0, 5)}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="hidden sm:table-cell">
                                             {a.hora_inicio?.slice(0, 5)} – {a.hora_fim?.slice(0, 5)}
                                         </TableCell>
                                         <TableCell>{a.profissional_nome}</TableCell>

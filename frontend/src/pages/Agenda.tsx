@@ -6,7 +6,8 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '@/styles/agenda.css';
 import { addDays, endOfMonth, endOfWeek, format, getDay, parse, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Ban, BellRing, ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
+import { Ban, BellRing, CalendarPlus, ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
+import { useAcoesDaTela } from '@/components/acoes/AcoesRapidas';
 import { trpc } from '@/services/trpc';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -332,6 +333,14 @@ export default function Agenda() {
     const novoAgendamento = (hora?: string) =>
         setForm({ open: true, inicial: { data: dataISO(data), hora_inicio: hora, id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } });
 
+    // Painel do + do rodapé: o que dá para fazer nesta tela
+    useAcoesDaTela([
+        { id: 'agendamento', label: 'Novo agendamento neste dia', icone: CalendarPlus, onSelect: () => novoAgendamento() },
+        { id: 'bloquear', label: 'Bloquear horário', icone: Ban, onSelect: () => setBloqueio({ open: true, inicial: { data: dataISO(data) } }) },
+        { id: 'expediente', label: 'Meu expediente', icone: Clock, onSelect: () => setExpediente(true), disabled: !eu },
+        { id: 'lembretes', label: 'Lembretes por WhatsApp', icone: BellRing, onSelect: () => setLembretes(true) },
+    ]);
+
     const chipsProfissionais = (
         <>
             <button type="button" onClick={() => setSelProfs([])}
@@ -550,12 +559,6 @@ export default function Agenda() {
                         />
                     </div>
                 )}
-
-                {/* Agendar: ao alcance do polegar */}
-                <button type="button" onClick={() => novoAgendamento()} aria-label="Novo agendamento"
-                    className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white shadow-[0_8px_24px_-6px_rgb(37_99_235/0.55)] active:scale-95">
-                    <Plus className="h-6 w-6" />
-                </button>
 
                 {dialogos}
             </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { VendaForm } from '@/components/VendaForm';
+import { useAcoesDaTela, useAcoesRapidas } from '@/components/acoes/AcoesRapidas';
 import { VendaDetail } from '@/components/VendaDetail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -96,6 +97,9 @@ export default function Vendas() {
         valorTotal: vendasQ.data?.reduce((sum, v) => sum + Number(v.valor), 0) ?? 0,
         sessoesTotal: vendasQ.data?.reduce((sum, v) => sum + (v.quantidade_sessoes ?? 0), 0) ?? 0,
     };
+
+    const { abrirForm } = useAcoesRapidas();
+    useAcoesDaTela([{ id: 'venda', label: 'Nova venda', icone: ShoppingCart, onSelect: () => abrirForm('venda') }]);
 
     return (
         <div className="space-y-6">
@@ -394,7 +398,7 @@ export default function Vendas() {
                                         </TableRow>
                                         {expandedId === v.id && (
                                             <TableRow key={`detail-${v.id}`}>
-                                                <TableCell colSpan={9} className="p-0">
+                                                <TableCell colSpan={9} className="p-0 sm:p-0">
                                                     <VendaDetail venda={v} />
                                                 </TableCell>
                                             </TableRow>

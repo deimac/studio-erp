@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { PessoaForm } from '@/components/PessoaForm';
+import { useAcoesDaTela, useAcoesRapidas } from '@/components/acoes/AcoesRapidas';
+import { UserPlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +22,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { hasVendasVinculadas } from '@/services/hasVendasVinculadas';
 import { formatarTelefone, linkTelefone } from '@/lib/telefone';
+
+const FILTRO_LABEL: Record<string, string> = { '': 'Todos', CLIENTE: 'Clientes', FORNECEDOR: 'Fornecedores', AMBOS: 'Ambos' };
 
 const tipoBadge = (t: string) => {
     switch (t) {
@@ -73,6 +77,9 @@ export default function Pessoas() {
         if (ok) deleteMut.mutate({ id: p.id });
     }
 
+    const { abrirForm } = useAcoesRapidas();
+    useAcoesDaTela([{ id: 'pessoa', label: 'Nova pessoa', icone: UserPlus, onSelect: () => abrirForm('pessoa') }]);
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -95,15 +102,17 @@ export default function Pessoas() {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
+                {/* Celular: os 4 filtros dividem a largura em vez de passar da tela */}
+                <div className="grid grid-cols-4 gap-1.5 sm:flex sm:gap-2">
                     {['', 'CLIENTE', 'FORNECEDOR', 'AMBOS'].map((t) => (
                         <Button
                             key={t}
                             variant={tipoFilter === t ? 'default' : 'outline'}
                             size="sm"
+                            className="min-w-0 px-1 text-xs sm:px-3 sm:text-sm"
                             onClick={() => setTipoFilter(t)}
                         >
-                            {t || 'Todos'}
+                            {FILTRO_LABEL[t]}
                         </Button>
                     ))}
                 </div>

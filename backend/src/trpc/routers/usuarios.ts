@@ -16,7 +16,15 @@ export const usuariosRouter = createTRPCRouter({
         )
         .mutation(async ({ ctx, input }) => {
             const [usuarioDb] = await ctx.db
-                .select()
+                .select({
+                    id: usuarios.id,
+                    nome: usuarios.nome,
+                    email: usuarios.email,
+                    senha: usuarios.senha,
+                    perfil: usuarios.perfil,
+                    id_unidade: usuarios.id_unidade,
+                    ativo: usuarios.ativo,
+                })
                 .from(usuarios)
                 .where(eq(usuarios.email, input.email))
                 .limit(1);
@@ -160,6 +168,27 @@ export const usuariosRouter = createTRPCRouter({
                 })
                 .where(eq(usuarios.id, input.id));
 
+            return { ok: true };
+        }),
+
+    /** Atalhos da barra do celular de quem está logado (null = padrão). */
+    meusAtalhos: protectedProcedure.query(async ({ ctx }) => {
+        const [u] = await ctx.db
+            .select({ atalhos: usuarios.atalhos_celular })
+            .from(usuarios)
+            .where(eq(usuarios.id, ctx.session.id))
+            .limit(1);
+        const ids = u?.atalhos ? u.atalhos.split(',').filter(Boolean) : [];
+        return ids.length ? ids : null;
+    }),
+
+    salvarMeusAtalhos: protectedProcedure
+        .input(z.object({ ids: z.array(z.string().regex(/^[a-z]+$/).max(30)).max(8).nullable() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db
+                .update(usuarios)
+                .set({ atalhos_celular: input.ids?.length ? input.ids.join(',') : null, updated_at: new Date() })
+                .where(eq(usuarios.id, ctx.session.id));
             return { ok: true };
         }),
 

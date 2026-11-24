@@ -56,6 +56,8 @@ export const usuarios = mysqlTable(
         ve_servicos_clinica: dbBoolean('ve_servicos_clinica').notNull().default(false),
         /** Regra de falta do profissional (quando a clínica deixa cada um definir). */
         falta_regra: mysqlEnum('falta_regra', ['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']),
+        /** Atalhos da barra do celular, separados por vírgula (vazio = padrão). */
+        atalhos_celular: varchar('atalhos_celular', { length: 200 }),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
