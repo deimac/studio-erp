@@ -4,9 +4,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BuscaPessoa } from '@/components/BuscaPessoa';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Check, Package, Plus, Search, Trash2, X } from 'lucide-react';
 import { maskMoney } from '@/lib/masks';
 import { cn } from '@/lib/utils';
@@ -56,7 +56,6 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
     const formasQ = trpc.formasPagamento.list.useQuery(undefined, { enabled: open });
 
     const [idPessoa, setIdPessoa] = useState('');
-    const [pessoaSearch, setPessoaSearch] = useState('');
     const [dataVenda, setDataVenda] = useState(hojeISO());
     const [observacao, setObservacao] = useState('');
     const [itens, setItens] = useState<ItemVenda[]>([]);
@@ -111,7 +110,6 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
 
     function resetForm() {
         setIdPessoa('');
-        setPessoaSearch('');
         setDataVenda(hojeISO());
         setObservacao('');
         setItens([]);
@@ -244,7 +242,6 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
         });
     }
 
-    const filteredPessoas = pessoasQ.data?.filter((p) => !pessoaSearch || p.nome.toLowerCase().includes(pessoaSearch.toLowerCase()));
     const formas = ((formasQ.data ?? []) as any[]).filter((f) => f.ativo !== false);
 
     const isValid =
@@ -291,19 +288,12 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_170px]">
                             <div className="space-y-1.5">
                                 <Label>Cliente</Label>
-                                <Select value={idPessoa} onValueChange={setIdPessoa}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o cliente" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <div className="p-2">
-                                            <Input placeholder="Buscar…" value={pessoaSearch} onChange={(e) => setPessoaSearch(e.target.value)} className="h-8" />
-                                        </div>
-                                        {filteredPessoas?.map((p) => (
-                                            <SelectItem key={p.id} value={String(p.id)}>{p.nome}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <BuscaPessoa
+                                    pessoas={pessoasQ.data as any}
+                                    valor={idPessoa ? Number(idPessoa) : null}
+                                    onChange={(id) => setIdPessoa(id ? String(id) : '')}
+                                    cadastrar
+                                />
                             </div>
                             <div className="space-y-1.5">
                                 <Label>Data da venda</Label>

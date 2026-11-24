@@ -3,12 +3,14 @@ import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { diaISO } from '@/lib/datas';
 import { cn } from '@/lib/utils';
-import { AtendimentoForm } from '@/components/AtendimentoForm';
+import { AgendamentoForm } from '@/components/agenda/AgendamentoForm';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { dataISO } from '@/lib/agenda';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { ListaAtendimentos } from '@/components/ListaAtendimentos';
-import { Search, CalendarCheck, CalendarDays, LayoutList, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
+import { Plus, Search, CalendarCheck, CalendarDays, LayoutList, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const ABERTOS = ['AGENDADO', 'CONFIRMADO'];
 
@@ -28,10 +30,10 @@ const hojeISO = () => {
 };
 
 export default function Atendimentos() {
-    const { toast } = useToast();
-    const utils = trpc.useUtils();
     const [search, setSearch] = useState('');
     const [filtro, setFiltro] = useState<(typeof FILTROS)[number]['chave']>('TODOS');
+    const [novoAberto, setNovoAberto] = useState(false);
+    const { user } = useAuth();
 
     const { escopo } = useEscopo();
     const atendQ = trpc.atendimentos.list.useQuery({ escopo });
@@ -88,7 +90,11 @@ export default function Atendimentos() {
                             <p className="line-clamp-2 text-sm text-[hsl(var(--muted-foreground))] sm:truncate">{resumo}</p>
                         </div>
                         <div className="shrink-0">
-                            <AtendimentoForm onSuccess={() => { utils.atendimentos.list.invalidate(); toast({ title: 'Atendimento agendado!', variant: 'success' }); }} />
+                            <Button size="sm" className="gap-1.5" onClick={() => setNovoAberto(true)}>
+                                <Plus className="h-4 w-4" />
+                                <span className="sm:hidden">Novo</span>
+                                <span className="hidden sm:inline">Novo agendamento</span>
+                            </Button>
                         </div>
                     </div>
 
@@ -147,6 +153,9 @@ export default function Atendimentos() {
                     />
                 </CardContent>
             </Card>
+
+            {/* Mesmo modal do "Novo agendamento" da Agenda */}
+            <AgendamentoForm open={novoAberto} onOpenChange={setNovoAberto} inicial={{ data: dataISO(new Date()), id_profissional: user?.id }} />
         </div>
     );
 }

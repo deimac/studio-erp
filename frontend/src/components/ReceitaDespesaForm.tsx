@@ -3,6 +3,7 @@ import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { BuscaPessoa } from '@/components/BuscaPessoa';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Dialog,
@@ -56,7 +57,6 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
     const [dataPrimVenc, setDataPrimVenc] = useState(hoje);
 
     /* pesquisa nos selects */
-    const [pessoaSearch, setPessoaSearch] = useState('');
 
     const createMut = trpc.receitasDespesas.create.useMutation({
         onSuccess: () => {
@@ -77,7 +77,6 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
         setParcelas('1');
         setDataLancamento(hoje);
         setDataPrimVenc(hoje);
-        setPessoaSearch('');
     }
 
     function handleSubmit() {
@@ -99,11 +98,9 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
     }
 
     // Filtrar pessoas por tipo
-    const filteredPessoas = pessoasQ.data?.filter((p: any) => {
-        const matchSearch = !pessoaSearch || p.nome.toLowerCase().includes(pessoaSearch.toLowerCase());
-        const matchTipo = tipo === 'RECEITA' ? p.tipo === 'CLIENTE' : p.tipo === 'FORNECEDOR';
-        return matchSearch && matchTipo;
-    });
+    const filteredPessoas = pessoasQ.data?.filter((p: any) =>
+        p.tipo === 'AMBOS' || (tipo === 'RECEITA' ? p.tipo === 'CLIENTE' : p.tipo === 'FORNECEDOR'),
+    );
 
     // Converter valor mascarado para validação
     const valorNumerico = Number(valor.replace(/\./g, '').replace(',', '.')) || 0;
@@ -170,26 +167,14 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
                         {/* Pessoa */}
                         <div className="space-y-1.5">
                             <Label>{tipo === 'RECEITA' ? 'Cliente' : 'Fornecedor'}</Label>
-                            <Select value={idPessoa} onValueChange={setIdPessoa}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder={`Selecione o ${tipo === 'RECEITA' ? 'cliente' : 'fornecedor'}`} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <div className="p-2">
-                                        <Input
-                                            placeholder="Buscar…"
-                                            value={pessoaSearch}
-                                            onChange={(e) => setPessoaSearch(e.target.value)}
-                                            className="h-8"
-                                        />
-                                    </div>
-                                    {filteredPessoas?.map((p: any) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                            {p.nome}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <BuscaPessoa
+                                key={tipo}
+                                pessoas={filteredPessoas}
+                                valor={idPessoa ? Number(idPessoa) : null}
+                                onChange={(id) => setIdPessoa(id ? String(id) : '')}
+                                cadastrar={tipo === 'RECEITA'}
+                                placeholder={tipo === 'RECEITA' ? 'Buscar cliente pelo nome…' : 'Buscar fornecedor pelo nome…'}
+                            />
                         </div>
 
                         {/* Descrição */}
@@ -249,52 +234,58 @@ export function ReceitaDespesaForm({ onSuccess, open: openProp, onOpenChange }: 
                             Pagamento
                         </h3>
 
-                        <div className="space-y-1.5">
-                            <Label>Forma de Pagamento</Label>
-                            <Select value={idFormaPagamento} onValueChange={setIdFormaPagamento}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecione" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {(formasQ.data as any[])
-                                        ?.filter((f) => f.ativo !== false)
-                                        .map((f: any) => (
-                                            <SelectItem key={f.id} value={String(f.id)}>
-                                                {f.nome}
-                                            </SelectItem>
-                                        ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4">
+                        {/* Forma + parcelas numa linha; datas embaixo (uma por linha no celular) */}
+                        <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3 sm:gap-4">
+                            <div className="min-w-0 space-y-1.5">
+                                <Label>Forma de Pagamento</Label>
+                                <Select value={idFormaPagamento} onValueChange={setIdFormaPagamento}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(formasQ.data as any[])
+                                            ?.filter((f) => f.ativo !== false)
+                                            .map((f: any) => (
+                                                <SelectItem key={f.id} value={String(f.id)}>
+                                                    {f.nome}
+                                                </SelectItem>
+                                            ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="space-y-1.5">
-                                <Label>Nº de Parcelas</Label>
+                                <Label>Parcelas</Label>
                                 <Input
                                     type="number"
+                                    inputMode="numeric"
                                     min={1}
                                     value={parcelas}
                                     onChange={(e) => setParcelas(e.target.value)}
                                 />
                             </div>
-                            <div className="space-y-1.5">
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+                            <div className="min-w-0 space-y-1.5">
                                 <Label>Data do Lançamento</Label>
                                 <Input
                                     type="date"
                                     max={hoje}
                                     value={dataLancamento}
+                                    className="min-w-0"
                                     onChange={(e) => {
                                         setDataLancamento(e.target.value);
                                         if (dataPrimVenc < e.target.value) setDataPrimVenc(e.target.value);
                                     }}
                                 />
                             </div>
-                            <div className="space-y-1.5">
+                            <div className="min-w-0 space-y-1.5">
                                 <Label>1º Vencimento</Label>
                                 <Input
                                     type="date"
                                     min={dataLancamento}
                                     value={dataPrimVenc}
+                                    className="min-w-0"
                                     onChange={(e) => setDataPrimVenc(e.target.value)}
                                 />
                             </div>

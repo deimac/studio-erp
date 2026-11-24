@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertTriangle, Check, CircleDollarSign, Package, PenLine, Plus, Repeat, Search, Trash2, UserPlus, X } from 'lucide-react';
+import { AlertTriangle, Check, CircleDollarSign, Package, PenLine, Plus, Repeat, Search, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { minutos, somarMinutos } from '@/lib/agenda';
 import { maskMoney } from '@/lib/masks';
-import { TelefoneInput } from '@/components/TelefoneInput';
+import { BuscaPessoa } from '@/components/BuscaPessoa';
 import { HoraInput } from '@/components/HoraInput';
 
 /**
@@ -82,9 +82,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
     const [idPessoa, setIdPessoa] = useState<number | null>(null);
     const [pessoaNome, setPessoaNome] = useState('');
-    const [busca, setBusca] = useState('');
-    const [novoCliente, setNovoCliente] = useState<{ nome: string; telefone: string } | null>(null);
-    const nomeNovoRef = useRef<HTMLInputElement>(null);
     const [idProf, setIdProf] = useState<number>(user?.id ?? 0);
     const [idSala, setIdSala] = useState<number | null>(null);
     const [data, setData] = useState('');
@@ -116,8 +113,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         if (!open) return;
         setIdPessoa(inicial.id_pessoa ?? null);
         setPessoaNome(inicial.pessoa_nome ?? '');
-        setBusca('');
-        setNovoCliente(null);
         setIdProf(inicial.id_profissional ?? user?.id ?? 0);
         setIdSala(inicial.id_sala ?? null);
         setData(inicial.data ?? '');
@@ -144,16 +139,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setAplicarProximas(false);
         setConflito(null);
     }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Cadastro rápido: cursor no fim do nome para completar
-    useEffect(() => {
-        if (!novoCliente) return;
-        const el = nomeNovoRef.current;
-        if (!el) return;
-        el.focus();
-        const fim = el.value.length;
-        el.setSelectionRange(fim, fim);
-    }, [novoCliente === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const clientesQ = trpc.pessoas.listClientes.useQuery(undefined, { enabled: open && !editando });
     const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open });
@@ -244,25 +229,9 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         { enabled: open && verLivres && !!idProf && /^\d{4}-\d{2}-\d{2}$/.test(data) },
     );
 
-    const clientesFiltrados = useMemo(() => {
-        const q = busca.trim().toLowerCase();
-        const lista = (clientesQ.data ?? []) as { id: number; nome: string }[];
-        return (q ? lista.filter((c) => c.nome.toLowerCase().includes(q)) : lista).slice(0, 8);
-    }, [busca, clientesQ.data]);
-
-    const clienteRapidoMut = trpc.agenda.clienteRapido.useMutation({
-        onSuccess: (c: any) => {
-            escolherCliente(c.id, c.nome);
-            setNovoCliente(null);
-            utils.pessoas.listClientes.invalidate();
-        },
-        onError: (e) => toast({ title: e.message, variant: 'error' }),
-    });
-
     function escolherCliente(id: number | null, nome = '') {
         setIdPessoa(id);
         setPessoaNome(nome);
-        setBusca('');
         setUsarItens([]);
         setItensTocados(false);
     }
@@ -382,44 +351,14 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     {/* 1. Cliente */}
                     <div className="space-y-1.5">
                         <Label>Cliente *</Label>
-                        {idPessoa ? (
-                            <div className="flex items-center justify-between rounded-md border border-[hsl(var(--input))] px-3 py-2 text-sm">
-                                <span className="font-medium">{pessoaNome}</span>
-                                {!editando && (
-                                    <button type="button" className="text-xs text-[hsl(var(--primary))] hover:underline" onClick={() => escolherCliente(null)}>trocar</button>
-                                )}
-                            </div>
-                        ) : novoCliente ? (
-                            <div className="space-y-2 rounded-md border border-dashed p-3">
-                                <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Novo cliente</p>
-                                <Input ref={nomeNovoRef} placeholder="Nome completo" value={novoCliente.nome} onChange={(e) => setNovoCliente({ ...novoCliente, nome: e.target.value })} />
-                                <TelefoneInput value={novoCliente.telefone} onChange={(v) => setNovoCliente((c) => (c ? { ...c, telefone: v } : c))} />
-                                <div className="flex justify-end gap-2">
-                                    <Button type="button" size="sm" variant="ghost" onClick={() => setNovoCliente(null)}>Voltar</Button>
-                                    <Button type="button" size="sm" disabled={novoCliente.nome.trim().length < 2 || clienteRapidoMut.isPending}
-                                        onClick={() => clienteRapidoMut.mutate({ nome: novoCliente.nome.trim(), telefone: novoCliente.telefone || undefined })}>
-                                        Cadastrar
-                                    </Button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="relative">
-                                <Input placeholder="Buscar cliente pelo nome…" value={busca} onChange={(e) => setBusca(e.target.value)} />
-                                {busca && (
-                                    <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border bg-white shadow-lg">
-                                        {clientesFiltrados.map((c) => (
-                                            <button key={c.id} type="button" className="block w-full px-3 py-2.5 text-left text-sm hover:bg-[hsl(var(--accent))]" onClick={() => escolherCliente(c.id, c.nome)}>
-                                                {c.nome}
-                                            </button>
-                                        ))}
-                                        <button type="button" className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-sm text-[hsl(var(--primary))] hover:bg-[hsl(var(--accent))]"
-                                            onClick={() => setNovoCliente({ nome: busca, telefone: '' })}>
-                                            <UserPlus className="h-4 w-4" /> Cadastrar "{busca}"
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        <BuscaPessoa
+                            pessoas={clientesQ.data as any}
+                            valor={idPessoa}
+                            nome={pessoaNome}
+                            travado={editando}
+                            cadastrar
+                            onChange={escolherCliente}
+                        />
                     </div>
 
                     {semCliente && <p className="rounded-md bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">Escolha ou cadastre o cliente para continuar.</p>}
