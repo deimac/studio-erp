@@ -599,16 +599,13 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         </div>
                         <div className="space-y-1.5">
                             <Label>Duração <span className="font-normal text-[hsl(var(--muted-foreground))]">· {duracao} min{duracaoPadrao > 0 && duracao !== duracaoPadrao ? ` (padrão ${duracaoPadrao})` : ''}</span></Label>
-                            <div className="grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+                            <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
                                 {[30, 45, 60, 75, 90, 120].map((m) => (
                                     <button key={m} type="button" onClick={() => { setDuracao(m); setDuracaoManual(true); }}
                                         className={cn('h-9 rounded-full border px-3 text-sm tabular-nums transition-colors', duracao === m ? 'border-transparent bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
                                         {m}
                                     </button>
                                 ))}
-                                <Input type="number" min={5} max={600} step={5} aria-label="Outra duração em minutos" className="col-span-2 h-9 sm:w-24"
-                                    value={[30, 45, 60, 75, 90, 120].includes(duracao) ? '' : duracao} placeholder="outra"
-                                    onChange={(e) => { const v = Number(e.target.value); if (v > 0) { setDuracao(v); setDuracaoManual(true); } }} />
                             </div>
                         </div>
                         {data && (
