@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { minutos, somarMinutos } from '@/lib/agenda';
 import { maskMoney } from '@/lib/masks';
 import { TelefoneInput } from '@/components/TelefoneInput';
+import { HoraInput } from '@/components/HoraInput';
 
 /**
  * Agendamento:
@@ -581,15 +582,15 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                             <div className="col-span-2 grid min-w-0 grid-cols-2 gap-3 sm:col-span-1 sm:gap-4">
                                 <div className="min-w-0 space-y-1.5">
                                     <Label>Início *</Label>
-                                    <Input type="time" step={300} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+                                    <HoraInput aria-label="Início" value={horaInicio} onChange={setHoraInicio} />
                                 </div>
                                 <div className="min-w-0 space-y-1.5">
                                     <Label>Fim</Label>
-                                    <Input type="time" step={300} value={horaFim}
-                                        onChange={(e) => {
-                                            setHoraFim(e.target.value);
-                                            if (horaInicio && e.target.value) {
-                                                const d = minutos(e.target.value) - minutos(horaInicio);
+                                    <HoraInput aria-label="Fim" value={horaFim}
+                                        onChange={(v) => {
+                                            setHoraFim(v);
+                                            if (horaInicio && v) {
+                                                const d = minutos(v) - minutos(horaInicio);
                                                 if (d > 0) { setDuracao(d); setDuracaoManual(true); }
                                             }
                                         }} />
