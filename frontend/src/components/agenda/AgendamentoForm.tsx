@@ -7,10 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertTriangle, Repeat, UserPlus } from 'lucide-react';
+import { AlertTriangle, Check, Package, Plus, Repeat, ShoppingBag, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SeletorBusca } from '@/components/TecnicasSelect';
-import { somarMinutos } from '@/lib/agenda';
+import { minutos, somarMinutos } from '@/lib/agenda';
+import { maskMoney } from '@/lib/masks';
+import { VendaRapida } from './VendaRapida';
 
 export type AgendamentoInicial = {
     /** Presente = edição */
@@ -27,6 +29,9 @@ export type AgendamentoInicial = {
     id_venda?: number | null;
     id_venda_item?: number | null;
     venda_rotulo?: string | null;
+    titulo_extra?: string | null;
+    duracao_extra?: number | null;
+    id_venda_extra?: number | null;
     observacoes?: string | null;
 };
 
@@ -54,7 +59,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const [data, setData] = useState('');
     const [horaInicio, setHoraInicio] = useState('');
     const [horaFim, setHoraFim] = useState('');
-    const [fimManual, setFimManual] = useState(false);
     const [servicosSel, setServicosSel] = useState<number[]>([]);
     const [idVenda, setIdVenda] = useState<number | null>(null);
     const [observacoes, setObservacoes] = useState('');
@@ -63,6 +67,15 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const [intervaloSemanas, setIntervaloSemanas] = useState(1);
     const [aplicarProximas, setAplicarProximas] = useState(false);
     const [conflito, setConflito] = useState<string | null>(null);
+    /** Duração do atendimento (min); "manual" quando a pessoa escolheu ou mexeu no fim. */
+    const [duracao, setDuracao] = useState(60);
+    const [duracaoManual, setDuracaoManual] = useState(false);
+    const [verLivres, setVerLivres] = useState(false);
+    /** Atendimento livre (sem cadastro): avaliação, retoque… */
+    const [extra, setExtra] = useState<{ titulo: string; duracao: string; valor: string; id_forma: string; pago: boolean } | null>(null);
+    const [vendaTocada, setVendaTocada] = useState(false);
+    const [vendaRapida, setVendaRapida] = useState(false);
+    const [vendaNova, setVendaNova] = useState<number | null>(null);
 
     useEffect(() => {
         if (!open) return;
@@ -75,7 +88,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setData(inicial.data ?? '');
         setHoraInicio(inicial.hora_inicio ?? '');
         setHoraFim(inicial.hora_fim ?? '');
-        setFimManual(!!inicial.id || (!!inicial.hora_fim && !inicial.servicos));
         setServicosSel(inicial.servicos ?? []);
         setIdVenda(inicial.id_venda_item ?? null);
         setObservacoes(inicial.observacoes ?? '');
@@ -84,6 +96,14 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setIntervaloSemanas(1);
         setAplicarProximas(false);
         setConflito(null);
+        const durInicial = inicial.hora_inicio && inicial.hora_fim ? minutos(inicial.hora_fim) - minutos(inicial.hora_inicio) : 0;
+        setDuracao(durInicial > 0 ? durInicial : 60);
+        setDuracaoManual(durInicial > 0 && (!!inicial.id || !inicial.servicos));
+        setVerLivres(false);
+        setExtra(inicial.titulo_extra ? { titulo: inicial.titulo_extra, duracao: String(inicial.duracao_extra ?? ''), valor: '', id_forma: '', pago: false } : null);
+        setVendaTocada(!!inicial.id);
+        setVendaRapida(false);
+        setVendaNova(null);
     }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const clientesQ = trpc.pessoas.listClientes.useQuery(undefined, { enabled: open && !editando });
@@ -92,6 +112,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open });
     const servProfQ = trpc.agenda.profissionais.servicos.useQuery({ id_profissional: idProf }, { enabled: open && !!idProf });
     const vendasQ = trpc.agenda.vendasDoCliente.useQuery({ id_pessoa: idPessoa ?? 0, id_profissional: idProf }, { enabled: open && !!idPessoa });
+    const formasQ = trpc.formasPagamento.list.useQuery(undefined, { enabled: open && !!extra });
 
     const servicosDisponiveis = useMemo(() => {
         // Serviço próprio só serve para o dono; os da clínica seguem a lista "serviços que executa"
@@ -103,21 +124,44 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         return todos.filter((s) => s.id_profissional === idProf || permitidos.includes(s.id) || servicosSel.includes(s.id));
     }, [servicosQ.data, servProfQ.data, servicosSel, idProf, profsQ.data]);
 
-    const duracaoTotal = useMemo(() => {
+    const duracaoServicos = useMemo(() => {
         const todos = (servicosQ.data ?? []) as any[];
         return servicosSel.reduce((s, id) => s + (todos.find((x) => x.id === id)?.duracao_minutos ?? 0), 0);
     }, [servicosSel, servicosQ.data]);
+    const duracaoPadrao = duracaoServicos + (extra ? Number(extra.duracao) || 0 : 0);
 
-    // fim automático = início + soma das durações
+    // Duração vem dos serviços até a pessoa escolher outra
     useEffect(() => {
-        if (!fimManual && horaInicio && duracaoTotal > 0) setHoraFim(somarMinutos(horaInicio, duracaoTotal));
-    }, [horaInicio, duracaoTotal, fimManual]);
+        if (!duracaoManual && duracaoPadrao > 0) setDuracao(duracaoPadrao);
+    }, [duracaoPadrao, duracaoManual]);
+    // Fim = início + duração
+    useEffect(() => {
+        if (horaInicio && duracao > 0) setHoraFim(somarMinutos(horaInicio, duracao));
+    }, [horaInicio, duracao]);
 
-    const duracaoSugestao = duracaoTotal || 60;
     const livresQ = trpc.agenda.disponibilidade.useQuery(
-        { id_profissional: idProf, data, duracao: duracaoSugestao, id_sala: idSala, ignorarId: inicial.id },
-        { enabled: open && !!idProf && /^\d{4}-\d{2}-\d{2}$/.test(data) },
+        { id_profissional: idProf, data, duracao: duracao || 60, id_sala: idSala, ignorarId: inicial.id },
+        { enabled: open && verLivres && !!idProf && /^\d{4}-\d{2}-\d{2}$/.test(data) },
     );
+
+    const vendas = (vendasQ.data ?? []) as any[];
+    function escolherItem(item: any | null) {
+        setVendaTocada(true);
+        setIdVenda(item ? item.id : null);
+        if (item?.id_servico) setServicosSel([item.id_servico]);
+    }
+    // Cliente com um só pacote/sessão com saldo: já vem marcado
+    useEffect(() => {
+        if (!open || vendaTocada || !idPessoa || !vendasQ.data) return;
+        if (vendas.length === 1) escolherItem(vendas[0]);
+        else setVendaTocada(true);
+    }, [vendasQ.data, idPessoa, open]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Depois da venda rápida: marca o item recém-vendido
+    useEffect(() => {
+        if (!vendaNova) return;
+        const item = vendas.find((v) => v.id_venda === vendaNova);
+        if (item) { escolherItem(item); setVendaNova(null); }
+    }, [vendasQ.data, vendaNova]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const clientesFiltrados = useMemo(() => {
         const q = busca.trim().toLowerCase();
@@ -171,8 +215,20 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     function salvar(forcar = false) {
         setConflito(null);
         if (!editando && !idPessoa) return toast({ title: 'Selecione o cliente', variant: 'error' });
-        if (!servicosSel.length) return toast({ title: 'Escolha ao menos um serviço', variant: 'error' });
+        if (!servicosSel.length && !extra) return toast({ title: 'Escolha um serviço ou descreva o atendimento', variant: 'error' });
+        if (extra && extra.titulo.trim().length < 2) return toast({ title: 'Dê um nome ao atendimento (ex.: Avaliação)', variant: 'error' });
+        const valorExtra = extra ? Number(extra.valor.replace(/\./g, '').replace(',', '.')) || 0 : 0;
+        if (extra && valorExtra > 0 && !extra.id_forma) return toast({ title: 'Escolha a forma de pagamento do atendimento', variant: 'error' });
         if (!data || !horaInicio) return toast({ title: 'Informe data e horário', variant: 'error' });
+        const extraPayload = extra
+            ? {
+                  titulo: extra.titulo.trim(),
+                  duracao: Number(extra.duracao) || Math.max(duracao - duracaoServicos, 5),
+                  valor: valorExtra || undefined,
+                  id_forma_pagamento: valorExtra > 0 ? Number(extra.id_forma) : undefined,
+                  pago: valorExtra > 0 ? extra.pago : undefined,
+              }
+            : undefined;
         const base = {
             id_profissional: idProf,
             id_sala: idSala,
@@ -184,10 +240,11 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
             forcar,
         };
         if (editando) {
-            atualizarMut.mutate({ id: inicial.id, ...base, observacoes: observacoes.trim() || null, aplicarProximas });
+            atualizarMut.mutate({ id: inicial.id, ...base, extra: extraPayload ?? (inicial.titulo_extra ? null : undefined), observacoes: observacoes.trim() || null, aplicarProximas });
         } else {
             criarMut.mutate({
                 ...base,
+                extra: extraPayload,
                 id_pessoa: idPessoa,
                 observacoes: observacoes.trim() || undefined,
                 recorrencia: repetir ? { quantidade: qtdRepeticoes, intervalo_semanas: intervaloSemanas } : undefined,
@@ -195,8 +252,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         }
     }
 
-
-    const vendas = (vendasQ.data ?? []) as any[];
     // Salas só aparecem se cadastradas (studio com um espaço usa a agenda compartilhada)
     const temSalas = ((salasQ.data ?? []) as any[]).length > 0;
     const podeForcar = isAdmin && conflito && /expediente/i.test(conflito) && !/ocupad|bloquead/i.test(conflito);
@@ -222,7 +277,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                             <div className="flex items-center justify-between rounded-md border border-[hsl(var(--input))] px-3 py-2 text-sm">
                                 <span className="font-medium">{pessoaNome}</span>
                                 {!editando && (
-                                    <button type="button" className="text-xs text-[hsl(var(--primary))] hover:underline" onClick={() => { setIdPessoa(null); setIdVenda(null); }}>
+                                    <button type="button" className="text-xs text-[hsl(var(--primary))] hover:underline" onClick={() => { setIdPessoa(null); setIdVenda(null); setVendaTocada(false); }}>
                                         trocar
                                     </button>
                                 )}
@@ -278,9 +333,36 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         </div>}
                     </div>
 
+                    {/* Sessões que o cliente já tem */}
+                    {idPessoa && (
+                        <div className="space-y-2">
+                            <Label>Sessões do cliente</Label>
+                            {vendasQ.isLoading ? (
+                                <p className="text-sm text-[hsl(var(--muted-foreground))]">Carregando…</p>
+                            ) : (
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {inicial.id_venda_item && !vendas.some((v) => v.id === inicial.id_venda_item) && (
+                                        <CartaoOpcao ativo={idVenda === inicial.id_venda_item} onClick={() => { setVendaTocada(true); setIdVenda(inicial.id_venda_item!); }}
+                                            titulo={inicial.venda_rotulo ?? 'Venda atual'} detalhe="sessão deste agendamento" pacote />
+                                    )}
+                                    {vendas.map((v) => (
+                                        <CartaoOpcao key={v.id} ativo={idVenda === v.id} onClick={() => escolherItem(v)}
+                                            titulo={v.rotulo} detalhe={`${v.restantes} de ${v.quantidade_sessoes} ${v.quantidade_sessoes === 1 ? 'sessão restante' : 'sessões restantes'}`} pacote />
+                                    ))}
+                                    <CartaoOpcao ativo={idVenda == null} onClick={() => escolherItem(null)}
+                                        titulo="Sessão avulsa" detalhe={vendas.length ? 'não usa o pacote' : 'cliente sem pacote com saldo'} />
+                                </div>
+                            )}
+                            <button type="button" onClick={() => setVendaRapida(true)}
+                                className="inline-flex items-center gap-1.5 text-sm font-medium text-[hsl(var(--primary))] hover:underline">
+                                <ShoppingBag className="h-4 w-4" /> Vender pacote ou sessão
+                            </button>
+                        </div>
+                    )}
+
                     {/* Serviços */}
                     <div className="space-y-1.5">
-                        <Label>Serviços * {duracaoTotal > 0 && <span className="font-normal text-[hsl(var(--muted-foreground))]">· {duracaoTotal} min</span>}</Label>
+                        <Label>Serviço *</Label>
                         {servicosDisponiveis.length ? (
                             <SeletorBusca
                                 itens={servicosDisponiveis.map((x: any) => ({ id: x.id, nome: x.nome, duracao: x.duracao_minutos }))}
@@ -293,63 +375,119 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                 fecharAoEscolher
                             />
                         ) : (
-                            <p className="text-sm text-[hsl(var(--muted-foreground))]">Nenhum serviço ativo para este profissional.</p>
+                            !extra && <p className="text-sm text-[hsl(var(--muted-foreground))]">Nenhum serviço ativo para este profissional.</p>
+                        )}
+
+                        {/* Atendimento livre */}
+                        {extra ? (
+                            <div className="space-y-3 rounded-lg border p-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-medium">Atendimento sem cadastro</p>
+                                    <button type="button" aria-label="Tirar atendimento sem cadastro" onClick={() => setExtra(null)} className="p-1 text-[hsl(var(--muted-foreground))]">
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <Input placeholder="Nome (ex.: Avaliação, Retoque)" value={extra.titulo} maxLength={120}
+                                    onChange={(e) => setExtra({ ...extra, titulo: e.target.value })} />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <label className="space-y-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                        Duração (min)
+                                        <Input type="number" min={5} inputMode="numeric" value={extra.duracao}
+                                            onChange={(e) => { setExtra({ ...extra, duracao: e.target.value }); setDuracaoManual(false); }} />
+                                    </label>
+                                    <label className="space-y-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                        Valor (vazio = sem cobrança)
+                                        <Input inputMode="decimal" placeholder="0,00" value={extra.valor}
+                                            disabled={!!inicial.id_venda_extra}
+                                            onChange={(e) => setExtra({ ...extra, valor: maskMoney(e.target.value) })} />
+                                    </label>
+                                </div>
+                                {inicial.id_venda_extra ? (
+                                    <p className="text-xs text-[hsl(var(--muted-foreground))]">Já cobrado: a venda está em Vendas.</p>
+                                ) : extra.valor && (
+                                    <div className="grid grid-cols-2 items-end gap-3">
+                                        <label className="space-y-1 text-xs text-[hsl(var(--muted-foreground))]">
+                                            Forma de pagamento
+                                            <select aria-label="Forma de pagamento" className={selectCls} value={extra.id_forma}
+                                                onChange={(e) => setExtra({ ...extra, id_forma: e.target.value })}>
+                                                <option value="">Escolha…</option>
+                                                {((formasQ.data ?? []) as any[]).filter((f) => f.ativo !== false).map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                                            </select>
+                                        </label>
+                                        <label className="flex h-10 cursor-pointer items-center gap-2 text-sm">
+                                            <input type="checkbox" checked={extra.pago} onChange={(e) => setExtra({ ...extra, pago: e.target.checked })} />
+                                            Já recebido
+                                        </label>
+                                        <p className="col-span-2 text-xs text-[hsl(var(--muted-foreground))]">Ao salvar, vira uma venda deste cliente.</p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => setExtra({ titulo: '', duracao: '30', valor: '', id_forma: '', pago: false })}
+                                className="inline-flex items-center gap-1 text-sm text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]">
+                                <Plus className="h-4 w-4" /> Outro atendimento (sem cadastro)
+                            </button>
                         )}
                     </div>
 
-                    {/* Data e hora */}
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                    {/* Data, início, duração e fim */}
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2 space-y-1.5 sm:col-span-1">
                             <Label>Data *</Label>
                             <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label>Início *</Label>
-                            <Input type="time" step={300} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+                        <div className="col-span-2 grid grid-cols-2 gap-4 sm:col-span-1">
+                            <div className="space-y-1.5">
+                                <Label>Início *</Label>
+                                <Input type="time" step={300} value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Fim</Label>
+                                <Input type="time" step={300} value={horaFim}
+                                    onChange={(e) => {
+                                        setHoraFim(e.target.value);
+                                        if (horaInicio && e.target.value) {
+                                            const d = minutos(e.target.value) - minutos(horaInicio);
+                                            if (d > 0) { setDuracao(d); setDuracaoManual(true); }
+                                        }
+                                    }} />
+                            </div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label>Fim</Label>
-                            <Input type="time" step={300} value={horaFim} onChange={(e) => { setHoraFim(e.target.value); setFimManual(true); }} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Duração <span className="font-normal text-[hsl(var(--muted-foreground))]">· {duracao} min{duracaoPadrao > 0 && duracao !== duracaoPadrao ? ` (padrão ${duracaoPadrao})` : ''}</span></Label>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {[30, 45, 60, 75, 90, 120].map((m) => (
+                                <button key={m} type="button" onClick={() => { setDuracao(m); setDuracaoManual(true); }}
+                                    className={cn('h-9 rounded-full border px-3 text-sm tabular-nums transition-colors',
+                                        duracao === m ? 'border-transparent bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                                    {m}
+                                </button>
+                            ))}
+                            <Input type="number" min={5} max={600} step={5} aria-label="Outra duração em minutos" className="h-9 w-20"
+                                value={[30, 45, 60, 75, 90, 120].includes(duracao) ? '' : duracao} placeholder="outra"
+                                onChange={(e) => { const v = Number(e.target.value); if (v > 0) { setDuracao(v); setDuracaoManual(true); } }} />
                         </div>
                     </div>
                     {data && (
-                        <div className="space-y-1">
-                            <p className="text-xs text-[hsl(var(--muted-foreground))]">
-                                Horários livres ({duracaoSugestao} min){livresQ.isLoading ? '…' : ':'}
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                                {((livresQ.data ?? []) as string[]).map((h) => (
-                                    <button key={h} type="button" onClick={() => setHoraInicio(h)}
-                                        className={cn('rounded border px-2 py-0.5 text-xs', h === horaInicio ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
-                                        {h}
-                                    </button>
-                                ))}
-                                {livresQ.data && !(livresQ.data as string[]).length && (
-                                    <span className="text-xs text-amber-600">Sem horários livres no expediente deste dia</span>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Venda / pacote */}
-                    {idPessoa && (
                         <div className="space-y-1.5">
-                            <Label>Usar sessão de uma venda</Label>
-                            <select aria-label="Venda" className={selectCls} value={idVenda ?? ''}
-                                onChange={(e) => {
-                                    const v = e.target.value ? Number(e.target.value) : null;
-                                    setIdVenda(v);
-                                    const venda = vendas.find((x) => x.id === v);
-                                    if (venda?.id_servico && !servicosSel.length) setServicosSel([venda.id_servico]);
-                                }}>
-                                <option value="">Avulso (sem venda)</option>
-                                {inicial.id_venda_item && !vendas.some((v) => v.id === inicial.id_venda_item) && (
-                                    <option value={inicial.id_venda_item}>{inicial.venda_rotulo ?? `Venda #${inicial.id_venda}`} (atual)</option>
-                                )}
-                                {vendas.map((v) => (
-                                    <option key={v.id} value={v.id}>{v.rotulo} — {v.restantes} de {v.quantidade_sessoes} sessões restantes</option>
-                                ))}
-                            </select>
+                            <button type="button" onClick={() => setVerLivres((v) => !v)} className="text-sm text-[hsl(var(--primary))] hover:underline">
+                                {verLivres ? 'Esconder horários livres' : 'Ver horários livres'}
+                            </button>
+                            {verLivres && (
+                                <div className="flex flex-wrap gap-1">
+                                    {livresQ.isLoading && <span className="text-xs text-[hsl(var(--muted-foreground))]">Carregando…</span>}
+                                    {((livresQ.data ?? []) as string[]).map((h) => (
+                                        <button key={h} type="button" onClick={() => setHoraInicio(h)}
+                                            className={cn('rounded border px-2 py-1 text-xs', h === horaInicio ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                                            {h}
+                                        </button>
+                                    ))}
+                                    {livresQ.data && !(livresQ.data as string[]).length && (
+                                        <span className="text-xs text-amber-600">Sem horários livres de {duracao} min no expediente deste dia</span>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -408,6 +546,26 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     </DialogFooter>
                 </form>
             </DialogContent>
+            {idPessoa && (
+                <VendaRapida open={vendaRapida} onOpenChange={setVendaRapida} idPessoa={idPessoa} pessoaNome={pessoaNome} idProfissional={idProf}
+                    onCreated={(id) => { setVendaNova(id); utils.agenda.vendasDoCliente.invalidate(); }} />
+            )}
         </Dialog>
+    );
+}
+
+/** Opção tocável: item de venda do cliente ou "sessão avulsa". */
+function CartaoOpcao({ ativo, onClick, titulo, detalhe, pacote }: { ativo: boolean; onClick: () => void; titulo: string; detalhe: string; pacote?: boolean }) {
+    return (
+        <button type="button" onClick={onClick} aria-pressed={ativo}
+            className={cn('flex items-start gap-2 rounded-lg border p-3 text-left transition-colors',
+                ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 ring-1 ring-[hsl(var(--primary))]' : 'hover:bg-[hsl(var(--accent))]')}>
+            {pacote ? <Package className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" /> : <span className="mt-0.5 h-4 w-4 shrink-0" />}
+            <span className="min-w-0 flex-1">
+                <span className="block text-sm font-medium">{titulo}</span>
+                <span className="block text-xs text-[hsl(var(--muted-foreground))]">{detalhe}</span>
+            </span>
+            {ativo && <Check className="h-4 w-4 shrink-0 text-[hsl(var(--primary))]" />}
+        </button>
     );
 }

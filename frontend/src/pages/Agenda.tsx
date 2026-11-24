@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/useToast';
 import { useConfirm } from '@/components/ui/confirm-delete-dialog';
 import { Button } from '@/components/ui/button';
 import { AgendamentoForm, type AgendamentoInicial } from '@/components/agenda/AgendamentoForm';
-import { AgendamentoDetalhe, type EventoAgenda } from '@/components/agenda/AgendamentoDetalhe';
+import { AgendamentoDetalhe, nomesAtendimento, type EventoAgenda } from '@/components/agenda/AgendamentoDetalhe';
 import { BloqueioForm } from '@/components/agenda/BloqueioForm';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { LembretesDialog } from '@/components/agenda/LembretesDialog';
@@ -372,6 +372,9 @@ export default function Agenda() {
                             id_venda: e.id_venda,
                             id_venda_item: e.id_venda_item,
                             venda_rotulo: e.venda_rotulo,
+                            titulo_extra: e.titulo_extra,
+                            duracao_extra: e.duracao_extra,
+                            id_venda_extra: e.id_venda_extra,
                             observacoes: e.observacoes,
                         },
                     });
@@ -597,8 +600,8 @@ export default function Agenda() {
                                         <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', STATUS_INFO[a.status as StatusAtendimento].ponto)} />
                                         <span className="truncate font-semibold">{event.title}</span>
                                     </div>
-                                    {!a.restrito && a.servicos.length > 0 && (
-                                        <div className="truncate opacity-80">{a.servicos.map((s) => s.nome).join(', ')}</div>
+                                    {!a.restrito && nomesAtendimento(a) && (
+                                        <div className="truncate opacity-80">{nomesAtendimento(a)}</div>
                                     )}
                                     {view !== 'day' && <div className="truncate opacity-70">{a.profissional_nome.split(' ')[0]}{a.sala_nome ? ` · ${a.sala_nome}` : ''}</div>}
                                 </div>

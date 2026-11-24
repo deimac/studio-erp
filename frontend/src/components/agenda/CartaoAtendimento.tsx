@@ -3,7 +3,7 @@ import { useToast } from '@/hooks/useToast';
 import { Check, CheckCheck, MessageCircle } from 'lucide-react';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
-import type { EventoAgenda } from './AgendamentoDetalhe';
+import { nomesAtendimento, type EventoAgenda } from './AgendamentoDetalhe';
 
 /** Cartão de atendimento do celular: horário, cliente, serviços e ações rápidas (WhatsApp, Confirmou/Realizado). */
 export function CartaoAtendimento({ a, mostrarProfissional, onAbrir }: { a: EventoAgenda; mostrarProfissional: boolean; onAbrir: (e: EventoAgenda) => void }) {
@@ -54,8 +54,8 @@ export function CartaoAtendimento({ a, mostrarProfissional, onAbrir }: { a: Even
                             <span className={cn('shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium', info.classe)}>{info.label}</span>
                         )}
                     </div>
-                    {!a.restrito && a.servicos.length > 0 && (
-                        <p className="truncate text-sm text-[hsl(var(--muted-foreground))]">{a.servicos.map((s) => s.nome).join(', ')}</p>
+                    {!a.restrito && nomesAtendimento(a) && (
+                        <p className="truncate text-sm text-[hsl(var(--muted-foreground))]">{nomesAtendimento(a)}</p>
                     )}
                     {(muitosProfs || a.restrito) && (
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-[hsl(var(--muted-foreground))]">

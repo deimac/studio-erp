@@ -5,7 +5,7 @@ import { sql, type SQL, type AnyColumn } from 'drizzle-orm';
  * Trechos SQL reaproveitados pelas listagens (vendas, financeiro, agenda, atendimentos).
  */
 
-const nomeItem = sql.raw(`COALESCE(px.nome, sx.nome)`);
+const nomeItem = sql.raw(`COALESCE(px.nome, sx.nome, vix.descricao)`);
 
 /** "Pacote Pernas 8 sessões + Drenagem" — nomes dos itens da venda. */
 export function rotuloVenda(idVenda: AnyColumn | SQL): SQL<string | null> {
@@ -37,10 +37,16 @@ export function rotuloItem(idItem: AnyColumn | SQL): SQL<string | null> {
         WHERE vix.id = ${idItem})`;
 }
 
-/** Sessões do item já comprometidas (agendadas, confirmadas ou realizadas). */
+/** Sessões do item já comprometidas (agendadas, confirmadas, realizadas ou faltas descontadas). */
 export function usadasDoItem(idItem: AnyColumn | SQL): SQL<number> {
-    return sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = ${idItem} AND ax.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`;
+    return sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = ${idItem} AND ${CONSOME_SESSAO})`;
 }
+
+/**
+ * Atendimento que consome a sessão do item: agendado, confirmado, realizado
+ * ou falta que, pela regra, desconta a sessão. Use com o alias `ax`.
+ */
+export const CONSOME_SESSAO = sql.raw(`(ax.status IN ('AGENDADO','CONFIRMADO','REALIZADO') OR (ax.status = 'FALTOU' AND ax.falta_consome = 1))`);
 
 /** Divide um valor em N parcelas; a última absorve os centavos. */
 export function dividirParcelas(valor: number, n: number): number[] {

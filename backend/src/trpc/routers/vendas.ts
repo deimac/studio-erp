@@ -16,7 +16,8 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { filtroDono, zEscopo } from '../../lib/escopo';
 import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa } from '../acesso';
-import { dividirParcelas, formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
+import { gravarVenda } from '../vendaGravar';
+import { formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
 
 /* ── helpers ─────────────────────────────────────────────── */
 
@@ -410,66 +411,18 @@ export const vendasRouter = createTRPCRouter({
                 }
             }
 
-            // Colunas antigas da venda guardam o 1º item (o banco exige serviço OU pacote)
-            const primeiro = input.itens[0];
-            const totalSessoes = input.itens.reduce((t, i) => t + i.quantidade_sessoes, 0);
-            const totalParcelas = input.pagamentos.reduce((t, p) => t + p.parcelas, 0);
-            const dataVenda = normalizeDateOnly(input.data_venda);
-
             /* Criar venda, itens e parcelas em transação */
             return ctx.db.transaction(async (tx) => {
-                const ids = await tx.insert(vendas).values({
+                const id = await gravarVenda(tx, {
+                    unidadeId: ctx.session.unidadeId,
                     id_pessoa: input.id_pessoa,
-                    // Resumo (compatibilidade): 1º item, total de sessões, 1ª forma
-                    id_servico: primeiro.id_servico ?? null,
-                    id_pacote: primeiro.id_pacote ?? null,
-                    id_forma_pagamento: input.pagamentos[0].id_forma_pagamento,
-                    id_unidade: ctx.session.unidadeId,
-                    quantidade_sessoes: totalSessoes,
-                    valor: String(total / 100) as any,
-                    data_venda: dataVenda,
-                    quantidade_parcelas: totalParcelas,
-                    observacao: input.observacao || null,
-                    status: 'ATIVA',
-                    id_profissional: vendedor,
-                }).$returningId();
-
-                const vendaId = ids[0]!.id;
-                await vincularPessoa(tx, input.id_pessoa, vendedor);
-
-                for (const it of input.itens) {
-                    await tx.insert(vendaItens).values({
-                        id_venda: vendaId,
-                        id_servico: it.id_servico ?? null,
-                        id_pacote: it.id_pacote ?? null,
-                        quantidade_sessoes: it.quantidade_sessoes,
-                        valor: String(it.valor) as any,
-                    });
-                }
-
-                /* Parcelas: numeradas em sequência, cada uma com a sua forma */
-                let numero = 0;
-                for (const p of input.pagamentos) {
-                    const primVenc = normalizeDateOnly(p.primeiro_vencimento);
-                    const valores = dividirParcelas(p.valor, p.parcelas);
-                    for (let i = 0; i < p.parcelas; i++) {
-                        numero += 1;
-                        const vencimento = new Date(primVenc);
-                        vencimento.setMonth(vencimento.getMonth() + i);
-                        await tx.insert(financeiro).values({
-                            id_venda: vendaId,
-                            id_forma_pagamento: p.id_forma_pagamento,
-                            parcela: numero,
-                            valor: String(valores[i]) as any,
-                            data_lancamento: dataVenda,
-                            data_vencimento: vencimento,
-                            data_pagamento: p.pago ? dataVenda : null,
-                            status: p.pago ? 'PAGO' : 'PENDENTE',
-                        });
-                    }
-                }
-
-                return { id: vendaId };
+                    vendedor,
+                    data_venda: normalizeDateOnly(input.data_venda),
+                    observacao: input.observacao,
+                    itens: input.itens,
+                    pagamentos: input.pagamentos.map((p) => ({ ...p, primeiro_vencimento: normalizeDateOnly(p.primeiro_vencimento) })),
+                });
+                return { id };
             });
         }),
 

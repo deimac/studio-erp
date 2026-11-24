@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, gt, inArray, isNull, lte, gte, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, isNull, lte, gte, ne, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
     agendaBloqueios,
@@ -15,10 +15,15 @@ import {
     usuarios,
     vendas,
     vendaItens,
+    unidades,
+    formasPagamento,
 } from '../../drizzle/schema';
 import {
     STATUS_OCUPAM,
     calcularFim,
+    faltaConsome,
+    regraFaltaEfetiva,
+    type RegraFalta,
     conflitosImpeditivos,
     gerarOcorrencias,
     hhmmParaMin,
@@ -37,7 +42,8 @@ import {
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
-import { rotuloItem, rotuloVenda } from '../vendaItens';
+import { CONSOME_SESSAO, rotuloItem, rotuloVenda } from '../vendaItens';
+import { gravarVenda } from '../vendaGravar';
 import type { Session } from '../context';
 import type { db as Db } from '../../config/db';
 
@@ -96,6 +102,7 @@ async function assertSala(db: DbOuTx, unidadeId: number, id: number | null | und
 
 async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: number) {
     const unicos = [...new Set(ids)];
+    if (!unicos.length) return [];
     const rows = await db
         .select({ id: servicos.id, nome: servicos.nome, duracao: servicos.duracao_minutos, valor: servicos.valor, ativo: servicos.ativo, dono: servicos.id_profissional })
         .from(servicos)
@@ -111,7 +118,10 @@ async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: numbe
 
 /** Sessões do item da venda já comprometidas (agendadas, confirmadas ou realizadas). */
 async function sessoesUsadas(db: DbOuTx, idItem: number, ignorarIds: number[] = []) {
-    const parts = [eq(atendimentos.id_venda_item, idItem), inArray(atendimentos.status, [...STATUS_OCUPAM])];
+    const parts = [
+        eq(atendimentos.id_venda_item, idItem),
+        or(inArray(atendimentos.status, [...STATUS_OCUPAM]), and(eq(atendimentos.status, 'FALTOU'), eq(atendimentos.falta_consome, true)))!,
+    ];
     if (ignorarIds.length) parts.push(sql`${atendimentos.id} NOT IN (${sql.join(ignorarIds.map((i) => sql`${i}`), sql`, `)})`);
     const [r] = await db.select({ n: sql<number>`COUNT(*)` }).from(atendimentos).where(and(...parts));
     return Number(r?.n ?? 0);
@@ -161,6 +171,20 @@ async function resolverVinculo(
         maior = Math.max(maior, restantes);
     }
     return erro('CONFLICT', `Este item da venda tem só ${Math.max(maior, 0)} sessão(ões) disponível(is)`);
+}
+
+/** Regra de falta que vale para o profissional (da clínica ou a dele, se a clínica permitir). */
+async function regraFaltaDoProfissional(db: DbOuTx, unidadeId: number, idProfissional: number): Promise<RegraFalta> {
+    const [c] = await db
+        .select({ falta_regra: unidades.falta_regra, falta_por_profissional: unidades.falta_por_profissional })
+        .from(unidades)
+        .where(eq(unidades.id, unidadeId))
+        .limit(1);
+    const [u] = await db.select({ falta_regra: usuarios.falta_regra }).from(usuarios).where(eq(usuarios.id, idProfissional)).limit(1);
+    return regraFaltaEfetiva(
+        { falta_regra: (c?.falta_regra ?? 'PERGUNTAR') as RegraFalta, falta_por_profissional: Boolean(c?.falta_por_profissional) },
+        u ? { falta_regra: (u.falta_regra ?? null) as RegraFalta | null } : null,
+    );
 }
 
 /** Profissionais ativos da unidade com agenda compartilhada. */
@@ -255,6 +279,8 @@ async function buscarAtendimento(db: DbOuTx, unidadeId: number, id: number) {
             id_pessoa: atendimentos.id_pessoa,
             id_venda: atendimentos.id_venda,
             id_venda_item: atendimentos.id_venda_item,
+            titulo_extra: atendimentos.titulo_extra,
+            id_venda_extra: atendimentos.id_venda_extra,
             id_profissional: atendimentos.id_profissional,
             id_sala: atendimentos.id_sala,
             id_recorrencia: atendimentos.id_recorrencia,
@@ -280,7 +306,7 @@ async function dadosMensagem(db: DbOuTx, unidadeId: number, id: number) {
             cliente: pessoas.nome,
             telefone: pessoas.telefone,
             profissional: usuarios.nome,
-            servicos: sql<string | null>`(SELECT GROUP_CONCAT(s.nome ORDER BY s.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos s ON s.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id})`,
+            servicos: sql<string | null>`NULLIF(CONCAT_WS(', ', (SELECT GROUP_CONCAT(s.nome ORDER BY s.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos s ON s.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id}), ${atendimentos.titulo_extra}), '')`,
         })
         .from(atendimentos)
         .innerJoin(pessoas, eq(pessoas.id, atendimentos.id_pessoa))
@@ -490,6 +516,7 @@ const profissionaisRouter = createTRPCRouter({
                 intervalo_agenda_min: usuarios.intervalo_agenda_min,
                 agenda_compartilhada: usuarios.agenda_compartilhada,
                 ve_servicos_clinica: usuarios.ve_servicos_clinica,
+                falta_regra: usuarios.falta_regra,
             })
             .from(usuarios)
             .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true)))
@@ -504,6 +531,8 @@ const profissionaisRouter = createTRPCRouter({
                 telefone: z.string().max(20).nullable().optional(),
                 agenda_compartilhada: z.boolean().optional(),
                 ve_servicos_clinica: z.boolean().optional(),
+                /** Regra de falta própria (null = segue a da clínica). */
+                falta_regra: z.enum(['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']).nullable().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -515,6 +544,29 @@ const profissionaisRouter = createTRPCRouter({
                 .update(usuarios)
                 .set({ ...campos, updated_at: new Date() })
                 .where(and(eq(usuarios.id, id), eq(usuarios.id_unidade, ctx.session.unidadeId)));
+            return { ok: true };
+        }),
+
+    /** Regra de falta que vale para o profissional, e se a clínica deixa ele escolher. */
+    regraFalta: protectedProcedure.input(z.object({ id_profissional: zId.optional() })).query(async ({ ctx, input }) => {
+        const id = input.id_profissional ?? ctx.session.id;
+        const [c] = await ctx.db
+            .select({ falta_regra: unidades.falta_regra, falta_por_profissional: unidades.falta_por_profissional })
+            .from(unidades)
+            .where(eq(unidades.id, ctx.session.unidadeId))
+            .limit(1);
+        return {
+            regra: await regraFaltaDoProfissional(ctx.db, ctx.session.unidadeId, id),
+            clinica: (c?.falta_regra ?? 'PERGUNTAR') as RegraFalta,
+            porProfissional: Boolean(c?.falta_por_profissional),
+        };
+    }),
+
+    /** Configuração da clínica para faltas (só o admin altera). */
+    salvarRegraFaltaClinica: adminProcedure
+        .input(z.object({ falta_regra: z.enum(['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']), falta_por_profissional: z.boolean() }))
+        .mutation(async ({ ctx, input }) => {
+            await ctx.db.update(unidades).set({ ...input, updated_at: new Date() }).where(eq(unidades.id, ctx.session.unidadeId));
             return { ok: true };
         }),
 
@@ -541,6 +593,39 @@ const profissionaisRouter = createTRPCRouter({
 });
 
 /* ============================== router principal ============================== */
+
+/** Atendimento livre (sem serviço cadastrado): "Avaliação", "Retoque"… */
+const zExtra = z.object({
+    titulo: z.string().trim().min(2, 'Dê um nome ao atendimento').max(120),
+    duracao: z.number().int().min(5).max(600),
+    /** Valor cobrado (vazio/0 = sem cobrança). Com valor, vira uma venda. */
+    valor: z.number().min(0).optional(),
+    id_forma_pagamento: zId.optional(),
+    pago: z.boolean().optional(),
+});
+type Extra = z.infer<typeof zExtra>;
+
+/** Lança a venda do atendimento livre cobrado (uma por agendamento; recorrência multiplica). */
+async function cobrarExtra(tx: DbOuTx, s: Session, extra: Extra, idPessoa: number, idProf: number, vezes: number): Promise<number | null> {
+    if (!extra.valor || extra.valor <= 0) return null;
+    if (!extra.id_forma_pagamento) erro('BAD_REQUEST', 'Escolha a forma de pagamento do atendimento cobrado');
+    const [fp] = await tx
+        .select({ id: formasPagamento.id })
+        .from(formasPagamento)
+        .where(and(eq(formasPagamento.id, extra.id_forma_pagamento), eq(formasPagamento.ativo, true)))
+        .limit(1);
+    if (!fp) erro('NOT_FOUND', 'Forma de pagamento não encontrada');
+    const hoje = dataParaDate(new Date().toISOString().slice(0, 10));
+    const total = Math.round(extra.valor * vezes * 100) / 100;
+    return gravarVenda(tx, {
+        unidadeId: s.unidadeId,
+        id_pessoa: idPessoa,
+        vendedor: idProf,
+        data_venda: hoje,
+        itens: [{ descricao: extra.titulo, quantidade_sessoes: vezes, valor: total }],
+        pagamentos: [{ id_forma_pagamento: extra.id_forma_pagamento, valor: total, parcelas: 1, primeiro_vencimento: hoje, pago: Boolean(extra.pago) }],
+    });
+}
 
 const zRecorrencia = z.object({ quantidade: z.number().int().min(2).max(52), intervalo_semanas: z.number().int().min(1).max(4).default(1) });
 
@@ -592,6 +677,10 @@ export const agendaRouter = createTRPCRouter({
                     lembrete_enviado_em: atendimentos.lembrete_enviado_em,
                     venda_rotulo: sql<string | null>`COALESCE(${rotuloItem(atendimentos.id_venda_item)}, ${rotuloVenda(atendimentos.id_venda)})`,
                     id_venda_item: atendimentos.id_venda_item,
+                    titulo_extra: atendimentos.titulo_extra,
+                    duracao_extra: atendimentos.duracao_extra,
+                    id_venda_extra: atendimentos.id_venda_extra,
+                    falta_consome: atendimentos.falta_consome,
                 })
                 .from(atendimentos)
                 .innerJoin(usuarios, eq(usuarios.id, atendimentos.id_profissional))
@@ -625,7 +714,7 @@ export const agendaRouter = createTRPCRouter({
                     restrito,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
-                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null }
+                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, titulo_extra: null, id_venda_extra: null }
                         : {}),
                 };
             });
@@ -707,7 +796,7 @@ export const agendaRouter = createTRPCRouter({
                 quantidade_sessoes: vendaItens.quantidade_sessoes,
                 id_servico: sql<number | null>`COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico})`,
                 rotulo: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendaItens.id_servico}), 'Venda')`,
-                usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos a WHERE a.id_venda_item = ${vendaItens.id} AND a.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`,
+                usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = ${vendaItens.id} AND ${CONSOME_SESSAO})`,
             })
             .from(vendaItens)
             .innerJoin(vendas, eq(vendas.id, vendaItens.id_venda))
@@ -717,6 +806,8 @@ export const agendaRouter = createTRPCRouter({
                     eq(vendas.id_pessoa, input.id_pessoa),
                     eq(vendas.id_unidade, ctx.session.unidadeId),
                     eq(vendas.status, 'ATIVA'),
+                    // Item livre (avaliação, retoque…) não é sessão para agendar
+                    or(isNotNull(vendaItens.id_servico), isNotNull(vendaItens.id_pacote)),
                     isNull(vendas.deleted_at),
                     isAdmin(ctx.session)
                         ? or(eq(vendas.id_profissional, idProf), isNull(vendas.id_profissional))
@@ -750,7 +841,9 @@ export const agendaRouter = createTRPCRouter({
                 data: zData,
                 hora_inicio: zHora,
                 hora_fim: zHora.optional(),
-                servicos: z.array(zId).min(1, 'Escolha ao menos um serviço'),
+                servicos: z.array(zId).default([]),
+                /** Atendimento livre (sozinho ou junto dos serviços). */
+                extra: zExtra.optional(),
                 id_venda: zId.nullable().optional(),
                 /** Item da venda (serviço ou pacote) do qual a sessão é consumida. */
                 id_venda_item: zId.nullable().optional(),
@@ -774,9 +867,11 @@ export const agendaRouter = createTRPCRouter({
             if (!cliente) erro('NOT_FOUND', 'Cliente não encontrado');
             if (!isAdmin(s)) await assertAcessoPessoa(ctx.db, s, input.id_pessoa);
 
+            if (!input.servicos.length && !input.extra) erro('BAD_REQUEST', 'Escolha um serviço ou descreva o atendimento');
             const servs = await carregarServicos(ctx.db, input.servicos, idProf);
             const inicio = hhmmParaMin(input.hora_inicio);
-            const fim = input.hora_fim ? hhmmParaMin(input.hora_fim) : calcularFim(inicio, servs.map((x) => x.duracao));
+            const duracoes = [...servs.map((x) => x.duracao), ...(input.extra ? [input.extra.duracao] : [])];
+            const fim = input.hora_fim ? hhmmParaMin(input.hora_fim) : calcularFim(inicio, duracoes);
             if (fim <= inicio) erro('BAD_REQUEST', 'O horário final deve ser depois do inicial');
 
             const datas = input.recorrencia
@@ -815,6 +910,7 @@ export const agendaRouter = createTRPCRouter({
                 }
 
                 await vincularPessoa(tx, input.id_pessoa, idProf);
+                const idVendaExtra = input.extra ? await cobrarExtra(tx, s, input.extra, input.id_pessoa, idProf, livres.length) : null;
                 const criados: number[] = [];
                 for (const data of livres) {
                     const [r] = await tx
@@ -824,6 +920,9 @@ export const agendaRouter = createTRPCRouter({
                             id_pessoa: input.id_pessoa,
                             id_venda: vinculo?.id_venda ?? null,
                             id_venda_item: vinculo?.id_venda_item ?? null,
+                            titulo_extra: input.extra?.titulo ?? null,
+                            duracao_extra: input.extra?.duracao ?? null,
+                            id_venda_extra: idVendaExtra,
                             id_profissional: idProf,
                             id_sala: idSala,
                             id_recorrencia: idRecorrencia,
@@ -836,9 +935,10 @@ export const agendaRouter = createTRPCRouter({
                         })
                         .$returningId();
                     criados.push(r!.id);
-                    await tx.insert(atendimentoServicos).values(
-                        servs.map((sv) => ({ id_atendimento: r!.id, id_servico: sv.id, duracao_minutos: sv.duracao, valor: String(sv.valor) })),
-                    );
+                    if (servs.length)
+                        await tx.insert(atendimentoServicos).values(
+                            servs.map((sv) => ({ id_atendimento: r!.id, id_servico: sv.id, duracao_minutos: sv.duracao, valor: String(sv.valor) })),
+                        );
                 }
                 return { ids: criados, puladas };
             });
@@ -854,7 +954,9 @@ export const agendaRouter = createTRPCRouter({
                 hora_fim: zHora.optional(),
                 id_profissional: zId.optional(),
                 id_sala: zId.nullable().optional(),
-                servicos: z.array(zId).min(1).optional(),
+                servicos: z.array(zId).optional(),
+                /** Atendimento livre: objeto define/atualiza; null tira. */
+                extra: zExtra.nullable().optional(),
                 id_venda: zId.nullable().optional(),
                 id_venda_item: zId.nullable().optional(),
                 observacoes: z.string().max(2000).nullable().optional(),
@@ -877,6 +979,8 @@ export const agendaRouter = createTRPCRouter({
                 if (input.id_sala !== undefined) await assertSala(tx, s.unidadeId, idSala);
 
                 const servs = input.servicos ? await carregarServicos(tx, input.servicos, idProf) : null;
+                const temExtra = input.extra !== undefined ? !!input.extra : !!atual.titulo_extra;
+                if (servs && !servs.length && !temExtra) erro('BAD_REQUEST', 'Escolha um serviço ou descreva o atendimento');
                 if (!servs && idProf !== atual.id_profissional) {
                     // trocando de profissional: os serviços atuais precisam servir para o novo
                     const atuais = await tx
@@ -894,7 +998,7 @@ export const agendaRouter = createTRPCRouter({
                 const fim = input.hora_fim
                     ? hhmmParaMin(input.hora_fim)
                     : servs
-                      ? calcularFim(inicio, servs.map((x) => x.duracao))
+                      ? calcularFim(inicio, [...servs.map((x) => x.duracao), ...(input.extra ? [input.extra.duracao] : [])])
                       : inicio + duracaoAtual;
                 if (fim <= inicio) erro('BAD_REQUEST', 'O horário final deve ser depois do inicial');
 
@@ -939,6 +1043,14 @@ export const agendaRouter = createTRPCRouter({
                     if (conflitos.length) erro('CONFLICT', `${alvo.data.split('-').reverse().join('/')}: ${mensagemConflitos(conflitos)}`);
                 }
 
+                // Atendimento livre: cobra uma vez (se ainda não houver venda dele)
+                let extraSet: Record<string, unknown> = {};
+                if (input.extra === null) extraSet = { titulo_extra: null, duracao_extra: null };
+                else if (input.extra) {
+                    const idVendaExtra = atual.id_venda_extra ?? (await cobrarExtra(tx, s, input.extra, atual.id_pessoa, idProf, alvos.length));
+                    extraSet = { titulo_extra: input.extra.titulo, duracao_extra: input.extra.duracao, id_venda_extra: idVendaExtra };
+                }
+
                 for (const alvo of alvos) {
                     await tx
                         .update(atendimentos)
@@ -949,15 +1061,17 @@ export const agendaRouter = createTRPCRouter({
                             id_profissional: idProf,
                             id_sala: idSala,
                             ...(vinculo ? vinculo : {}),
+                            ...extraSet,
                             ...(input.observacoes !== undefined && alvo.id === atual.id ? { observacoes: input.observacoes } : {}),
                             updated_at: new Date(),
                         })
                         .where(eq(atendimentos.id, alvo.id));
                     if (servs) {
                         await tx.delete(atendimentoServicos).where(eq(atendimentoServicos.id_atendimento, alvo.id));
-                        await tx.insert(atendimentoServicos).values(
-                            servs.map((sv) => ({ id_atendimento: alvo.id, id_servico: sv.id, duracao_minutos: sv.duracao, valor: String(sv.valor) })),
-                        );
+                        if (servs.length)
+                            await tx.insert(atendimentoServicos).values(
+                                servs.map((sv) => ({ id_atendimento: alvo.id, id_servico: sv.id, duracao_minutos: sv.duracao, valor: String(sv.valor) })),
+                            );
                     }
                 }
                 return { ok: true, atualizados: alvos.length };
@@ -970,6 +1084,8 @@ export const agendaRouter = createTRPCRouter({
                 id: zId,
                 status: z.enum(['CONFIRMADO', 'REALIZADO', 'FALTOU', 'CANCELADO']),
                 motivo: z.string().max(255).optional(),
+                /** Falta com regra "perguntar": desconta a sessão do pacote? */
+                consumirSessao: z.boolean().optional(),
                 /** Cancelar também as próximas da recorrência. */
                 aplicarProximas: z.boolean().optional(),
             }),
@@ -981,8 +1097,18 @@ export const agendaRouter = createTRPCRouter({
             if (!STATUS_ABERTOS.includes(a.status)) erro('CONFLICT', `Atendimento já está ${a.status.toLowerCase()}`);
             if (input.status === 'CONFIRMADO' && a.status === 'CONFIRMADO') return { ok: true, atualizados: 0 };
 
+            // Falta: a regra decide se a sessão do pacote é descontada
+            let consome = false;
+            if (input.status === 'FALTOU' && a.id_venda_item) {
+                const regra = await regraFaltaDoProfissional(ctx.db, s.unidadeId, a.id_profissional);
+                const r = faltaConsome(regra, input.consumirSessao);
+                if (r === null) erro('BAD_REQUEST', 'Informe se a falta desconta a sessão do pacote');
+                consome = r;
+            }
+
             const set = {
                 status: input.status,
+                falta_consome: consome,
                 updated_at: new Date(),
                 ...(input.status === 'CONFIRMADO' ? { confirmado_em: new Date() } : {}),
                 ...(input.status === 'CANCELADO' ? { motivo_cancelamento: input.motivo ?? null } : {}),

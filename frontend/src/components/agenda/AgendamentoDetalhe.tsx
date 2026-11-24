@@ -30,7 +30,17 @@ export type EventoAgenda = {
     lembrete_enviado_em: string | null;
     restrito: boolean;
     servicos: { id: number; nome: string; duracao: number }[];
+    /** Atendimento livre (sem serviço cadastrado). */
+    titulo_extra?: string | null;
+    duracao_extra?: number | null;
+    id_venda_extra?: number | null;
+    falta_consome?: boolean | number;
 };
+
+/** "Massagem, Retoque": serviços + atendimento livre. */
+export function nomesAtendimento(a: Pick<EventoAgenda, 'servicos' | 'titulo_extra'>) {
+    return [...a.servicos.map((s) => s.nome), ...(a.titulo_extra ? [a.titulo_extra] : [])].join(', ');
+}
 
 type Props = {
     evento: EventoAgenda | null;
@@ -44,6 +54,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
     const [cancelando, setCancelando] = useState(false);
     const [motivo, setMotivo] = useState('');
     const [cancelarSerie, setCancelarSerie] = useState(false);
+    const [faltando, setFaltando] = useState(false);
 
     const statusMut = trpc.agenda.alterarStatus.useMutation({
         onSuccess: (r: any, vars: any) => {
@@ -53,6 +64,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
             const label = STATUS_INFO[vars.status as StatusAtendimento].label.toLowerCase();
             toast({ title: r.atualizados > 1 ? `${r.atualizados} atendimentos: ${label}` : `Atendimento ${label}`, variant: 'success' });
             setCancelando(false);
+            setFaltando(false);
             onOpenChange(false);
         },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
@@ -62,6 +74,16 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
     });
 
     const aberto = !!evento;
+    // Regra de falta só importa quando a sessão sai de um pacote/venda
+    const regraQ = trpc.agenda.profissionais.regraFalta.useQuery(
+        { id_profissional: evento?.id_profissional },
+        { enabled: aberto && !!evento?.id_venda_item && !evento?.restrito },
+    );
+    function marcarFalta() {
+        if (!evento) return;
+        if (evento.id_venda_item && (regraQ.data as any)?.regra === 'PERGUNTAR') return setFaltando(true);
+        statusMut.mutate({ id: evento.id, status: 'FALTOU' });
+    }
     const podeAgir = evento && !evento.restrito && STATUS_ABERTOS.includes(evento.status);
     const tipoMsg = evento?.status === 'CONFIRMADO' ? 'LEMBRETE' : 'CONFIRMACAO';
     const waQ = trpc.agenda.whatsapp.useQuery(
@@ -80,7 +102,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
     }
 
     return (
-        <Dialog open={aberto} onOpenChange={(v) => { if (!v) { setCancelando(false); setMotivo(''); setCancelarSerie(false); } onOpenChange(v); }}>
+        <Dialog open={aberto} onOpenChange={(v) => { if (!v) { setCancelando(false); setFaltando(false); setMotivo(''); setCancelarSerie(false); } onOpenChange(v); }}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
                     <div className="flex items-center gap-2">
@@ -104,11 +126,16 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
                     )}
                     {!evento.restrito && (
                         <>
-                            {evento.servicos.length > 0 && (
+                            {(evento.servicos.length > 0 || evento.titulo_extra) && (
                                 <div className="flex flex-wrap gap-1 pt-1">
                                     {evento.servicos.map((s) => (
                                         <span key={s.id} className="rounded-full bg-[hsl(var(--secondary))] px-2 py-0.5 text-xs">{s.nome} · {s.duracao}′</span>
                                     ))}
+                                    {evento.titulo_extra && (
+                                        <span className="rounded-full bg-[hsl(var(--secondary))] px-2 py-0.5 text-xs">
+                                            {evento.titulo_extra}{evento.duracao_extra ? ` · ${evento.duracao_extra}′` : ''}{evento.id_venda_extra ? ' · cobrado' : ''}
+                                        </span>
+                                    )}
                                 </div>
                             )}
                             {evento.venda_rotulo && (
@@ -142,7 +169,25 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
                     </div>
                 )}
 
-                {podeAgir && !cancelando && (
+                {faltando && (
+                    <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                        <p className="font-medium text-amber-900">O cliente faltou. Desconta a sessão do pacote?</p>
+                        <p className="text-amber-800">{evento.venda_rotulo}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button size="sm" variant="outline" className="h-11 sm:h-9" disabled={statusMut.isPending}
+                                onClick={() => statusMut.mutate({ id: evento.id, status: 'FALTOU', consumirSessao: false })}>
+                                Não, devolver
+                            </Button>
+                            <Button size="sm" className="h-11 sm:h-9" disabled={statusMut.isPending}
+                                onClick={() => statusMut.mutate({ id: evento.id, status: 'FALTOU', consumirSessao: true })}>
+                                Sim, descontar
+                            </Button>
+                        </div>
+                        <button type="button" className="text-xs text-amber-800 underline" onClick={() => setFaltando(false)}>Voltar</button>
+                    </div>
+                )}
+
+                {podeAgir && !cancelando && !faltando && (
                     <DialogFooter className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start sm:space-x-0 [&>button]:h-11 sm:[&>button]:h-9">
                         {evento.pessoa_telefone && (
                             <Button size="sm" variant="outline" className="border-emerald-300 text-emerald-700 hover:bg-emerald-50" onClick={abrirWhatsApp} disabled={!waQ.data}>
@@ -157,7 +202,7 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
                         <Button size="sm" onClick={() => statusMut.mutate({ id: evento.id, status: 'REALIZADO' })} disabled={statusMut.isPending}>
                             <CheckCircle2 className="mr-1.5 h-4 w-4" /> Realizado
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => statusMut.mutate({ id: evento.id, status: 'FALTOU' })} disabled={statusMut.isPending}>
+                        <Button size="sm" variant="outline" onClick={marcarFalta} disabled={statusMut.isPending || (!!evento.id_venda_item && regraQ.isLoading)}>
                             <UserX className="mr-1.5 h-4 w-4" /> Faltou
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => onEditar(evento)}>

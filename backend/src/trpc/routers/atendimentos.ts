@@ -14,6 +14,7 @@ import {
     usuarios,
     vendaItens,
 } from '../../drizzle/schema';
+import { CONSOME_SESSAO } from '../vendaItens';
 import { conflitosImpeditivos, hhmmParaMin, verificarConflitos } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 
@@ -110,7 +111,7 @@ export const atendimentosRouter = createTRPCRouter({
                     created_at: atendimentos.created_at,
                     // Joined data
                     pessoa_nome: sql<string>`${pessoas.nome}`.as('pessoa_nome'),
-                    servico_nome: sql<string | null>`COALESCE((SELECT GROUP_CONCAT(sx.nome ORDER BY sx.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos sx ON sx.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id}), ${servicos.nome})`.as('servico_nome'),
+                    servico_nome: sql<string | null>`COALESCE(NULLIF(CONCAT_WS(', ', (SELECT GROUP_CONCAT(sx.nome ORDER BY sx.nome SEPARATOR ', ') FROM atendimento_servicos x JOIN servicos sx ON sx.id = x.id_servico WHERE x.id_atendimento = ${atendimentos.id}), ${atendimentos.titulo_extra}), ''), ${servicos.nome})`.as('servico_nome'),
                     pacote_nome: sql<string | null>`COALESCE((SELECT pz.nome FROM venda_itens vz JOIN pacotes pz ON pz.id = vz.id_pacote WHERE vz.id = ${atendimentos.id_venda_item}), ${pacotes.nome})`.as('pacote_nome'),
                     profissional_nome: sql<string>`${usuarios.nome}`.as('profissional_nome'),
                 })
@@ -168,7 +169,7 @@ export const atendimentosRouter = createTRPCRouter({
                     qtd: vendaItens.quantidade_sessoes,
                     // Nomes qualificados: em consulta de uma tabela só o Drizzle omite o prefixo
                     id_servico: sql<number | null>`COALESCE(venda_itens.id_servico, (SELECT pz.id_servico FROM pacotes pz WHERE pz.id = venda_itens.id_pacote))`,
-                    usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = venda_itens.id AND ax.status IN ('AGENDADO','CONFIRMADO','REALIZADO'))`,
+                    usadas: sql<number>`(SELECT COUNT(*) FROM atendimentos ax WHERE ax.id_venda_item = venda_itens.id AND ${CONSOME_SESSAO})`,
                 })
                 .from(vendaItens)
                 .where(eq(vendaItens.id_venda, input.id_venda))

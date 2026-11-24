@@ -25,6 +25,7 @@ export default function Configuracoes() {
                     <TabsTrigger value="unidades">Unidades</TabsTrigger>
                     <TabsTrigger value="categorias">Categorias</TabsTrigger>
                     <TabsTrigger value="usuarios">Profissionais</TabsTrigger>
+                    <TabsTrigger value="agenda">Agenda</TabsTrigger>
                     <TabsTrigger value="site">Site</TabsTrigger>
                 </TabsList>
 
@@ -42,6 +43,9 @@ export default function Configuracoes() {
                 </TabsContent>
                 <TabsContent value="usuarios" className="mt-4">
                     <ProfissionaisPanel />
+                </TabsContent>
+                <TabsContent value="agenda" className="mt-4">
+                    <AgendaRegrasPanel />
                 </TabsContent>
 
             </Tabs>
@@ -595,6 +599,67 @@ function SalasPanel() {
                         )}
                     </TableBody>
                 </Table>
+            </CardContent>
+        </Card>
+    );
+}
+
+/* ===== Agenda: regra de falta ===== */
+const OPCOES_FALTA = [
+    { id: 'PERGUNTAR', titulo: 'Perguntar na hora', texto: 'Ao marcar "faltou", o sistema pergunta se desconta a sessão do pacote.' },
+    { id: 'DESCONTAR', titulo: 'Descontar a sessão', texto: 'Faltou sem avisar, a sessão do pacote é usada. Só o cancelamento devolve.' },
+    { id: 'DEVOLVER', titulo: 'Devolver a sessão', texto: 'A falta não consome a sessão: ela volta para o saldo do cliente.' },
+] as const;
+
+function AgendaRegrasPanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const regraQ = trpc.agenda.profissionais.regraFalta.useQuery({});
+    const [regra, setRegra] = useState<string>('PERGUNTAR');
+    const [porProfissional, setPorProfissional] = useState(false);
+    const [carregado, setCarregado] = useState(false);
+    if (regraQ.data && !carregado) {
+        setRegra((regraQ.data as any).clinica);
+        setPorProfissional((regraQ.data as any).porProfissional);
+        setCarregado(true);
+    }
+    const salvarMut = trpc.agenda.profissionais.salvarRegraFaltaClinica.useMutation({
+        onSuccess: () => { utils.agenda.profissionais.regraFalta.invalidate(); toast({ title: 'Regra de falta salva', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">Quando o cliente falta</CardTitle>
+                <p className="text-sm text-gray-500">O que acontece com a sessão do pacote quando o cliente não vem e não avisa.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    {OPCOES_FALTA.map((o) => (
+                        <label key={o.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${regra === o.id ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5' : ''}`}>
+                            <input type="radio" name="falta_regra" className="mt-1" checked={regra === o.id} onChange={() => setRegra(o.id)} />
+                            <span>
+                                <span className="block text-sm font-medium">{o.titulo}</span>
+                                <span className="block text-xs text-gray-500">{o.texto}</span>
+                            </span>
+                        </label>
+                    ))}
+                </div>
+                <div className="space-y-2">
+                    <p className="text-sm font-medium">Quem decide</p>
+                    <label className="flex cursor-pointer items-start gap-3 text-sm">
+                        <input type="radio" name="falta_quem" className="mt-1" checked={!porProfissional} onChange={() => setPorProfissional(false)} />
+                        <span>Regra da clínica <span className="block text-xs text-gray-500">Vale para todos os profissionais.</span></span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-3 text-sm">
+                        <input type="radio" name="falta_quem" className="mt-1" checked={porProfissional} onChange={() => setPorProfissional(true)} />
+                        <span>Cada profissional define a sua <span className="block text-xs text-gray-500">Cada um escolhe em "Meu expediente", na Agenda. Quem não escolher segue a regra acima.</span></span>
+                    </label>
+                </div>
+                <Button onClick={() => salvarMut.mutate({ falta_regra: regra as any, falta_por_profissional: porProfissional })} disabled={salvarMut.isPending}>
+                    {salvarMut.isPending ? 'Salvando…' : 'Salvar'}
+                </Button>
             </CardContent>
         </Card>
     );

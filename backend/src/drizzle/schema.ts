@@ -24,6 +24,10 @@ export const unidades = mysqlTable('unidades', {
     id: serial('id').primaryKey(),
     nome: varchar('nome', { length: 150 }).notNull(),
     ativo: dbBoolean('ativo').default(true),
+    /** O que fazer com a sessão do pacote quando o cliente falta. */
+    falta_regra: mysqlEnum('falta_regra', ['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']).notNull().default('PERGUNTAR'),
+    /** Cada profissional define a própria regra de falta. */
+    falta_por_profissional: dbBoolean('falta_por_profissional').notNull().default(false),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
 });
@@ -48,6 +52,8 @@ export const usuarios = mysqlTable(
         agenda_compartilhada: dbBoolean('agenda_compartilhada').notNull().default(true),
         /** Profissional usa os serviços/técnicas da clínica (decisão do admin). */
         ve_servicos_clinica: dbBoolean('ve_servicos_clinica').notNull().default(false),
+        /** Regra de falta do profissional (quando a clínica deixa cada um definir). */
+        falta_regra: mysqlEnum('falta_regra', ['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']),
         created_at: timestamp('created_at').defaultNow(),
         updated_at: timestamp('updated_at').defaultNow(),
     },
@@ -244,6 +250,8 @@ export const vendaItens = mysqlTable(
         id_venda: int('id_venda').notNull().references(() => vendas.id, { onDelete: 'cascade' }),
         id_servico: int('id_servico').references(() => servicos.id),
         id_pacote: int('id_pacote').references(() => pacotes.id),
+        /** Item livre (sem serviço/pacote cadastrado). */
+        descricao: varchar('descricao', { length: 120 }),
         quantidade_sessoes: int('quantidade_sessoes').notNull(),
         valor: decimal('valor', { precision: 10, scale: 2 }).notNull(),
         created_at: timestamp('created_at').defaultNow(),
@@ -336,6 +344,12 @@ export const atendimentos = mysqlTable(
         id_venda: int('id_venda').references(() => vendas.id, { onDelete: 'cascade' }),
         /** Item da venda do qual o atendimento consome a sessão. */
         id_venda_item: int('id_venda_item'),
+        /** Falta que consumiu a sessão do pacote. */
+        falta_consome: dbBoolean('falta_consome').notNull().default(false),
+        /** Atendimento livre (sem serviço cadastrado): título, duração e a venda dele. */
+        titulo_extra: varchar('titulo_extra', { length: 120 }),
+        duracao_extra: int('duracao_extra'),
+        id_venda_extra: int('id_venda_extra'),
         id_profissional: int('id_profissional')
             .notNull()
             .references(() => usuarios.id),

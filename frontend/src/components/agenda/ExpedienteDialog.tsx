@@ -14,7 +14,7 @@ type Periodo = { dia_semana: number; hora_inicio: string; hora_fim: string };
 type Props = {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    profissional: { id: number; nome: string; perfil?: string; cor?: string | null; telefone?: string | null; agenda_compartilhada?: boolean; ve_servicos_clinica?: boolean } | null;
+    profissional: { id: number; nome: string; perfil?: string; cor?: string | null; telefone?: string | null; agenda_compartilhada?: boolean; ve_servicos_clinica?: boolean; falta_regra?: string | null } | null;
     /** Admin também edita os serviços que o profissional executa. */
     admin?: boolean;
 };
@@ -36,6 +36,9 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
     const [servicosSel, setServicosSel] = useState<number[]>([]);
     const [compartilhada, setCompartilhada] = useState(true);
     const [usaClinica, setUsaClinica] = useState(false);
+    const [faltaRegra, setFaltaRegra] = useState<string>('');
+    const regraQ = trpc.agenda.profissionais.regraFalta.useQuery({ id_profissional: id }, { enabled: open && !!id });
+    const porProfissional = !!(regraQ.data as any)?.porProfissional;
     const ehAdmin = profissional?.perfil === 'ADMIN';
 
     useEffect(() => {
@@ -50,6 +53,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
         setTelefone(profissional?.telefone ?? '');
         setCompartilhada(profissional?.agenda_compartilhada ?? true);
         setUsaClinica(profissional?.ve_servicos_clinica ?? false);
+        setFaltaRegra(profissional?.falta_regra ?? '');
     }, [open, profissional]);
     useEffect(() => {
         if (open && servProfQ.data) setServicosSel(servProfQ.data as number[]);
@@ -63,7 +67,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
     async function salvar() {
         try {
             await setHorarios.mutateAsync({ id_profissional: id, intervalo_agenda_min: intervalo, periodos });
-            await setPerfil.mutateAsync({ id, cor: cor || null, telefone: telefone.trim() || null, ...(admin ? { agenda_compartilhada: compartilhada, ...(ehAdmin ? {} : { ve_servicos_clinica: usaClinica }) } : {}) });
+            await setPerfil.mutateAsync({ id, cor: cor || null, telefone: telefone.trim() || null, ...(porProfissional ? { falta_regra: (faltaRegra || null) as any } : {}), ...(admin ? { agenda_compartilhada: compartilhada, ...(ehAdmin ? {} : { ve_servicos_clinica: usaClinica }) } : {}) });
             if (admin) await setServicos.mutateAsync({ id_profissional: id, servicos: usaClinica || ehAdmin ? servicosSel : [] });
             utils.agenda.invalidate();
             toast({ title: 'Agenda do profissional salva', variant: 'success' });
@@ -158,6 +162,19 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                         })}
                     </div>
                 </div>
+
+                {porProfissional && (
+                    <div className="space-y-1.5">
+                        <Label>Quando o cliente falta</Label>
+                        <select aria-label="Quando o cliente falta" className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={faltaRegra}
+                            onChange={(e) => setFaltaRegra(e.target.value)}>
+                            <option value="">Seguir a regra da clínica</option>
+                            <option value="PERGUNTAR">Perguntar na hora</option>
+                            <option value="DESCONTAR">Descontar a sessão do pacote</option>
+                            <option value="DEVOLVER">Devolver a sessão para o cliente</option>
+                        </select>
+                    </div>
+                )}
 
                 {admin && !ehAdmin && (
                     <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm">

@@ -233,3 +233,26 @@ export function linkWhatsApp(telefone: string | null | undefined, texto: string)
     if (digitos.length < 12 || digitos.length > 13) return null;
     return `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`;
 }
+
+/* ── Falta: a sessão do pacote é descontada ou volta para o saldo ── */
+
+export type RegraFalta = 'DESCONTAR' | 'DEVOLVER' | 'PERGUNTAR';
+
+/**
+ * Regra que vale para o profissional: a da clínica, a não ser que a clínica
+ * deixe cada profissional definir a sua (e ele tenha definido).
+ */
+export function regraFaltaEfetiva(
+    clinica: { falta_regra: RegraFalta; falta_por_profissional: boolean },
+    profissional: { falta_regra: RegraFalta | null } | null | undefined,
+): RegraFalta {
+    if (clinica.falta_por_profissional && profissional?.falta_regra) return profissional.falta_regra;
+    return clinica.falta_regra;
+}
+
+/** A falta consome a sessão? Com "perguntar", vale a resposta dada ao marcar a falta. */
+export function faltaConsome(regra: RegraFalta, resposta: boolean | undefined): boolean | null {
+    if (regra === 'DESCONTAR') return true;
+    if (regra === 'DEVOLVER') return false;
+    return resposta === undefined ? null : resposta;
+}
