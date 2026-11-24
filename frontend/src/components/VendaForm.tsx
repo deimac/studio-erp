@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -15,11 +15,20 @@ import { cn } from '@/lib/utils';
  * Nova venda: um ou mais itens (serviço avulso ou pacote) e uma ou mais formas
  * de pagamento (ex.: parte no Pix, resto no cartão em 3x). Os pagamentos
  * precisam fechar o total.
+ *
+ * Com `idVenda`, edita a venda: parcelas já pagas ficam como estão e os
+ * pagamentos cobrem só o que falta receber.
  */
 
-type Props = { onSuccess: () => void };
+type Props = {
+    onSuccess: () => void;
+    /** Editar esta venda (a janela é controlada por open/onOpenChange, sem botão). */
+    idVenda?: number;
+    open?: boolean;
+    onOpenChange?: (v: boolean) => void;
+};
 
-type ItemVenda = { chave: string; id_servico?: number; id_pacote?: number; nome: string; sessoes: string; valor: string; pacote: boolean };
+type ItemVenda = { chave: string; id?: number; usadas?: number; id_servico?: number; id_pacote?: number; nome: string; sessoes: string; valor: string; pacote: boolean };
 type Pagamento = { chave: string; id_forma: string; valor: string; parcelas: string; vencimento: string; pago: boolean };
 
 const hojeISO = () => new Date().toISOString().split('T')[0];
@@ -29,8 +38,11 @@ const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency'
 let seq = 0;
 const novaChave = () => `k${++seq}`;
 
-export function VendaForm({ onSuccess }: Props) {
-    const [open, setOpen] = useState(false);
+export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: Props) {
+    const editando = !!idVenda;
+    const [openLocal, setOpenLocal] = useState(false);
+    const open = editando ? !!openProp : openLocal;
+    const setOpen = (v: boolean) => (editando ? onOpenChange?.(v) : setOpenLocal(v));
     const { user, isAdmin } = useAuth();
     const [vendedor, setVendedor] = useState<number>(user?.id ?? 0);
     const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open && isAdmin });
@@ -48,14 +60,51 @@ export function VendaForm({ onSuccess }: Props) {
     const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
     const [buscando, setBuscando] = useState(false);
     const [busca, setBusca] = useState('');
+    /** Na edição, só refaz as parcelas em aberto se mexerem no pagamento. */
+    const [pagamentosMexidos, setPagamentosMexidos] = useState(false);
+    const [recebidoCentavos, setRecebidoCentavos] = useState(0);
+    const [carregado, setCarregado] = useState(false);
 
-    const createMut = trpc.vendas.create.useMutation({
-        onSuccess: () => {
-            onSuccess();
-            resetForm();
-            setOpen(false);
-        },
-    });
+    const vendaQ = trpc.vendas.getById.useQuery({ id: idVenda ?? 0 }, { enabled: editando && open });
+    const parcelasQ = trpc.vendas.listParcelas.useQuery({ id_venda: idVenda ?? 0 }, { enabled: editando && open });
+
+    // Preenche o formulário com a venda (uma vez por abertura)
+    useEffect(() => {
+        if (!editando || !open || carregado || !vendaQ.data || !parcelasQ.data) return;
+        const v = vendaQ.data as any;
+        const ps = parcelasQ.data as any[];
+        setIdPessoa(String(v.id_pessoa));
+        setDataVenda(String(v.data_venda).split('T')[0]);
+        setObservacao(v.observacao ?? '');
+        if (v.id_profissional) setVendedor(v.id_profissional);
+        setItens((v.itens as any[]).map((i) => ({
+            chave: novaChave(), id: i.id, usadas: i.usadas, id_servico: i.id_servico ?? undefined, id_pacote: i.id_pacote ?? undefined,
+            nome: i.rotulo ?? 'Item', sessoes: String(i.quantidade_sessoes), valor: mascaraDeCentavos(Math.round(Number(i.valor) * 100)), pacote: !!i.id_pacote,
+        })));
+        setRecebidoCentavos(ps.filter((p) => p.status === 'PAGO').reduce((t, p) => t + Math.round(Number(p.valor) * 100), 0));
+        // Parcelas em aberto agrupadas por forma: "Cartão 3x de R$ 100 a partir de …"
+        const grupos = new Map<string, Pagamento & { n: number }>();
+        for (const p of ps.filter((x) => x.status === 'PENDENTE')) {
+            const forma = p.id_forma_pagamento ? String(p.id_forma_pagamento) : '';
+            const venc = String(p.data_vencimento).split('T')[0];
+            const g = grupos.get(forma);
+            const c = Math.round(Number(p.valor) * 100);
+            if (!g) grupos.set(forma, { chave: novaChave(), id_forma: forma, valor: String(c), parcelas: '1', vencimento: venc, pago: false, n: 1 });
+            else grupos.set(forma, { ...g, valor: String(Number(g.valor) + c), n: g.n + 1, vencimento: venc < g.vencimento ? venc : g.vencimento });
+        }
+        setPagamentos([...grupos.values()].map(({ n, ...g }) => ({ ...g, parcelas: String(n), valor: mascaraDeCentavos(Number(g.valor)) })));
+        setPagamentosMexidos(false);
+        setCarregado(true);
+    }, [editando, open, carregado, vendaQ.data, parcelasQ.data]);
+
+    const aoSalvar = () => {
+        onSuccess();
+        resetForm();
+        setOpen(false);
+    };
+    const createMut = trpc.vendas.create.useMutation({ onSuccess: aoSalvar });
+    const updateMut = trpc.vendas.update.useMutation({ onSuccess: aoSalvar });
+    const salvarMut = editando ? updateMut : createMut;
 
     function resetForm() {
         setIdPessoa('');
@@ -66,7 +115,11 @@ export function VendaForm({ onSuccess }: Props) {
         setPagamentos([]);
         setBuscando(false);
         setBusca('');
+        setPagamentosMexidos(false);
+        setRecebidoCentavos(0);
+        setCarregado(false);
         createMut.reset();
+        updateMut.reset();
     }
 
     // Serviço próprio de um profissional só pode ser vendido por ele
@@ -91,11 +144,15 @@ export function VendaForm({ onSuccess }: Props) {
 
     const totalCentavos = itens.reduce((t, i) => t + paraCentavos(i.valor), 0);
     const pagoCentavos = pagamentos.reduce((t, p) => t + paraCentavos(p.valor), 0);
-    const falta = totalCentavos - pagoCentavos;
+    const falta = totalCentavos - recebidoCentavos - pagoCentavos;
 
-    /** Com um pagamento só, ele acompanha o total da venda. */
+    /** Com um pagamento só, ele acompanha o total da venda (menos o já recebido). */
     function ajustarPagamentoUnico(novoTotal: number) {
-        setPagamentos((ps) => (ps.length === 1 ? [{ ...ps[0], valor: mascaraDeCentavos(novoTotal) }] : ps));
+        setPagamentos((ps) => {
+            if (ps.length !== 1) return ps;
+            setPagamentosMexidos(true);
+            return [{ ...ps[0], valor: mascaraDeCentavos(novoTotal - recebidoCentavos) }];
+        });
     }
 
     function adicionarItem(x: (typeof catalogo)[number]) {
@@ -107,7 +164,8 @@ export function VendaForm({ onSuccess }: Props) {
         const novoTotal = totalCentavos + x.centavos;
         if (!pagamentos.length) {
             const forma = ((formasQ.data ?? []) as any[]).find((f) => f.ativo !== false);
-            setPagamentos([{ chave: novaChave(), id_forma: forma ? String(forma.id) : '', valor: mascaraDeCentavos(novoTotal), parcelas: '1', vencimento: dataVenda, pago: false }]);
+            setPagamentos([{ chave: novaChave(), id_forma: forma ? String(forma.id) : '', valor: mascaraDeCentavos(novoTotal - recebidoCentavos), parcelas: '1', vencimento: dataVenda, pago: false }]);
+            setPagamentosMexidos(true);
         } else ajustarPagamentoUnico(novoTotal);
         setBuscando(false);
         setBusca('');
@@ -122,19 +180,46 @@ export function VendaForm({ onSuccess }: Props) {
     function removerItem(chave: string) {
         const lista = itens.filter((i) => i.chave !== chave);
         setItens(lista);
-        if (!lista.length) setPagamentos([]);
+        if (!lista.length) { setPagamentos([]); setPagamentosMexidos(true); }
         else ajustarPagamentoUnico(lista.reduce((t, i) => t + paraCentavos(i.valor), 0));
     }
 
     function alterarPagamento(chave: string, patch: Partial<Pagamento>) {
+        setPagamentosMexidos(true);
         setPagamentos((ps) => ps.map((p) => (p.chave === chave ? { ...p, ...patch, ...(patch.parcelas && patch.parcelas !== '1' ? { pago: false } : {}) } : p)));
     }
 
     function outraForma() {
+        setPagamentosMexidos(true);
         setPagamentos((ps) => [...ps, { chave: novaChave(), id_forma: '', valor: mascaraDeCentavos(Math.max(falta, 0)), parcelas: '1', vencimento: dataVenda, pago: false }]);
     }
 
     function handleSubmit() {
+        const pags = pagamentos.map((p) => ({
+            id_forma_pagamento: Number(p.id_forma),
+            valor: paraCentavos(p.valor) / 100,
+            parcelas: Number(p.parcelas) || 1,
+            primeiro_vencimento: p.vencimento,
+            pago: p.pago && p.parcelas === '1',
+        }));
+        if (editando) {
+            updateMut.mutate({
+                id: idVenda!,
+                id_pessoa: Number(idPessoa),
+                itens: itens.map((i) => ({
+                    id: i.id,
+                    id_servico: i.id ? undefined : i.id_servico,
+                    id_pacote: i.id ? undefined : i.id_pacote,
+                    quantidade_sessoes: Number(i.sessoes),
+                    valor: paraCentavos(i.valor) / 100,
+                })),
+                pagamentos: pagamentosMexidos ? pags : undefined,
+                data_venda: dataVenda,
+                observacao: observacao || null,
+                ...(isAdmin ? { id_profissional: vendedor } : {}),
+            });
+            return;
+        }
         createMut.mutate({
             id_pessoa: Number(idPessoa),
             itens: itens.map((i) => ({
@@ -163,22 +248,30 @@ export function VendaForm({ onSuccess }: Props) {
         !!idPessoa &&
         itens.length > 0 &&
         itens.every((i) => Number(i.sessoes) > 0 && paraCentavos(i.valor) > 0) &&
-        pagamentos.length > 0 &&
-        pagamentos.every((p) => p.id_forma && paraCentavos(p.valor) > 0 && Number(p.parcelas) > 0 && p.vencimento >= dataVenda) &&
+        (editando ? pagamentos.length > 0 || totalCentavos === recebidoCentavos : pagamentos.length > 0) &&
+        (!pagamentosMexidos && editando ||
+            pagamentos.every((p) => p.id_forma && paraCentavos(p.valor) > 0 && Number(p.parcelas) > 0 && p.vencimento >= dataVenda)) &&
+        itens.every((i) => !i.usadas || Number(i.sessoes) >= i.usadas) &&
         falta === 0 &&
         !!dataVenda;
 
     return (
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-            <DialogTrigger asChild>
-                <Button>
-                    <Plus className="mr-2 h-4 w-4" /> Nova Venda
-                </Button>
-            </DialogTrigger>
+            {!editando && (
+                <DialogTrigger asChild>
+                    <Button>
+                        <Plus className="mr-2 h-4 w-4" /> Nova Venda
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Nova venda</DialogTitle>
+                    <DialogTitle>{editando ? 'Editar venda' : 'Nova venda'}</DialogTitle>
                 </DialogHeader>
+
+                {editando && !carregado ? (
+                    <p className="py-8 text-center text-sm text-gray-500">Carregando a venda…</p>
+                ) : (<>
 
                 <div className="space-y-6">
                     {/* Cliente e data */}
@@ -187,7 +280,7 @@ export function VendaForm({ onSuccess }: Props) {
                             <div className="space-y-1.5">
                                 <Label>Vendido por</Label>
                                 <select aria-label="Vendido por" className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={vendedor}
-                                    onChange={(e) => { setVendedor(Number(e.target.value)); setItens([]); setPagamentos([]); }}>
+                                    onChange={(e) => { setVendedor(Number(e.target.value)); if (!editando) { setItens([]); setPagamentos([]); } }}>
                                     {((profsQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                 </select>
                             </div>
@@ -231,15 +324,19 @@ export function VendaForm({ onSuccess }: Props) {
                                         <div className="flex items-start gap-2">
                                             {i.pacote && <Package className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />}
                                             <p className="min-w-0 flex-1 text-sm font-medium">{i.nome}</p>
-                                            <button type="button" aria-label={`Tirar ${i.nome}`} onClick={() => removerItem(i.chave)}
-                                                className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600">
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {i.usadas ? (
+                                                <span className="shrink-0 text-xs text-gray-500">{i.usadas} {i.usadas === 1 ? 'sessão usada' : 'sessões usadas'}</span>
+                                            ) : (
+                                                <button type="button" aria-label={`Tirar ${i.nome}`} onClick={() => removerItem(i.chave)}
+                                                    className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <label className="space-y-1 text-xs text-gray-500">
                                                 Sessões
-                                                <Input type="number" min={1} inputMode="numeric" value={i.sessoes} onChange={(e) => alterarItem(i.chave, 'sessoes', e.target.value)} />
+                                                <Input type="number" min={Math.max(1, i.usadas ?? 0)} inputMode="numeric" value={i.sessoes} onChange={(e) => alterarItem(i.chave, 'sessoes', e.target.value)} />
                                             </label>
                                             <label className="space-y-1 text-xs text-gray-500">
                                                 Valor (R$)
@@ -295,7 +392,12 @@ export function VendaForm({ onSuccess }: Props) {
                     {/* Pagamento */}
                     {itens.length > 0 && (
                         <section className="space-y-3 rounded-lg border bg-[hsl(var(--muted))]/30 p-3 sm:p-4">
-                            <h3 className="text-sm font-semibold">Como o cliente vai pagar</h3>
+                            <h3 className="text-sm font-semibold">{recebidoCentavos > 0 ? 'Como o cliente vai pagar o resto' : 'Como o cliente vai pagar'}</h3>
+                            {recebidoCentavos > 0 && (
+                                <p className="flex items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                                    <Check className="h-4 w-4 shrink-0" /> Já recebido: <strong className="tabular-nums">{brl(recebidoCentavos)}</strong> (não muda)
+                                </p>
+                            )}
                             {pagamentos.map((p, idx) => (
                                 <div key={p.chave} className="space-y-3 rounded-lg border bg-white p-3">
                                     <div className="grid grid-cols-2 gap-3">
@@ -360,12 +462,15 @@ export function VendaForm({ onSuccess }: Props) {
                     </div>
                 </div>
 
-                {createMut.isError && <p className="text-sm text-red-600">{createMut.error.message}</p>}
+                {salvarMut.isError && <p className="text-sm text-red-600">{salvarMut.error.message}</p>}
+                </>)}
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleSubmit} disabled={!isValid || createMut.isPending}>
-                        {createMut.isPending ? 'Lançando…' : 'Lançar venda'}
+                    <Button onClick={handleSubmit} disabled={!isValid || salvarMut.isPending}>
+                        {editando
+                            ? (salvarMut.isPending ? 'Salvando…' : 'Salvar alterações')
+                            : (salvarMut.isPending ? 'Lançando…' : 'Lançar venda')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -908,6 +908,13 @@ export const agendaRouter = createTRPCRouter({
                 rotulo: sql<string>`COALESCE(${pacotes.nome}, (SELECT s2.nome FROM servicos s2 WHERE s2.id = ${vendaItens.id_servico}), 'Venda')`,
                 servico_nome: sql<string | null>`(SELECT s3.nome FROM servicos s3 WHERE s3.id = COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico}))`,
                 duracao: sql<number | null>`(SELECT s4.duracao_minutos FROM servicos s4 WHERE s4.id = COALESCE(${vendaItens.id_servico}, ${pacotes.id_servico}))`,
+                /** Pagamento da venda: PAGO, PENDENTE ou ATRASADO (parcela vencida em aberto). */
+                pagamento: sql<'PAGO' | 'PENDENTE' | 'ATRASADO' | null>`(SELECT CASE
+                        WHEN COUNT(*) = 0 THEN NULL
+                        WHEN SUM(fz.status = 'PENDENTE' AND fz.data_vencimento < CURDATE()) > 0 THEN 'ATRASADO'
+                        WHEN SUM(fz.status = 'PENDENTE') > 0 THEN 'PENDENTE'
+                        ELSE 'PAGO' END
+                    FROM financeiro fz WHERE fz.id_venda = ${vendas.id} AND fz.status <> 'CANCELADO')`,
                 usadas: sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN atendimentos ax ON ax.id = aix.id_atendimento WHERE aix.id_venda_item = ${vendaItens.id} AND ${CONSOME_SESSAO} ${ignorar})`,
             })
             .from(vendaItens)

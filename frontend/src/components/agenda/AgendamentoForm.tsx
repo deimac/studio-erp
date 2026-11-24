@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertTriangle, Check, Package, PenLine, Plus, Repeat, Search, Trash2, UserPlus, X } from 'lucide-react';
+import { AlertTriangle, Check, CircleDollarSign, Package, PenLine, Plus, Repeat, Search, Trash2, UserPlus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { minutos, somarMinutos } from '@/lib/agenda';
 import { maskMoney } from '@/lib/masks';
@@ -456,7 +456,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                         const ativo = usarItens.includes(it.id);
                                         const dataVenda = String(it.data_venda ?? '').slice(0, 10).split('-').reverse().join('/');
                                         return (
-                                            <CartaoItem key={it.id} ativo={ativo} pacote={it.pacote}
+                                            <CartaoItem key={it.id} ativo={ativo} pacote={it.pacote} pagamento={it.pagamento}
                                                 onClick={() => { setUsarItens((l) => (ativo ? l.filter((x) => x !== it.id) : [...l, it.id])); setDuracaoManual(false); }}
                                                 titulo={it.rotulo}
                                                 linha1={`Sessão de ${it.servico_nome ?? it.rotulo}${it.duracao ? ` · ${it.duracao} min` : ''}`}
@@ -757,7 +757,14 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 }
 
 /** Item já comprado pelo cliente (marcável). */
-function CartaoItem({ ativo, onClick, titulo, linha1, linha2, pacote }: { ativo: boolean; onClick: () => void; titulo: string; linha1: string; linha2: string; pacote?: boolean }) {
+const PAGAMENTO_INFO = {
+    PAGO: { label: 'Pago', cor: 'text-emerald-600' },
+    PENDENTE: { label: 'Pagamento pendente', cor: 'text-amber-500' },
+    ATRASADO: { label: 'Pagamento em atraso', cor: 'text-red-600' },
+} as const;
+
+function CartaoItem({ ativo, onClick, titulo, linha1, linha2, pacote, pagamento }: { ativo: boolean; onClick: () => void; titulo: string; linha1: string; linha2: string; pacote?: boolean; pagamento?: keyof typeof PAGAMENTO_INFO | null }) {
+    const pg = pagamento ? PAGAMENTO_INFO[pagamento] : null;
     return (
         <button type="button" onClick={onClick} aria-pressed={ativo}
             className={cn('flex items-start gap-2.5 rounded-lg border p-3 text-left transition-colors',
@@ -768,8 +775,14 @@ function CartaoItem({ ativo, onClick, titulo, linha1, linha2, pacote }: { ativo:
             <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 text-sm font-medium">
                     {pacote && <Package className="h-3.5 w-3.5 shrink-0 text-blue-600" />}
-                    <span className="truncate">{titulo}</span>
+                    <span className="min-w-0 flex-1 truncate">{titulo}</span>
+                    {pg && (
+                        <span className={cn('inline-flex shrink-0 items-center', pg.cor)} title={pg.label} aria-label={pg.label}>
+                            <CircleDollarSign className="h-4 w-4" />
+                        </span>
+                    )}
                 </span>
+                {pg && pagamento !== 'PAGO' && <span className={cn('block text-xs font-medium', pg.cor)}>{pg.label}</span>}
                 <span className="block text-xs text-[hsl(var(--foreground))]/80">{linha1}</span>
                 {linha2 && <span className="block text-xs text-[hsl(var(--muted-foreground))]">{linha2}</span>}
             </span>

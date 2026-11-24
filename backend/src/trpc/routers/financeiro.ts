@@ -135,6 +135,7 @@ export const financeiroRouter = createTRPCRouter({
                         pacote_nome: sql<string | null>`IF(${vendaTemPacote(vendas.id)}, ${rotuloVenda(vendas.id)}, NULL)`.as('pacote_nome'),
                         parcela: financeiro.parcela,
                         forma_pagamento_nome: formasPagamento.nome,
+                        id_forma_pagamento: formasPagamento.id,
                         data_lancamento: financeiro.data_lancamento,
                         data_vencimento: financeiro.data_vencimento,
                         data_pagamento: financeiro.data_pagamento,
@@ -193,6 +194,7 @@ export const financeiroRouter = createTRPCRouter({
                     pacote_nome: sql<string | null>`NULL`.as('pacote_nome'),
                     parcela: financeiro.parcela,
                     forma_pagamento_nome: formasPagamento.nome,
+                    id_forma_pagamento: formasPagamento.id,
                     data_lancamento: financeiro.data_lancamento,
                     data_vencimento: financeiro.data_vencimento,
                     data_pagamento: financeiro.data_pagamento,
@@ -203,7 +205,7 @@ export const financeiroRouter = createTRPCRouter({
                 .from(financeiro)
                 .innerJoin(receitasDespesas, eq(financeiro.id_receita_despesa, receitasDespesas.id))
                 .innerJoin(pessoas, eq(receitasDespesas.id_pessoa, pessoas.id))
-                .leftJoin(formasPagamento, eq(receitasDespesas.id_forma_pagamento, formasPagamento.id))
+                .leftJoin(formasPagamento, eq(formasPagamento.id, sql`COALESCE(${financeiro.id_forma_pagamento}, ${receitasDespesas.id_forma_pagamento})`))
                 .where(and(...rdWhereParts));
 
             const rdData = rdRows.map((row: any) => ({ ...row, sourceType: 'RECEITA_DESPESA' }));
@@ -319,6 +321,48 @@ export const financeiroRouter = createTRPCRouter({
             });
 
             return { success: true, valor_restante: valorRestante };
+        }),
+
+    /**
+     * Editar uma parcela: vencimento, valor e forma de pagamento.
+     * Parcela paga só troca vencimento e forma (o valor já foi recebido).
+     */
+    editarParcela: protectedProcedure
+        .input(z.object({
+            id: z.number().int().positive(),
+            data_vencimento: z.string().min(1),
+            valor: z.number().positive(),
+            id_forma_pagamento: z.number().int().positive().nullable(),
+        }))
+        .mutation(async ({ ctx, input }) => {
+            await parcelaGerenciavel(ctx.db, ctx.session, input.id);
+            const [p] = await ctx.db
+                .select({ id: financeiro.id, valor: financeiro.valor, status: financeiro.status, id_venda: financeiro.id_venda })
+                .from(financeiro)
+                .where(eq(financeiro.id, input.id))
+                .limit(1);
+            if (!p) throw new TRPCError({ code: 'NOT_FOUND', message: 'Parcela não encontrada' });
+            if (p.status === 'CANCELADO') throw new TRPCError({ code: 'CONFLICT', message: 'Parcela cancelada não pode ser editada' });
+            const valorMudou = Math.round(Number(p.valor) * 100) !== Math.round(input.valor * 100);
+            if (p.status === 'PAGO' && valorMudou)
+                throw new TRPCError({ code: 'CONFLICT', message: 'Esta parcela já foi paga. Para mudar o valor, desmarque o pagamento primeiro.' });
+            if (input.id_forma_pagamento) {
+                const [fp] = await ctx.db
+                    .select({ id: formasPagamento.id })
+                    .from(formasPagamento)
+                    .where(eq(formasPagamento.id, input.id_forma_pagamento))
+                    .limit(1);
+                if (!fp) throw new TRPCError({ code: 'NOT_FOUND', message: 'Forma de pagamento não encontrada' });
+            }
+            await ctx.db
+                .update(financeiro)
+                .set({
+                    data_vencimento: normalizeDateOnly(input.data_vencimento),
+                    valor: String(Math.round(input.valor * 100) / 100) as any,
+                    id_forma_pagamento: input.id_forma_pagamento,
+                })
+                .where(eq(financeiro.id, input.id));
+            return { ok: true };
         }),
 
     /** Atualizar valor da parcela principal (soma todas as filhas) */

@@ -12,6 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Search, DollarSign, TrendingUp, CreditCard, CalendarDays, AlertCircle, Clock, CheckCircle, Sparkles, Package } from 'lucide-react';
 import { ReceitaDespesaForm } from '@/components/ReceitaDespesaForm';
+import { EditarParcela } from '@/components/EditarParcela';
 import { useToast } from '@/hooks/useToast';
 import { maskMoney, unmaskMoney } from '@/lib/masks';
 
@@ -26,6 +27,7 @@ export default function Financeiro() {
     const [dataInicio, setDataInicio] = useState<string>('');
     const [dataFim, setDataFim] = useState<string>('');
     const [search, setSearch] = useState('');
+    const [editando, setEditando] = useState<any | null>(null);
 
     // Modal de pagamento
     const [pgtoOpen, setPgtoOpen] = useState(false);
@@ -496,7 +498,7 @@ export default function Financeiro() {
                         const pgt = pagamentoDisplayStatus(f.data_pagamento, f.data_vencimento);
                         return (
                             <li key={f.id} className="flex items-center gap-3 p-4">
-                                <div className="min-w-0 flex-1">
+                                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEditando(f)} aria-label={`Editar lançamento de ${f.cliente_nome}`}>
                                     <div className="flex items-baseline justify-between gap-2">
                                         <p className="truncate font-semibold">{f.cliente_nome}</p>
                                         <p className="shrink-0 font-semibold tabular-nums">{fmt(f.valor)}</p>
@@ -512,7 +514,7 @@ export default function Financeiro() {
                                         <span className="text-gray-400"> · </span>
                                         <span className={pgt.color}>{pgt.label}</span>
                                     </p>
-                                </div>
+                                </button>
                                 <Switch
                                     checked={!!f.data_pagamento}
                                     disabled={updateParcelaMut.isPending}
@@ -552,7 +554,7 @@ export default function Financeiro() {
                                         ? 'bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded'
                                         : '';
                                 return (
-                                    <TableRow key={f.id}>
+                                    <TableRow key={f.id} className="cursor-pointer" onClick={() => setEditando(f)} title="Clique para editar">
                                         <TableCell className="font-medium">{f.cliente_nome}</TableCell>
                                         <TableCell className="hidden sm:table-cell">
                                             {f.pacote_nome || f.servico_nome ? (
@@ -589,7 +591,7 @@ export default function Financeiro() {
                                             })()}
                                         </TableCell>
                                         <TableCell className="font-medium">{fmt(f.valor)}</TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                                             <Switch
                                                 checked={!!f.data_pagamento}
                                                 disabled={updateParcelaMut.isPending}
@@ -604,6 +606,8 @@ export default function Financeiro() {
                     </Table>
                 </CardContent>
             </Card>
+
+            <EditarParcela lancamento={editando} onClose={() => setEditando(null)} onSaved={() => finQ.refetch()} />
 
             {/* Modal de Pagamento */}
             <Dialog open={pgtoOpen} onOpenChange={setPgtoOpen}>
