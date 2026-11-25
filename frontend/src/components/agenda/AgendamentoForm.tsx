@@ -221,6 +221,12 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     useEffect(() => {
         setPagamentos((ps) => (ps.length === 1 ? [{ ...ps[0], valor: mascara(totalVenda) }] : ps));
     }, [totalVenda]);
+    /** Pagamento não recebido vence no dia da sessão (ou hoje, se a sessão já passou) — igual ao servidor. */
+    const diaVenc = (() => {
+        const hojeISO = new Date().toLocaleDateString('sv-SE');
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(data) && data > hojeISO ? data : hojeISO;
+        return d === hojeISO ? 'hoje' : `em ${d.split('-').reverse().slice(0, 2).join('/')}`;
+    })();
     const pagoC = pagamentos.reduce((t, p) => t + paraCentavos(p.valor), 0);
     const falta = totalVenda - pagoC;
 
@@ -283,8 +289,8 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     function salvar(forcar = false) {
         setConflito(null);
         if (!idPessoa) return toast({ title: 'Escolha o cliente', variant: 'error' });
-        const livre = novos.find((n) => n.tipo === 'livre');
-        if (livre && livre.nome.trim().length < 2) return toast({ title: 'Descreva o serviço sem cadastro (ex.: Avaliação)', variant: 'error' });
+        const livres = novos.filter((n) => n.tipo === 'livre');
+        if (livres.some((l) => l.nome.trim().length < 2)) return toast({ title: 'Descreva o serviço sem cadastro (ex.: Avaliação)', variant: 'error' });
         if (!servicosSessao.length && !usarItens.length && !novos.length && !livreSalvo)
             return toast({ title: 'Marque uma sessão já comprada ou adicione um serviço', variant: 'error' });
         if (!data || !horaInicio) return toast({ title: 'Informe data e horário', variant: 'error' });
@@ -308,8 +314,9 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                       : [],
               }
             : undefined;
-        const tituloLivre = livre ? livre.nome.trim() : livreSalvo?.titulo.trim() || null;
-        const duracaoLivre = livre ? Number(livre.duracao) || undefined : livreSalvo ? Number(livreSalvo.duracao) || undefined : undefined;
+        const tituloLivre = livres.length ? livres.map((l) => l.nome.trim()).join(' + ').slice(0, 120) : livreSalvo?.titulo.trim() || null;
+        const somaLivres = livres.reduce((t, l) => t + (Number(l.duracao) || 0), 0);
+        const duracaoLivre = livres.length ? Math.min(600, somaLivres) || undefined : livreSalvo ? Number(livreSalvo.duracao) || undefined : undefined;
         const base = {
             id_profissional: idProf,
             id_sala: idSala,
@@ -481,16 +488,14 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                         <button type="button" aria-label="Fechar busca" onClick={() => { setBuscando(false); setBuscaServico(''); }} className="p-1 text-gray-400"><X className="h-4 w-4" /></button>
                                     </div>
                                     <ul className="max-h-64 overflow-y-auto py-1">
-                                        {!temLivreNovo && (
-                                            <li>
-                                                <button type="button" onClick={() => adicionarNovo('livre')}
-                                                    className="flex w-full items-center gap-3 border-b px-3 py-2.5 text-left text-sm font-medium hover:bg-[hsl(var(--accent))]">
-                                                    <PenLine className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" />
-                                                    <span className="flex-1">Serviço sem cadastro</span>
-                                                    <span className="text-xs font-normal text-gray-500">descrição e valor</span>
-                                                </button>
-                                            </li>
-                                        )}
+                                        <li>
+                                            <button type="button" onClick={() => adicionarNovo('livre')}
+                                                className="flex w-full items-center gap-3 border-b px-3 py-2.5 text-left text-sm font-medium hover:bg-[hsl(var(--accent))]">
+                                                <PenLine className="h-4 w-4 shrink-0 text-[hsl(var(--muted-foreground))]" />
+                                                <span className="flex-1">Serviço sem cadastro</span>
+                                                <span className="text-xs font-normal text-gray-500">descrição e valor</span>
+                                            </button>
+                                        </li>
                                         {catalogo.map((x) => (
                                             <li key={x.chave}>
                                                 <button type="button" onClick={() => adicionarNovo(x)}
@@ -625,38 +630,56 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                     <p className="text-xs text-[hsl(var(--muted-foreground))]">Fica a receber em Vendas e Financeiro; a forma de pagamento é escolhida na baixa.</p>
                                 ) : (
                                     <>
-                                        {pagamentos.map((p) => (
-                                            <div key={p.chave} className="space-y-2 rounded-lg border bg-white p-3">
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <select aria-label="Forma de pagamento" className={cn(selectCls, 'col-span-2 sm:col-span-1')} value={p.id_forma} onChange={(e) => alterarPagamento(p.chave, { id_forma: e.target.value })}>
-                                                        <option value="">Forma…</option>
-                                                        {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
-                                                    </select>
-                                                    <div className="col-span-2 flex items-center gap-2 sm:col-span-1">
-                                                        <Input type="number" min={1} max={48} inputMode="numeric" aria-label="Parcelas" className="w-16" value={p.parcelas} onChange={(e) => alterarPagamento(p.chave, { parcelas: e.target.value })} />
-                                                        <span className="text-sm text-gray-500">{p.parcelas === '1' ? 'à vista' : 'parcelas'}</span>
+                                        {pagamentos.map((p) => {
+                                            const nParc = Number(p.parcelas) || 1;
+                                            return (
+                                                <div key={p.chave} className="space-y-2.5 rounded-lg border bg-white p-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <select aria-label="Forma de pagamento" className={cn(selectCls, 'min-w-0 flex-1')} value={p.id_forma} onChange={(e) => alterarPagamento(p.chave, { id_forma: e.target.value })}>
+                                                            {!p.id_forma && <option value="" disabled>Escolha a forma</option>}
+                                                            {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+                                                        </select>
                                                         {pagamentos.length > 1 && (
-                                                            <Input inputMode="decimal" aria-label="Valor desta forma" value={p.valor} onChange={(e) => alterarPagamento(p.chave, { valor: maskMoney(e.target.value) })} />
+                                                            <button type="button" aria-label="Excluir esta forma de pagamento" onClick={() => setPagamentos((ps) => ps.filter((x) => x.chave !== p.chave))}
+                                                                className="-mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600">
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
                                                         )}
                                                     </div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    {p.parcelas === '1' ? (
-                                                        <label className="flex cursor-pointer items-center gap-2 text-sm">
-                                                            <input type="checkbox" checked={p.pago} onChange={(e) => alterarPagamento(p.chave, { pago: e.target.checked })} /> Já recebido
+                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+                                                        {pagamentos.length > 1 && (
+                                                            <div className="relative w-[6.5rem] shrink-0">
+                                                                <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-500">R$</span>
+                                                                <Input inputMode="decimal" aria-label="Valor desta forma" placeholder="0,00" className="pl-8 pr-2.5 text-right tabular-nums" value={p.valor}
+                                                                    onChange={(e) => alterarPagamento(p.chave, { valor: maskMoney(e.target.value) })} />
+                                                            </div>
+                                                        )}
+                                                        <select aria-label="Parcelas" className={cn(selectCls, 'w-auto')} value={String(nParc)} onChange={(e) => alterarPagamento(p.chave, { parcelas: e.target.value })}>
+                                                            <option value="1">À vista</option>
+                                                            {Array.from({ length: Math.max(11, nParc - 1) }, (_, i) => i + 2).map((n) => <option key={n} value={n}>{n}x</option>)}
+                                                        </select>
+                                                    </div>
+                                                    {nParc === 1 ? (
+                                                        <label className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm">
+                                                            <input type="checkbox" className="h-4 w-4" checked={p.pago} onChange={(e) => alterarPagamento(p.chave, { pago: e.target.checked })} /> Já recebido
+                                                            {!p.pago && <span className="text-xs text-[hsl(var(--muted-foreground))]">· a receber {diaVenc}</span>}
                                                         </label>
                                                     ) : (
-                                                        <span className="text-xs text-gray-500">{p.parcelas}x de {brl(Math.floor(paraCentavos(p.valor) / (Number(p.parcelas) || 1)))}</span>
-                                                    )}
-                                                    {pagamentos.length > 1 && (
-                                                        <button type="button" className="text-xs text-red-600 hover:underline" onClick={() => setPagamentos((ps) => ps.filter((x) => x.chave !== p.chave))}>Tirar</button>
+                                                        <p className="text-sm tabular-nums text-gray-700">
+                                                            {nParc}x de {brl(Math.floor(paraCentavos(p.valor) / nParc))}
+                                                            <span className="block text-xs text-[hsl(var(--muted-foreground))]">1ª parcela {diaVenc}, depois uma por mês</span>
+                                                        </p>
                                                     )}
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <button type="button" className="inline-flex items-center gap-1 text-sm text-gray-600 hover:underline"
-                                                onClick={() => setPagamentos((ps) => [...ps, { chave: chave(), id_forma: '', valor: mascara(Math.max(falta, 0)), parcelas: '1', pago: false }])}>
+                                                onClick={() => setPagamentos((ps) => {
+                                                    const usadas = new Set(ps.map((x) => x.id_forma));
+                                                    const forma = formas.find((f) => !usadas.has(String(f.id))) ?? formas[0];
+                                                    return [...ps, { chave: chave(), id_forma: forma ? String(forma.id) : '', valor: mascara(Math.max(falta, 0)), parcelas: '1', pago: false }];
+                                                })}>
                                                 <Plus className="h-4 w-4" /> Dividir em outra forma
                                             </button>
                                             {pagamentos.length > 1 && (
