@@ -18,6 +18,7 @@ import {
     atendimentoItens,
     unidades,
     formasPagamento,
+    feriados,
 } from '../../drizzle/schema';
 import {
     STATUS_OCUPAM,
@@ -47,6 +48,7 @@ import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
 import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
 import { CONSOME_SESSAO, rotuloItensAtendimento, rotuloVenda } from '../vendaItens';
 import { gravarVenda } from '../vendaGravar';
+import { feriadosNoPeriodo } from '../../lib/feriados';
 import { normalizarTelefone } from '../../lib/telefone';
 
 /** Telefone em formato internacional; inválido → erro para o usuário corrigir. */
@@ -464,6 +466,25 @@ const normDataHora = (v: string) => {
     return `${d} ${h.slice(0, 5)}:00`;
 };
 
+/** Feriados da cidade/estado: aparecem como aviso na agenda. */
+const feriadosRouter = createTRPCRouter({
+    list: protectedProcedure.query(({ ctx }) =>
+        ctx.db.select().from(feriados).where(eq(feriados.id_unidade, ctx.session.unidadeId)).orderBy(asc(feriados.mes), asc(feriados.dia)),
+    ),
+    create: adminProcedure
+        .input(z.object({ dia: z.number().int().min(1).max(31), mes: z.number().int().min(1).max(12), ano: z.number().int().min(2000).max(2100).nullable(), nome: z.string().trim().min(2).max(120) }))
+        .mutation(async ({ ctx, input }) => {
+            const teste = new Date(Date.UTC(input.ano ?? 2024, input.mes - 1, input.dia));
+            if (teste.getUTCMonth() !== input.mes - 1) erro('BAD_REQUEST', 'Data inválida');
+            await ctx.db.insert(feriados).values({ id_unidade: ctx.session.unidadeId, ...input });
+            return { ok: true };
+        }),
+    delete: adminProcedure.input(z.object({ id: zId })).mutation(async ({ ctx, input }) => {
+        await ctx.db.delete(feriados).where(and(eq(feriados.id, input.id), eq(feriados.id_unidade, ctx.session.unidadeId)));
+        return { ok: true };
+    }),
+});
+
 const bloqueiosRouter = createTRPCRouter({
     list: protectedProcedure.input(z.object({ de: zData, ate: zData })).query(({ ctx, input }) =>
         ctx.db
@@ -744,6 +765,7 @@ export const agendaRouter = createTRPCRouter({
     salas: salasRouter,
     horarios: horariosRouter,
     bloqueios: bloqueiosRouter,
+    feriados: feriadosRouter,
     profissionais: profissionaisRouter,
 
     /** Tudo que o calendário precisa para o período. */
@@ -860,9 +882,15 @@ export const agendaRouter = createTRPCRouter({
                 .innerJoin(usuarios, eq(usuarios.id, profissionalHorarios.id_profissional))
                 .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true)));
 
+            const cadastrados = await ctx.db
+                .select({ dia: feriados.dia, mes: feriados.mes, ano: feriados.ano, nome: feriados.nome })
+                .from(feriados)
+                .where(eq(feriados.id_unidade, ctx.session.unidadeId));
+
             return {
                 atendimentos: atends,
                 bloqueios,
+                feriados: feriadosNoPeriodo(input.de, input.ate, cadastrados),
                 horarios: horarios.map((h) => ({ ...h, hora_inicio: h.hora_inicio.slice(0, 5), hora_fim: h.hora_fim.slice(0, 5) })),
             };
         }),

@@ -474,6 +474,17 @@ export const agendaBloqueios = mysqlTable(
     }),
 );
 
+/** Feriados da cidade/estado cadastrados pela clínica (os nacionais são calculados). ano null = todo ano. */
+export const feriados = mysqlTable('feriados', {
+    id: serial('id').primaryKey(),
+    id_unidade: int('id_unidade').notNull(),
+    dia: int('dia').notNull(),
+    mes: int('mes').notNull(),
+    ano: int('ano'),
+    nome: varchar('nome', { length: 120 }).notNull(),
+    created_at: timestamp('created_at').defaultNow(),
+});
+
 export const agendaRecorrencias = mysqlTable('agenda_recorrencias', {
     id: serial('id').primaryKey(),
     intervalo_semanas: int('intervalo_semanas').notNull().default(1),

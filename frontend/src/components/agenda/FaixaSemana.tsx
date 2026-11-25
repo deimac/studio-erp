@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-/** Faixa seg–dom para trocar de dia no celular; o ponto indica dia com atendimento. */
-export function FaixaSemana({ data, onData, atendimentos }: { data: Date; onData: (d: Date) => void; atendimentos: { data: string; status: string }[] }) {
+/** Faixa seg–dom para trocar de dia no celular; o ponto indica dia com atendimento e o número laranja, feriado. */
+export function FaixaSemana({ data, onData, atendimentos, feriados }: { data: Date; onData: (d: Date) => void; atendimentos: { data: string; status: string }[]; feriados?: Map<string, string[]> }) {
     const dia = dataISO(data);
     const hoje = dataISO(new Date());
     const semana = useMemo(() => {
@@ -24,11 +24,11 @@ export function FaixaSemana({ data, onData, atendimentos }: { data: Date; onData
             {semana.map(({ d, iso, qtd }) => {
                 const ativo = iso === dia;
                 return (
-                    <button key={iso} type="button" onClick={() => onData(d)} aria-label={`${DIAS[d.getDay()]} ${d.getDate()}, ${qtd} atendimentos`}
+                    <button key={iso} type="button" onClick={() => onData(d)} aria-label={`${DIAS[d.getDay()]} ${d.getDate()}, ${qtd} atendimentos${feriados?.has(iso) ? `, feriado: ${feriados.get(iso)!.join(', ')}` : ''}`}
                         className={cn('flex flex-col items-center rounded-xl py-1.5 transition-colors',
                             ativo ? 'bg-[hsl(var(--primary))] text-white' : iso === hoje ? 'bg-[hsl(var(--primary))]/10' : 'hover:bg-[hsl(var(--accent))]')}>
                         <span className={cn('text-[11px]', ativo ? 'text-white/80' : 'text-[hsl(var(--muted-foreground))]')}>{DIAS[d.getDay()]}</span>
-                        <span className="text-base font-semibold tabular-nums">{d.getDate()}</span>
+                        <span className={cn('text-base font-semibold tabular-nums', !ativo && feriados?.has(iso) && 'text-amber-600')}>{d.getDate()}</span>
                         <span className={cn('mt-0.5 h-1.5 w-1.5 rounded-full', qtd ? (ativo ? 'bg-white' : 'bg-[hsl(var(--primary))]') : 'bg-transparent')} />
                     </button>
                 );

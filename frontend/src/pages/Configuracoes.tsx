@@ -48,8 +48,9 @@ export default function Configuracoes() {
                     <ModoTrabalhoPanel />
                     <ProfissionaisPanel />
                 </TabsContent>
-                <TabsContent value="agenda" className="mt-4">
+                <TabsContent value="agenda" className="mt-4 space-y-4">
                     <AgendaRegrasPanel />
+                    <FeriadosPanel />
                 </TabsContent>
                 <TabsContent value="barra" className="mt-4">
                     <Card>
@@ -730,6 +731,79 @@ function AgendaRegrasPanel() {
                 <Button onClick={() => salvarMut.mutate({ falta_regra: regra as any, falta_por_profissional: porProfissional })} disabled={salvarMut.isPending}>
                     {salvarMut.isPending ? 'Salvando…' : 'Salvar'}
                 </Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+/* ===== Feriados da cidade (os nacionais entram sozinhos) ===== */
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function FeriadosPanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const listaQ = trpc.agenda.feriados.list.useQuery();
+    const [nome, setNome] = useState('');
+    const [data, setData] = useState('');
+    const [todoAno, setTodoAno] = useState(true);
+    const aoMudar = () => { utils.agenda.feriados.list.invalidate(); utils.agenda.eventos.invalidate(); };
+    const criar = trpc.agenda.feriados.create.useMutation({
+        onSuccess: () => { aoMudar(); setNome(''); setData(''); toast({ title: 'Feriado adicionado', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const remover = trpc.agenda.feriados.delete.useMutation({
+        onSuccess: () => { aoMudar(); toast({ title: 'Feriado removido', variant: 'success' }); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const lista = (listaQ.data ?? []) as { id: number; dia: number; mes: number; ano: number | null; nome: string }[];
+
+    function adicionar(e: React.FormEvent) {
+        e.preventDefault();
+        if (nome.trim().length < 2) return toast({ title: 'Escreva o nome do feriado', variant: 'error' });
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return toast({ title: 'Escolha a data', variant: 'error' });
+        const [ano, mes, dia] = data.split('-').map(Number);
+        criar.mutate({ nome: nome.trim(), dia, mes, ano: todoAno ? null : ano });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">Feriados da cidade</CardTitle>
+                <p className="text-sm text-gray-500">
+                    Os feriados nacionais (Natal, Carnaval, Sexta-feira Santa…) já aparecem sozinhos na agenda.
+                    Aqui entram os da cidade e do estado. Eles só avisam: dá para agendar normalmente.
+                </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {lista.length > 0 && (
+                    <ul className="divide-y rounded-lg border">
+                        {lista.map((f) => (
+                            <li key={f.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                                <span className="w-16 shrink-0 font-medium tabular-nums">{String(f.dia).padStart(2, '0')} {MESES_CURTOS[f.mes - 1]}</span>
+                                <span className="min-w-0 flex-1">{f.nome}</span>
+                                <span className="shrink-0 text-xs text-gray-500">{f.ano ? `só em ${f.ano}` : 'todo ano'}</span>
+                                <button type="button" aria-label={`Remover ${f.nome}`} onClick={() => remover.mutate({ id: f.id })}
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-400 hover:bg-red-50 hover:text-red-600">
+                                    <Trash2 className="h-4 w-4" />
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                <form onSubmit={adicionar} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+                    <div className="space-y-1.5">
+                        <Label>Nome</Label>
+                        <Input placeholder="Ex.: Padroeira da cidade" maxLength={120} value={nome} onChange={(e) => setNome(e.target.value)} />
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label>Data</Label>
+                        <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm sm:order-last sm:col-span-3">
+                        <input type="checkbox" className="h-4 w-4" checked={todoAno} onChange={(e) => setTodoAno(e.target.checked)} /> Repete todo ano
+                    </label>
+                    <Button type="submit" disabled={criar.isPending}>Adicionar</Button>
+                </form>
             </CardContent>
         </Card>
     );

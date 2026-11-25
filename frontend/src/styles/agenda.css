@@ -216,3 +216,15 @@
     line-height: 1.15;
     word-spacing: 100vw; /* nome do dia em cima, número embaixo */
 }
+
+/* Feriado: só aviso, em laranja */
+.agenda-studio .rbc-event.evt-feriado {
+    background: #fef3c7;
+    color: #92400e;
+    border: 0;
+    border-left: 3px solid #d97706;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
