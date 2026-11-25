@@ -30,7 +30,7 @@ export default function Footer() {
                                     <li>
                                         <MapPin />
                                         <span>
-                                            {varias && <><b>{u.nome}</b><br /></>}
+                                            <b>{u.nome}</b><br />
                                             {u.endereco}
                                             {(u.bairro || u.cidade) && <><br />{[u.bairro, u.cidade].filter(Boolean).join(' · ')}</>}
                                         </span>
