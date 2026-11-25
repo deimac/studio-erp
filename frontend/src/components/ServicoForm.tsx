@@ -444,7 +444,15 @@ export function ServicoForm({
                             <div>
                                 <Label>Técnicas</Label>
                                 <div className="mt-1.5">
-                                    <TecnicasSelect tecnicas={tecnicasQ.data as any[]} value={tecnicaIds} onChange={setTecnicaIds} />
+                                    <TecnicasSelect tipo="TECNICA" tecnicas={tecnicasQ.data as any[]} value={tecnicaIds} onChange={setTecnicaIds} />
+                                </div>
+                            </div>
+                        )}
+                        {tecnicasQ.data && (
+                            <div>
+                                <Label>Benefícios</Label>
+                                <div className="mt-1.5">
+                                    <TecnicasSelect tipo="BENEFICIO" tecnicas={tecnicasQ.data as any[]} value={tecnicaIds} onChange={setTecnicaIds} />
                                 </div>
                             </div>
                         )}

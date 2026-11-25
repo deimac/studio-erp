@@ -13,13 +13,15 @@ async function tecnicaEditavel(ctx: any, id: number) {
     return t as { id: number; dono: number | null };
 }
 
+const tipoInput = z.enum(['TECNICA', 'BENEFICIO']);
+
 async function assertNomeLivre(ctx: any, nome: string, dono: number | null, ignorarId?: number) {
     const [e] = await ctx.db
         .select({ id: tecnicas.id })
         .from(tecnicas)
         .where(and(eq(tecnicas.nome, nome), dono == null ? isNull(tecnicas.id_profissional) : eq(tecnicas.id_profissional, dono)))
         .limit(1);
-    if (e && e.id !== ignorarId) throw new TRPCError({ code: 'CONFLICT', message: 'Já existe uma técnica com esse nome' });
+    if (e && e.id !== ignorarId) throw new TRPCError({ code: 'CONFLICT', message: 'Já existe um item com esse nome' });
 }
 
 export const tecnicasRouter = createTRPCRouter({
@@ -28,20 +30,20 @@ export const tecnicasRouter = createTRPCRouter({
     }),
 
     create: protectedProcedure
-        .input(z.object({ nome: z.string().trim().min(2) }))
+        .input(z.object({ nome: z.string().trim().min(2), tipo: tipoInput.default('TECNICA') }))
         .mutation(async ({ ctx, input }) => {
             const dono = ctx.session.perfil === 'ADMIN' ? null : ctx.session.id;
             await assertNomeLivre(ctx, input.nome, dono);
-            const ids = await ctx.db.insert(tecnicas).values({ nome: input.nome, id_profissional: dono }).$returningId();
+            const ids = await ctx.db.insert(tecnicas).values({ nome: input.nome, tipo: input.tipo, id_profissional: dono }).$returningId();
             return { id: ids[0]?.id };
         }),
 
     update: protectedProcedure
-        .input(z.object({ id: z.number().int().positive(), nome: z.string().trim().min(2) }))
+        .input(z.object({ id: z.number().int().positive(), nome: z.string().trim().min(2), tipo: tipoInput.optional() }))
         .mutation(async ({ ctx, input }) => {
             const t = await tecnicaEditavel(ctx, input.id);
             await assertNomeLivre(ctx, input.nome, t.dono, t.id);
-            await ctx.db.update(tecnicas).set({ nome: input.nome }).where(eq(tecnicas.id, input.id));
+            await ctx.db.update(tecnicas).set({ nome: input.nome, ...(input.tipo ? { tipo: input.tipo } : {}) }).where(eq(tecnicas.id, input.id));
             return { ok: true };
         }),
 
@@ -58,7 +60,7 @@ export const tecnicasRouter = createTRPCRouter({
             if (n > 0) {
                 throw new TRPCError({
                     code: 'CONFLICT',
-                    message: `Não é possível excluir: a técnica está em ${n === 1 ? '1 serviço' : `${n} serviços`}. Remova dos serviços antes.`,
+                    message: `Não é possível excluir: o item está em ${n === 1 ? '1 serviço' : `${n} serviços`}. Remova dos serviços antes.`,
                 });
             }
             await ctx.db.delete(tecnicas).where(eq(tecnicas.id, input.id));

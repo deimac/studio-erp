@@ -38,7 +38,7 @@ function gravarAba(a: Aba) {
  * Serviços em três abas:
  * - Serviços: todos juntos numa lista (o que se vende e agenda), com a página do site como etiqueta;
  * - Páginas do site (admin): as vitrines do site;
- * - Técnicas: etiquetas dos serviços.
+ * - Técnicas e benefícios: escolhidos em cada serviço; a página do site mostra os dos serviços dela.
  */
 export default function Servicos() {
     const { user } = useAuth();
@@ -54,7 +54,7 @@ export default function Servicos() {
     const abas: { id: Aba; rotulo: string }[] = [
         { id: 'servicos', rotulo: 'Serviços' },
         ...(isAdmin ? [{ id: 'paginas' as Aba, rotulo: 'Páginas do site' }] : []),
-        { id: 'tecnicas', rotulo: 'Técnicas' },
+        { id: 'tecnicas', rotulo: 'Técnicas e benefícios' },
     ];
 
     return (
@@ -64,7 +64,7 @@ export default function Servicos() {
                 <p className="text-sm text-gray-500">
                     {aba === 'servicos' && 'O que você vende e agenda, com preço da sessão e pacotes.'}
                     {aba === 'paginas' && 'As páginas que aparecem no site. Os preços vêm dos serviços ligados a cada página.'}
-                    {aba === 'tecnicas' && 'Etiquetas que descrevem os serviços (aparecem no site).'}
+                    {aba === 'tecnicas' && 'Escolhidos em cada serviço. No site aparecem em "Técnicas aplicadas" e "Benefícios".'}
                 </p>
             </div>
 
@@ -324,13 +324,15 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
     const confirm = useConfirm();
     const aberto = true;
     const [nome, setNome] = useState('');
+    const [tipo, setTipo] = useState<'TECNICA' | 'BENEFICIO'>('TECNICA');
     const [editId, setEditId] = useState<number | null>(null);
     const [editNome, setEditNome] = useState('');
+    const [editTipo, setEditTipo] = useState<'TECNICA' | 'BENEFICIO'>('TECNICA');
     const editRef = useRef<HTMLInputElement>(null);
     const tecnicasQ = trpc.tecnicas.list.useQuery();
     const invalidar = () => { utils.tecnicas.list.invalidate(); utils.servicos.list.invalidate(); };
     const createMut = trpc.tecnicas.create.useMutation({
-        onSuccess: () => { setNome(''); invalidar(); toast({ title: 'Técnica adicionada', variant: 'success' }); },
+        onSuccess: () => { setNome(''); invalidar(); toast({ title: tipo === 'BENEFICIO' ? 'Benefício adicionado' : 'Técnica adicionada', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
     const updateMut = trpc.tecnicas.update.useMutation({
@@ -338,7 +340,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
     const deleteMut = trpc.tecnicas.delete.useMutation({
-        onSuccess: () => { invalidar(); toast({ title: 'Técnica removida' }); },
+        onSuccess: () => { invalidar(); toast({ title: 'Removido' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
 
@@ -362,16 +364,17 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
 
     const lista = [...(tecnicasQ.data ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
-    function iniciarEdicao(id: number, atual: string) {
+    function iniciarEdicao(id: number, atual: string, tipoAtual: 'TECNICA' | 'BENEFICIO') {
         setEditId(id);
         setEditNome(atual);
+        setEditTipo(tipoAtual);
         setTimeout(() => editRef.current?.select(), 0);
     }
     function salvarEdicao() {
         const novo = editNome.trim();
         const atual = lista.find((t) => t.id === editId);
-        if (!editId || !novo || novo === atual?.nome) { setEditId(null); return; }
-        updateMut.mutate({ id: editId, nome: novo });
+        if (!editId || !novo || (novo === atual?.nome && editTipo === atual?.tipo)) { setEditId(null); return; }
+        updateMut.mutate({ id: editId, nome: novo, tipo: editTipo });
     }
 
     return (
@@ -384,14 +387,19 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                             const n = nome.trim();
                             if (!n) return;
                             if (lista.some((t) => t.nome.toLowerCase() === n.toLowerCase())) {
-                                toast({ title: 'Essa técnica já existe', variant: 'error' });
+                                toast({ title: 'Esse nome já está cadastrado', variant: 'error' });
                                 return;
                             }
-                            createMut.mutate({ nome: n });
+                            createMut.mutate({ nome: n, tipo });
                         }}
-                        className="flex gap-2"
+                        className="flex flex-wrap gap-2"
                     >
-                        <Input placeholder="Nome da nova técnica" value={nome} onChange={(e) => setNome(e.target.value)} className="max-w-sm" aria-label="Nome da nova técnica" />
+                        <Input placeholder={tipo === 'BENEFICIO' ? 'Ex.: Reduz estresse e ansiedade' : 'Ex.: Ventosaterapia'} value={nome} onChange={(e) => setNome(e.target.value)} className="min-w-0 flex-1 sm:max-w-sm" aria-label="Nome" />
+                        <select aria-label="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value as 'TECNICA' | 'BENEFICIO')}
+                            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm">
+                            <option value="TECNICA">Técnica</option>
+                            <option value="BENEFICIO">Benefício</option>
+                        </select>
                         <Button type="submit" size="sm" className="h-9 shrink-0" disabled={createMut.isPending || !nome.trim()}>
                             <Plus className="mr-1 h-4 w-4" />
                             {createMut.isPending ? 'Adicionando…' : 'Adicionar'}
@@ -401,13 +409,18 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                     {tecnicasQ.isLoading && <p className="text-sm text-gray-400">Carregando…</p>}
                     {!tecnicasQ.isLoading && lista.length === 0 && (
                         <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-gray-500">
-                            Nenhuma técnica ainda. Adicione a primeira acima.
+                            Nada cadastrado ainda. Adicione o primeiro acima.
                         </p>
                     )}
 
-                    {lista.length > 0 && (
+                    {(['TECNICA', 'BENEFICIO'] as const).map((g) => {
+                        const itens = lista.filter((t) => (t.tipo ?? 'TECNICA') === g);
+                        if (!itens.length) return null;
+                        return (
+                            <div key={g} className="space-y-2">
+                                <h3 className="text-sm font-semibold text-gray-700">{g === 'BENEFICIO' ? 'Benefícios' : 'Técnicas'} <span className="font-normal text-gray-400">({itens.length})</span></h3>
                         <ul className="grid grid-cols-1 overflow-hidden rounded-lg border sm:grid-cols-2 lg:grid-cols-3">
-                            {lista.map((t) => {
+                            {itens.map((t) => {
                                 const u = uso.get(t.id);
                                 const n = (u?.ativos ?? 0) + (u?.inativos ?? 0);
                                 const editando = editId === t.id;
@@ -415,6 +428,11 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                     <li key={t.id} className="group -mb-px -mr-px flex min-h-[52px] min-w-0 items-center gap-2 border-b border-r px-3 py-2">
                                         {editando ? (
                                             <form className="flex flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); salvarEdicao(); }}>
+                                                <select aria-label="Tipo" value={editTipo} onChange={(e) => setEditTipo(e.target.value as 'TECNICA' | 'BENEFICIO')}
+                                                    className="h-8 rounded-md border border-gray-200 bg-white px-1 text-xs">
+                                                    <option value="TECNICA">Técnica</option>
+                                                    <option value="BENEFICIO">Benefício</option>
+                                                </select>
                                                 <Input
                                                     ref={editRef}
                                                     value={editNome}
@@ -439,7 +457,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                                     </p>
                                                 </div>
                                                 {podeEditarTecnica(t) && <div className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Renomear ${t.nome}`} title="Renomear" onClick={() => iniciarEdicao(t.id, t.nome)}>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Editar ${t.nome}`} title="Editar" onClick={() => iniciarEdicao(t.id, t.nome, t.tipo === 'BENEFICIO' ? 'BENEFICIO' : 'TECNICA')}>
                                                         <SquarePen className="h-4 w-4 text-blue-600" />
                                                     </Button>
                                                     <Button
@@ -449,7 +467,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                                         disabled={n > 0 || deleteMut.isPending}
                                                         onClick={async () => {
                                                             const ok = await confirm({
-                                                                title: 'Remover técnica',
+                                                                title: 'Remover',
                                                                 description: `Remover "${t.nome}"? Ela não está em nenhum serviço.`,
                                                                 confirmLabel: 'Remover',
                                                                 variant: 'danger',
@@ -466,7 +484,10 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                 );
                             })}
                         </ul>
-                    )}
+                    
+                            </div>
+                        );
+                    })}
                 </CardContent>
             )}
         </Card>

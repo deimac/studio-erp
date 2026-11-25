@@ -190,6 +190,8 @@ export const servicoTecnica = mysqlTable(
     },
     (t) => ({
         pk: primaryKey({ columns: [t.servico_id, t.tecnica_id] }),
+    /** TECNICA (aparece em "Técnicas aplicadas") ou BENEFICIO (em "Benefícios"). */
+    tipo: varchar('tipo', { length: 20 }).notNull().default('TECNICA'),
     }),
 );
 

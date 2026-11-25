@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 type Item = { id: number; nome: string };
+type Tipo = 'TECNICA' | 'BENEFICIO';
 
 type Props = {
     itens: Item[];
@@ -125,24 +126,24 @@ export function SeletorBusca({ itens, value, onChange, rotuloEscolher = 'Escolhe
     );
 }
 
-/** Campos da técnica nova (só o nome), no mesmo lugar da busca. */
-function NovaTecnica({ nome, voltar, criado }: { nome: string; voltar: () => void; criado: (id: number) => void }) {
+/** Campos do item novo (técnica ou benefício), no mesmo lugar da busca. */
+function NovaTecnica({ nome, voltar, criado, tipo }: { nome: string; voltar: () => void; criado: (id: number) => void; tipo: Tipo }) {
     const utils = trpc.useUtils();
     const { toast } = useToast();
     const [valor, setValor] = useState(nome);
     const criarMut = trpc.tecnicas.create.useMutation({
         onSuccess: async (r: { id?: number }) => {
             await utils.tecnicas.list.invalidate();
-            toast({ title: 'Técnica cadastrada', variant: 'success' });
+            toast({ title: tipo === 'BENEFICIO' ? 'Benefício cadastrado' : 'Técnica cadastrada', variant: 'success' });
             if (r.id) criado(r.id);
         },
         onError: (e: any) => toast({ title: e.message, variant: 'error' }),
     });
-    const salvar = () => { if (valor.trim().length >= 2) criarMut.mutate({ nome: valor.trim() }); };
+    const salvar = () => { if (valor.trim().length >= 2) criarMut.mutate({ nome: valor.trim(), tipo }); };
     return (
         <div className="space-y-2 rounded-md border border-dashed p-3">
-            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">Nova técnica</p>
-            <Input autoFocus placeholder="Nome da técnica" value={valor} onChange={(e) => setValor(e.target.value)}
+            <p className="text-xs font-medium text-[hsl(var(--muted-foreground))]">{tipo === 'BENEFICIO' ? 'Novo benefício' : 'Nova técnica'}</p>
+            <Input autoFocus placeholder={tipo === 'BENEFICIO' ? 'Ex.: Reduz estresse e ansiedade' : 'Ex.: Ventosaterapia'} value={valor} onChange={(e) => setValor(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); salvar(); } }} />
             <div className="flex justify-end gap-2">
                 <Button type="button" size="sm" variant="ghost" onClick={voltar}>Voltar</Button>
@@ -154,13 +155,20 @@ function NovaTecnica({ nome, voltar, criado }: { nome: string; voltar: () => voi
     );
 }
 
-/** Técnicas do serviço. */
-export function TecnicasSelect({ tecnicas, value, onChange }: { tecnicas: Item[]; value: number[]; onChange: (ids: number[]) => void }) {
+/**
+ * Técnicas OU benefícios do serviço (mesmo cadastro, separados pelo tipo).
+ * `value` traz os dois tipos juntos; aqui só se mexe nos do tipo informado.
+ */
+export function TecnicasSelect({ tecnicas, value, onChange, tipo = 'TECNICA' }: { tecnicas: (Item & { tipo?: string })[]; value: number[]; onChange: (ids: number[]) => void; tipo?: Tipo }) {
+    const doTipo = tecnicas.filter((t) => (t.tipo ?? 'TECNICA') === tipo);
+    const ids = new Set(doTipo.map((t) => t.id));
+    const beneficio = tipo === 'BENEFICIO';
     return (
-        <SeletorBusca itens={tecnicas} value={value} onChange={onChange}
-            rotuloEscolher={tecnicas.length ? 'Escolher técnicas' : 'Adicionar técnica'}
-            placeholder="Buscar técnica…"
-            vazio={tecnicas.length ? 'Nenhuma técnica com esse nome.' : 'Nenhuma técnica cadastrada ainda.'}
-            formNovo={(p) => <NovaTecnica {...p} />} />
+        <SeletorBusca itens={doTipo} value={value.filter((id) => ids.has(id))}
+            onChange={(novos) => onChange([...value.filter((id) => !ids.has(id)), ...novos])}
+            rotuloEscolher={beneficio ? 'Escolher benefícios' : 'Escolher técnicas'}
+            placeholder={beneficio ? 'Buscar benefício…' : 'Buscar técnica…'}
+            vazio={beneficio ? 'Nenhum benefício com esse nome.' : 'Nenhuma técnica com esse nome.'}
+            formNovo={(p) => <NovaTecnica {...p} tipo={tipo} />} />
     );
 }

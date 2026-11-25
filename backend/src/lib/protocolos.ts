@@ -42,22 +42,17 @@ export function parseIds(valor: unknown): number[] {
 }
 
 /**
- * "O que inclui" no site: técnicas dos serviços (sem as ocultas, sem repetir,
- * na ordem dos serviços) e depois o que foi digitado à mão.
+ * Lista do site ("Técnicas aplicadas" ou "Benefícios"): itens marcados nos serviços
+ * da página, na ordem dos serviços, sem os que a página escondeu e sem repetir.
  */
-export function montarInclui(
-    tecnicasDosServicos: Array<{ id: number; nome: string }>,
-    ocultas: number[],
-    digitados: string[],
-): string[] {
+export function montarLista(itensDosServicos: Array<{ id: number; nome: string }>, ocultos: number[]): string[] {
     const vistos = new Set<string>();
-    const tecnicas: string[] = [];
-    for (const t of tecnicasDosServicos) {
+    const lista: string[] = [];
+    for (const t of itensDosServicos) {
         const chave = t.nome.trim().toLowerCase();
-        if (ocultas.includes(t.id) || !chave || vistos.has(chave)) continue;
+        if (ocultos.includes(t.id) || !chave || vistos.has(chave)) continue;
         vistos.add(chave);
-        tecnicas.push(t.nome.trim());
+        lista.push(t.nome.trim());
     }
-    const normal = (x: string) => x.trim().replace(/\.$/, '').toLowerCase();
-    return [...tecnicas, ...digitados.filter((d) => !vistos.has(normal(d)))];
+    return lista;
 }

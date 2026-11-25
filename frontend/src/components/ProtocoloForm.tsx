@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { SeletorBusca } from '@/components/TecnicasSelect';
 import { ServicoForm } from '@/components/ServicoForm';
-import { ListEditor } from '@/components/ui/list-editor';
 import { ImageUpload } from '@/components/ImageUpload';
 import { useToast } from '@/hooks/useToast';
 import { cn } from '@/lib/utils';
@@ -76,7 +75,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
     const paginasQ = trpc.protocolos.list.useQuery(undefined, { enabled: open });
     /** Técnicas marcadas nos serviços desta página (na ordem dos serviços, sem repetir). */
     const tecnicasDosServicos = servicoIds
-        .flatMap((id) => (((servicosQ.data ?? []) as any[]).find((s) => s.id === id)?.tecnicas ?? []) as { id: number; nome: string }[])
+        .flatMap((id) => (((servicosQ.data ?? []) as any[]).find((s) => s.id === id)?.tecnicas ?? []) as { id: number; nome: string; tipo?: string }[])
         .filter((t, i, l) => l.findIndex((x) => x.id === t.id) === i);
     const nomePagina = (id: number | null) => ((paginasQ.data ?? []) as any[]).find((p) => p.id === id)?.nome as string | undefined;
 
@@ -123,14 +122,11 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
             toast({ title: 'Informe o nome da página', variant: 'error' });
             return;
         }
-        const limpa = (l: string[]) => l.map((x) => x.trim()).filter(Boolean);
         const data = {
             nome: f.nome.trim(),
             slug: f.slug.trim() || undefined,
             subtitulo: f.subtitulo.trim() || null,
             descricao: f.descricao.trim() || null,
-            inclui: limpa(f.inclui),
-            beneficios: limpa(f.beneficios),
             aviso: f.aviso.trim() || null,
             frase_final: f.frase_final.trim() || null,
             icone: f.icone || null,
@@ -202,28 +198,28 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
                                 onNovo={(nome) => setNovoServico(nome)} />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div>
-                                <Label>O que inclui</Label>
-                                {tecnicasDosServicos.length > 0 ? (
-                                    <div className="mt-1 space-y-1">
-                                        {tecnicasDosServicos.map((t) => (
-                                            <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-gray-50">
-                                                <input type="checkbox" checked={!ocultas.includes(t.id)}
-                                                    onChange={(e) => setOcultas((l) => (e.target.checked ? l.filter((x) => x !== t.id) : [...l, t.id]))} />
-                                                {t.nome}
-                                            </label>
-                                        ))}
-                                        <p className="px-1 text-xs text-gray-500">Técnicas dos serviços desta página. Desmarque o que não quer mostrar.</p>
+                            {([['TECNICA', 'Técnicas aplicadas', 'técnicas'], ['BENEFICIO', 'Benefícios', 'benefícios']] as const).map(([tipo, titulo, nomeTipo]) => {
+                                const itens = tecnicasDosServicos.filter((t) => (t.tipo ?? 'TECNICA') === tipo);
+                                return (
+                                    <div key={tipo}>
+                                        <Label>{titulo}</Label>
+                                        {itens.length > 0 ? (
+                                            <div className="mt-1 space-y-1">
+                                                {itens.map((t) => (
+                                                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-gray-50">
+                                                        <input type="checkbox" checked={!ocultas.includes(t.id)}
+                                                            onChange={(e) => setOcultas((l) => (e.target.checked ? l.filter((x) => x !== t.id) : [...l, t.id]))} />
+                                                        {t.nome}
+                                                    </label>
+                                                ))}
+                                                <p className="px-1 text-xs text-gray-500">Vêm dos serviços desta página. Desmarque o que não quer mostrar.</p>
+                                            </div>
+                                        ) : (
+                                            <p className="mt-1 text-xs text-gray-500">Marque {nomeTipo} nos serviços desta página para aparecerem aqui.</p>
+                                        )}
                                     </div>
-                                ) : (
-                                    <p className="mt-1 text-xs text-gray-500">As técnicas dos serviços desta página aparecem aqui.</p>
-                                )}
-                                <ListEditor value={f.inclui} onChange={(v) => set('inclui', v)} placeholder="Outro item" />
-                            </div>
-                            <div>
-                                <Label>Benefícios</Label>
-                                <ListEditor value={f.beneficios} onChange={(v) => set('beneficios', v)} />
-                            </div>
+                                );
+                            })}
                         </div>
                         <div>
                             <Label>Aviso legal</Label>

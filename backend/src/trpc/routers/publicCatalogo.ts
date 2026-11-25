@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
-import { servicos, servicoTecnica, tecnicas, pacotes, protocolos } from '../../drizzle/schema';
-import { menorPreco, montarInclui, parseIds, parseLista } from '../../lib/protocolos';
+import { servicos, servicoTecnica, tecnicas, pacotes, protocolos, unidades } from '../../drizzle/schema';
+import { menorPreco, montarLista, parseIds, parseLista } from '../../lib/protocolos';
 import { createTRPCRouter, publicProcedure } from '../trpc';
 import { lerSiteConfig } from './siteConfig';
 
@@ -81,26 +81,45 @@ export const publicCatalogoRouter = createTRPCRouter({
         if (!p) return null;
         const modalidades = await carregarModalidades(ctx.db, [p.id]);
         const idsServicos = modalidades.map((m: any) => m.id);
-        const tecnicasDosServicos = idsServicos.length
+        const itensDosServicos = idsServicos.length
             ? await ctx.db
-                  .select({ servico_id: servicoTecnica.servico_id, id: tecnicas.id, nome: tecnicas.nome })
+                  .select({ servico_id: servicoTecnica.servico_id, id: tecnicas.id, nome: tecnicas.nome, tipo: tecnicas.tipo })
                   .from(servicoTecnica)
                   .innerJoin(tecnicas, eq(tecnicas.id, servicoTecnica.tecnica_id))
                   .where(inArray(servicoTecnica.servico_id, idsServicos))
-                  .orderBy(asc(tecnicas.nome))
+                  .orderBy(asc(tecnicas.id))
             : [];
-        // Na ordem dos serviços na página
-        const ordenadas = idsServicos.flatMap((id: number) => tecnicasDosServicos.filter((t) => t.servico_id === id));
+        // Na ordem dos serviços na página; o que vem de cada serviço, na ordem do cadastro
+        const ordenados = (idsServicos as number[]).flatMap((id) => itensDosServicos.filter((t) => t.servico_id === id));
+        const ocultos = parseIds(p.tecnicas_ocultas);
         const { tecnicas_ocultas, ...resto } = p;
         return {
             ...resto,
-            inclui: montarInclui(ordenadas, parseIds(tecnicas_ocultas), parseLista(p.inclui)),
-            beneficios: parseLista(p.beneficios),
+            // "Técnicas aplicadas" e "Benefícios" vêm do que está marcado nos serviços
+            inclui: montarLista(ordenados.filter((t) => t.tipo !== 'BENEFICIO'), ocultos),
+            beneficios: montarLista(ordenados.filter((t) => t.tipo === 'BENEFICIO'), ocultos),
             modalidades: modalidades.map(({ id_protocolo, ...m }: any) => m),
         };
     }),
 
     getSiteConfig: publicProcedure.query(({ ctx }) => lerSiteConfig(ctx.db)),
+
+    /** Unidades ativas com contato preenchido, para o rodapé e o WhatsApp do site. A primeira é a principal. */
+    listUnidades: publicProcedure.query(async ({ ctx }) => {
+        const rows = await ctx.db
+            .select({
+                id: unidades.id,
+                nome: unidades.nome,
+                endereco: unidades.endereco,
+                bairro: unidades.bairro,
+                cidade: unidades.cidade,
+                whatsapp: unidades.whatsapp,
+            })
+            .from(unidades)
+            .where(eq(unidades.ativo, true))
+            .orderBy(asc(unidades.id));
+        return rows.filter((u) => u.endereco || u.whatsapp);
+    }),
 
     /**
      * Lista serviços ativos com seus pacotes ativos vinculados.

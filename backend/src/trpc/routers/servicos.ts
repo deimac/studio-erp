@@ -57,6 +57,7 @@ export const servicosRouter = createTRPCRouter({
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
                     tecnicaNome: tecnicas.nome,
+                    tecnicaTipo: tecnicas.tipo,
                 })
                 .from(servicos)
                 .leftJoin(usuarios, eq(usuarios.id, servicos.id_profissional))
@@ -86,11 +87,11 @@ export const servicosRouter = createTRPCRouter({
                         profissional_nome: r.profissional_nome,
                         created_at: r.created_at,
                         updated_at: r.updated_at,
-                        tecnicas: [] as Array<{ id: number; nome: string }>,
+                        tecnicas: [] as Array<{ id: number; nome: string; tipo: string }>,
                     });
                 }
                 if (r.tecnicaId && r.tecnicaNome) {
-                    map.get(r.servicoId)!.tecnicas.push({ id: r.tecnicaId, nome: r.tecnicaNome });
+                    map.get(r.servicoId)!.tecnicas.push({ id: r.tecnicaId, nome: r.tecnicaNome, tipo: r.tecnicaTipo ?? 'TECNICA' });
                 }
             }
             return Array.from(map.values());
@@ -119,6 +120,7 @@ export const servicosRouter = createTRPCRouter({
                     updated_at: servicos.updated_at,
                     tecnicaId: tecnicas.id,
                     tecnicaNome: tecnicas.nome,
+                    tecnicaTipo: tecnicas.tipo,
                 })
                 .from(servicos)
                 .leftJoin(usuarios, eq(usuarios.id, servicos.id_profissional))
@@ -150,7 +152,7 @@ export const servicosRouter = createTRPCRouter({
                 updated_at: base.updated_at,
                 tecnicas: rows
                     .filter((r) => r.tecnicaId && r.tecnicaNome)
-                    .map((r) => ({ id: r.tecnicaId as number, nome: r.tecnicaNome as string })),
+                    .map((r) => ({ id: r.tecnicaId as number, nome: r.tecnicaNome as string, tipo: (r.tecnicaTipo as string) ?? 'TECNICA' })),
             };
         }),
 

@@ -106,7 +106,7 @@ function Conteudo({ p }: { p: ProtocoloDetalhe }) {
                             {paragrafos.map((t, i) => <p key={i}>{t}</p>)}
                         </div>
                     )}
-                    {p.inclui.length > 0 && <Lista titulo="O que inclui" itens={p.inclui} icone={ListChecks} />}
+                    {p.inclui.length > 0 && <Lista titulo="Técnicas aplicadas" itens={p.inclui} icone={ListChecks} />}
                 </div>
             </section>
 
