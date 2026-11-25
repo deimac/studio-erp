@@ -64,6 +64,21 @@
     background: hsl(var(--muted));
 }
 
+/* Visão dia: horários vazios são tocáveis para agendar */
+.agenda-studio .rbc-day-slot .rbc-time-slot {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Visão dia no celular: linhas mais altas para acertar o toque no horário */
+.agenda-dia-movel .rbc-timeslot-group {
+    min-height: 88px;
+}
+.agenda-dia-movel .rbc-day-slot .rbc-time-slot:active {
+    background: hsl(var(--primary) / 0.12);
+}
+
 /* Fora do expediente: cinza com hachura leve */
 .agenda-studio .rbc-fora-expediente,
 .agenda-legenda-fora {

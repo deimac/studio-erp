@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-calendar';
 import withDragAndDrop, { type EventInteractionArgs } from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -289,6 +289,30 @@ export default function Agenda() {
         });
     }
 
+    // Visão dia: um toque simples num horário vazio já abre o agendamento.
+    // No computador o clique já é tratado pela seleção do calendário; no celular ela só reage
+    // a toque longo, então o toque curto é tratado aqui.
+    const novoNoSlotRef = useRef(novoNoSlot);
+    novoNoSlotRef.current = novoNoSlot;
+    const ultimoToque = useRef(0);
+    const SlotTocavel = useMemo(
+        () =>
+            function SlotTocavel({ children, value, resource }: { children?: ReactNode; value: Date; resource?: number | string }) {
+                if (!isValidElement(children)) return <>{children}</>;
+                return cloneElement(children as ReactElement<any>, {
+                    onTouchStart: () => { ultimoToque.current = Date.now(); },
+                    onClick: (ev: React.MouseEvent<HTMLElement>) => {
+                        if (Date.now() - ultimoToque.current > 1000) return;
+                        if (!ev.currentTarget.closest('.rbc-day-slot')) return;
+                        ultimoToque.current = 0;
+                        const fim = new Date(value.getTime() + 15 * 60_000);
+                        novoNoSlotRef.current({ start: value, end: fim, slots: [value], action: 'click', resourceId: resource } as SlotInfo);
+                    },
+                });
+            },
+        [],
+    );
+
     const removerBloqueio = trpc.agenda.bloqueios.delete.useMutation({
         onSuccess: () => { utils.agenda.eventos.invalidate(); toast({ title: 'Bloqueio removido', variant: 'success' }); },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
@@ -425,7 +449,7 @@ export default function Agenda() {
             step={passoMin <= 15 ? passoMin : 15}
             timeslots={passoMin <= 15 ? Math.round(60 / passoMin) : 4}
             scrollToTime={new Date(2000, 0, 1, Math.max(minHora.getHours(), new Date().getHours() - 1))}
-            selectable
+            selectable={view === 'day'}
             longPressThreshold={250}
             onSelectSlot={novoNoSlot}
             onSelectEvent={(e) => selecionar(e)}
@@ -454,6 +478,7 @@ export default function Agenda() {
                 };
             }}
             components={{
+                ...(view === 'day' ? { timeSlotWrapper: SlotTocavel as any } : {}),
                 event: ({ event }: { event: Evento }) => {
                     if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
                     const a = event.atendimento!;
@@ -518,7 +543,7 @@ export default function Agenda() {
                 {view === 'day' ? (
                     <div className="space-y-2">
                         <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} />
-                        <div className={cn('agenda-studio h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+                        <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
                             {calendario}
                         </div>
                     </div>
