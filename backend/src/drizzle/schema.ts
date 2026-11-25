@@ -145,6 +145,8 @@ export const protocolos = mysqlTable('protocolos', {
     descricao: text('descricao'),
     inclui: text('inclui'), // JSON string[]
     beneficios: text('beneficios'), // JSON string[]
+    /** Técnicas dos serviços que esta página não mostra em "O que inclui" (JSON number[]). */
+    tecnicas_ocultas: text('tecnicas_ocultas'),
     aviso: text('aviso'),
     frase_final: varchar('frase_final', { length: 255 }),
     icone: varchar('icone', { length: 50 }),

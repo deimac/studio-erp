@@ -21,6 +21,7 @@ export type Protocolo = {
     subtitulo: string | null;
     descricao: string | null;
     inclui: string[];
+    tecnicas_ocultas?: number[];
     beneficios: string[];
     aviso: string | null;
     frase_final: string | null;
@@ -68,10 +69,15 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
     const setOpen = (v: boolean) => { if (!controlado) setOpenLocal(v); onOpenChange?.(v); };
     const [f, setF] = useState(() => vazio());
     const [servicoIds, setServicoIds] = useState<number[]>([]);
+    const [ocultas, setOcultas] = useState<number[]>([]);
     const [novoServico, setNovoServico] = useState<string | null>(null);
     const utils = trpc.useUtils();
     const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false }, { enabled: open });
     const paginasQ = trpc.protocolos.list.useQuery(undefined, { enabled: open });
+    /** Técnicas marcadas nos serviços desta página (na ordem dos serviços, sem repetir). */
+    const tecnicasDosServicos = servicoIds
+        .flatMap((id) => (((servicosQ.data ?? []) as any[]).find((s) => s.id === id)?.tecnicas ?? []) as { id: number; nome: string }[])
+        .filter((t, i, l) => l.findIndex((x) => x.id === t.id) === i);
     const nomePagina = (id: number | null) => ((paginasQ.data ?? []) as any[]).find((p) => p.id === id)?.nome as string | undefined;
 
     function vazio() {
@@ -101,6 +107,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
             permite_vale_presente: protocolo.permite_vale_presente, ativo: protocolo.ativo,
         } : { ...vazio(), nome: nomeInicial ?? '' });
         setServicoIds(protocolo?.servicos?.map((s) => s.id) ?? []);
+        setOcultas(protocolo?.tecnicas_ocultas ?? []);
         setOpen(true);
     }
 
@@ -131,6 +138,8 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
             permite_vale_presente: f.permite_vale_presente,
             ativo: f.ativo,
             servico_ids: servicoIds,
+            // Só manda quando a lista de serviços carregou (senão perderia as desmarcadas)
+            tecnicas_ocultas: servicosQ.data ? ocultas.filter((id) => tecnicasDosServicos.some((t) => t.id === id)) : undefined,
         };
         if (protocolo) updateMut.mutate({ id: protocolo.id, ...data });
         else createMut.mutate(data);
@@ -182,10 +191,34 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
                             <Label>Imagem principal</Label>
                             <ImageUpload value={f.imagem_url} onChange={(url) => set('imagem_url', url)} hint="Vertical (4:5) fica melhor • Máx. 5 MB" />
                         </div>
+                        <div>
+                            <Label>Serviços nesta página</Label>
+                            <p className="mb-1.5 text-xs text-gray-500">Os preços e pacotes deles aparecem abaixo da página, no site.</p>
+                            <SeletorBusca
+                                itens={((servicosQ.data ?? []) as any[]).map((s) => ({ id: s.id, nome: s.nome, id_protocolo: s.id_protocolo }))}
+                                value={servicoIds} onChange={setServicoIds}
+                                rotuloEscolher="Adicionar serviço" placeholder="Buscar serviço…" vazio="Nenhum serviço com esse nome."
+                                detalhe={(s: any) => (s.id_protocolo && s.id_protocolo !== protocolo?.id && !servicoIds.includes(s.id) ? `em ${nomePagina(s.id_protocolo) ?? 'outra página'}` : undefined)}
+                                onNovo={(nome) => setNovoServico(nome)} />
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <Label>O que inclui</Label>
-                                <ListEditor value={f.inclui} onChange={(v) => set('inclui', v)} />
+                                {tecnicasDosServicos.length > 0 ? (
+                                    <div className="mt-1 space-y-1">
+                                        {tecnicasDosServicos.map((t) => (
+                                            <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-gray-50">
+                                                <input type="checkbox" checked={!ocultas.includes(t.id)}
+                                                    onChange={(e) => setOcultas((l) => (e.target.checked ? l.filter((x) => x !== t.id) : [...l, t.id]))} />
+                                                {t.nome}
+                                            </label>
+                                        ))}
+                                        <p className="px-1 text-xs text-gray-500">Técnicas dos serviços desta página. Desmarque o que não quer mostrar.</p>
+                                    </div>
+                                ) : (
+                                    <p className="mt-1 text-xs text-gray-500">As técnicas dos serviços desta página aparecem aqui.</p>
+                                )}
+                                <ListEditor value={f.inclui} onChange={(v) => set('inclui', v)} placeholder="Outro item" />
                             </div>
                             <div>
                                 <Label>Benefícios</Label>
@@ -229,16 +262,6 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
                                     Ativo (aparece no site)
                                 </label>
                             </div>
-                        </div>
-                        <div>
-                            <Label>Serviços nesta página</Label>
-                            <p className="mb-1.5 text-xs text-gray-500">Os preços e pacotes deles aparecem abaixo da página, no site.</p>
-                            <SeletorBusca
-                                itens={((servicosQ.data ?? []) as any[]).map((s) => ({ id: s.id, nome: s.nome, id_protocolo: s.id_protocolo }))}
-                                value={servicoIds} onChange={setServicoIds}
-                                rotuloEscolher="Adicionar serviço" placeholder="Buscar serviço…" vazio="Nenhum serviço com esse nome."
-                                detalhe={(s: any) => (s.id_protocolo && s.id_protocolo !== protocolo?.id && !servicoIds.includes(s.id) ? `em ${nomePagina(s.id_protocolo) ?? 'outra página'}` : undefined)}
-                                onNovo={(nome) => setNovoServico(nome)} />
                         </div>
                         <Rodape>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { servicos, servicoTecnica, tecnicas, pacotes, protocolos } from '../../drizzle/schema';
-import { menorPreco, parseLista } from '../../lib/protocolos';
+import { menorPreco, montarInclui, parseIds, parseLista } from '../../lib/protocolos';
 import { createTRPCRouter, publicProcedure } from '../trpc';
 import { lerSiteConfig } from './siteConfig';
 
@@ -80,9 +80,21 @@ export const publicCatalogoRouter = createTRPCRouter({
             .limit(1);
         if (!p) return null;
         const modalidades = await carregarModalidades(ctx.db, [p.id]);
+        const idsServicos = modalidades.map((m: any) => m.id);
+        const tecnicasDosServicos = idsServicos.length
+            ? await ctx.db
+                  .select({ servico_id: servicoTecnica.servico_id, id: tecnicas.id, nome: tecnicas.nome })
+                  .from(servicoTecnica)
+                  .innerJoin(tecnicas, eq(tecnicas.id, servicoTecnica.tecnica_id))
+                  .where(inArray(servicoTecnica.servico_id, idsServicos))
+                  .orderBy(asc(tecnicas.nome))
+            : [];
+        // Na ordem dos serviços na página
+        const ordenadas = idsServicos.flatMap((id: number) => tecnicasDosServicos.filter((t) => t.servico_id === id));
+        const { tecnicas_ocultas, ...resto } = p;
         return {
-            ...p,
-            inclui: parseLista(p.inclui),
+            ...resto,
+            inclui: montarInclui(ordenadas, parseIds(tecnicas_ocultas), parseLista(p.inclui)),
             beneficios: parseLista(p.beneficios),
             modalidades: modalidades.map(({ id_protocolo, ...m }: any) => m),
         };

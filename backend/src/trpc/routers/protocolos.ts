@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { pacotes, protocolos, servicos } from '../../drizzle/schema';
-import { parseLista, slugify } from '../../lib/protocolos';
+import { parseIds, parseLista, slugify } from '../../lib/protocolos';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 
 const protocoloInput = z.object({
@@ -11,6 +11,7 @@ const protocoloInput = z.object({
     subtitulo: z.string().nullable().optional(),
     descricao: z.string().nullable().optional(),
     inclui: z.array(z.string()).optional(),
+    tecnicas_ocultas: z.array(z.number().int().positive()).optional(),
     beneficios: z.array(z.string()).optional(),
     aviso: z.string().nullable().optional(),
     frase_final: z.string().nullable().optional(),
@@ -75,14 +76,14 @@ async function ligarServicos(db: any, idProtocolo: number, ids: number[], nomeAn
 type ProtocoloRow = typeof protocolos.$inferSelect;
 
 export function serializarProtocolo(p: ProtocoloRow) {
-    return { ...p, inclui: parseLista(p.inclui), beneficios: parseLista(p.beneficios) };
+    return { ...p, inclui: parseLista(p.inclui), beneficios: parseLista(p.beneficios), tecnicas_ocultas: parseIds(p.tecnicas_ocultas) };
 }
 
 function paraBanco(input: Partial<z.infer<typeof protocoloInput>>) {
     const set: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(input)) {
         if (v === undefined) continue;
-        set[k] = k === 'inclui' || k === 'beneficios' ? JSON.stringify(v) : v;
+        set[k] = k === 'inclui' || k === 'beneficios' || k === 'tecnicas_ocultas' ? JSON.stringify(v) : v;
     }
     if (typeof input.slug === 'string') set.slug = slugify(input.slug);
     return set;

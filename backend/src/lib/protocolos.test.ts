@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { menorPreco, parseLista, slugify } from './protocolos';
+import { menorPreco, parseLista, slugify, montarInclui } from './protocolos';
 
 describe('slugify', () => {
     it('remove acentos e espaços', () => {
@@ -28,5 +28,16 @@ describe('menorPreco', () => {
     });
     it('retorna null sem serviços', () => {
         expect(menorPreco([])).toBeNull();
+    });
+});
+
+describe('montarInclui', () => {
+    const t = (id: number, nome: string) => ({ id, nome });
+    it('técnicas primeiro, sem as ocultas nem repetidas, depois o digitado', () => {
+        expect(montarInclui([t(1, 'Ventosaterapia'), t(2, 'Liberação miofascial'), t(1, 'Ventosaterapia')], [2], ['Chá de boas-vindas.']))
+            .toEqual(['Ventosaterapia', 'Chá de boas-vindas.']);
+    });
+    it('não repete um texto digitado igual a uma técnica', () => {
+        expect(montarInclui([t(1, 'Ventosaterapia')], [], ['ventosaterapia.', 'Outro'])).toEqual(['Ventosaterapia', 'Outro']);
     });
 });
