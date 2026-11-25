@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { calcularEconomia, formatBRL, formatDuracoes } from './format';
-import { whatsappUrl } from './whatsapp';
+import { formatarTelefone, whatsappUrl } from './whatsapp';
 
 const n = (s: string) => s.replace(/ /g, ' ');
 
@@ -31,15 +31,28 @@ describe('formatDuracoes', () => {
 });
 
 describe('whatsappUrl', () => {
-    it('usa o número da Tayna', () => {
-        expect(whatsappUrl({})).toMatch(/^https:\/\/wa\.me\/5543998468294\?text=/);
+    const contato = { numero: '+5543998468294', nome: 'Tayna' };
+    it('usa o número e o nome configurados', () => {
+        expect(whatsappUrl({}, contato)).toMatch(/^https:\/\/wa\.me\/5543998468294\?text=/);
+        expect(decodeURIComponent(whatsappUrl({}, contato))).toContain('Olá, Tayna!');
+    });
+    it('sem nome nem número continua funcionando', () => {
+        const url = whatsappUrl({}, {});
+        expect(url).toMatch(/^https:\/\/wa\.me\/\?text=/);
+        expect(decodeURIComponent(url)).toContain('Olá! Gostaria');
     });
     it('descreve pacote, protocolo e modalidade', () => {
-        expect(decodeURIComponent(whatsappUrl({ protocolo: 'Lipedema', modalidade: 'Pernas', pacote: { sessoes: 8 } })))
+        expect(decodeURIComponent(whatsappUrl({ protocolo: 'Lipedema', modalidade: 'Pernas', pacote: { sessoes: 8 } }, contato)))
             .toContain('pacote de 8 sessões de Lipedema – Pernas');
     });
     it('pede vale-presente', () => {
-        expect(decodeURIComponent(whatsappUrl({ protocolo: 'Ritual de Pausa', valePresente: true })))
+        expect(decodeURIComponent(whatsappUrl({ protocolo: 'Ritual de Pausa', valePresente: true }, contato)))
             .toContain('vale-presente');
     });
+});
+
+describe('formatarTelefone', () => {
+    it('formata celular brasileiro', () => expect(formatarTelefone('+5543998468294')).toBe('(43) 99846-8294'));
+    it('formata fixo brasileiro', () => expect(formatarTelefone('+554332221111')).toBe('(43) 3222-1111'));
+    it('deixa outros países como estão', () => expect(formatarTelefone('+14155550100')).toBe('+14155550100'));
 });

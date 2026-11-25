@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import type { ProtocoloResumo } from '@/lib/catalogo';
 import { useReveal } from '@/lib/useReveal';
 import { formatDuracoes } from '@/lib/format';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 
 // Depoimentos ILUSTRATIVOS — substituir por depoimentos reais (ver PRODUCT.md).
 const DEPOIMENTOS = [
@@ -13,6 +13,7 @@ const DEPOIMENTOS = [
 ];
 
 export default function ValePresente({ protocolo }: { protocolo?: ProtocoloResumo }) {
+    const whatsappUrl = useWhatsapp();
     const ref = useReveal<HTMLElement>();
     const [i, setI] = useState(0);
     const d = DEPOIMENTOS[i];

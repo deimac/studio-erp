@@ -1,7 +1,7 @@
 import { ArrowRight, GraduationCap, HeartHandshake, Sparkles } from 'lucide-react';
 import { useReveal } from '@/lib/useReveal';
 import { resolveImageUrl } from '@/lib/media';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 
 const CREDS = [
     { icone: Sparkles, titulo: 'Técnica em Estética', texto: 'Formação profissional em técnicas estéticas avançadas.' },
@@ -10,6 +10,7 @@ const CREDS = [
 ];
 
 export default function Sobre({ imagem }: { imagem?: string }) {
+    const whatsappUrl = useWhatsapp();
     const ref = useReveal<HTMLElement>();
     return (
         <section className="about reveal" id="sobre" ref={ref}>

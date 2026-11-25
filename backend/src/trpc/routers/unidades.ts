@@ -1,5 +1,7 @@
+import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { normalizarTelefone } from '../../lib/telefone';
 import { unidades } from '../../drizzle/schema';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
@@ -22,11 +24,23 @@ export const unidadesRouter = createTRPCRouter({
             id: z.number().int().positive(),
             nome: z.string().min(2).optional(),
             ativo: z.boolean().optional(),
+            endereco: z.string().max(200).nullable().optional(),
+            bairro: z.string().max(120).nullable().optional(),
+            cidade: z.string().max(120).nullable().optional(),
+            whatsapp: z.string().max(30).nullable().optional(),
         }))
         .mutation(async ({ ctx, input }) => {
             const set: Record<string, any> = { updated_at: new Date() };
             if (input.nome !== undefined) set.nome = input.nome;
             if (input.ativo !== undefined) set.ativo = input.ativo;
+            for (const campo of ['endereco', 'bairro', 'cidade'] as const) {
+                if (input[campo] !== undefined) set[campo] = input[campo]?.trim() || null;
+            }
+            if (input.whatsapp !== undefined) {
+                const tel = normalizarTelefone(input.whatsapp);
+                if (tel === undefined) throw new TRPCError({ code: 'BAD_REQUEST', message: 'WhatsApp inválido. Confira o DDD e o número.' });
+                set.whatsapp = tel;
+            }
             await ctx.db.update(unidades).set(set).where(eq(unidades.id, input.id));
             return { ok: true };
         }),

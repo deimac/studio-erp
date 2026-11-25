@@ -8,7 +8,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/useToast';
-import { SquarePen, Trash2 } from 'lucide-react';
+import { MapPin, SquarePen, Trash2 } from 'lucide-react';
+import { TelefoneInput } from '@/components/TelefoneInput';
 import { ImageUpload } from '@/components/ImageUpload';
 import { Label } from '@/components/ui/label';
 import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
@@ -35,8 +36,9 @@ export default function Configuracoes() {
                 <TabsContent value="formas" className="mt-4">
                     <FormasPagamentoPanel />
                 </TabsContent>
-                <TabsContent value="site" className="mt-4">
+                <TabsContent value="site" className="mt-4 space-y-4">
                     <SitePanel />
+                    <RodapePanel />
                 </TabsContent>
                 <TabsContent value="unidades" className="mt-4">
                     <UnidadesPanel />
@@ -219,6 +221,7 @@ function UnidadesPanel() {
     const [nome, setNome] = useState('');
     const nomeInputRef = useRef<HTMLInputElement>(null);
     const unidsQ = trpc.unidades.list.useQuery();
+    const [contatoDe, setContatoDe] = useState<Unidade | null>(null);
 
     const createMut = trpc.unidades.create.useMutation({
         onSuccess: () => { setNome(''); utils.unidades.list.invalidate(); toast({ title: 'Unidade criada', variant: 'success' }); },
@@ -266,6 +269,7 @@ function UnidadesPanel() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
+                            <TableHead className="hidden sm:table-cell">No site</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -274,6 +278,11 @@ function UnidadesPanel() {
                         {unidsQ.data?.map((u) => (
                             <TableRow key={u.id}>
                                 <TableCell className="font-medium">{u.nome}</TableCell>
+                                <TableCell className="hidden text-sm text-gray-500 sm:table-cell">
+                                    {u.endereco || u.whatsapp
+                                        ? [u.endereco, u.cidade].filter(Boolean).join(' · ') || 'Só WhatsApp'
+                                        : <button type="button" className="text-[hsl(var(--primary))] underline-offset-2 hover:underline" onClick={() => setContatoDe(u)}>Preencher endereço</button>}
+                                </TableCell>
                                 <TableCell>
                                     <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativa' : 'Inativa'}</Badge>
                                 </TableCell>
@@ -291,6 +300,9 @@ function UnidadesPanel() {
                                     }}>
                                         <SquarePen className="w-4 h-4 text-blue-600" />
                                     </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0" title="Endereço e WhatsApp" onClick={() => setContatoDe(u)}>
+                                        <MapPin className="w-4 h-4 text-blue-600" />
+                                    </Button>
                                     <Button variant="ghost" size="sm" className="text-xs" onClick={() => updateMut.mutate({ id: u.id, ativo: !u.ativo })}>
                                         {u.ativo ? 'Desativar' : 'Ativar'}
                                     </Button>
@@ -298,12 +310,68 @@ function UnidadesPanel() {
                             </TableRow>
                         ))}
                         {unidsQ.data?.length === 0 && (
-                            <TableRow><TableCell colSpan={3} className="text-center text-gray-400 py-6">Nenhuma unidade.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-6">Nenhuma unidade.</TableCell></TableRow>
                         )}
                     </TableBody>
                 </Table>
             </CardContent>
+            <ContatoUnidadeDialog unidade={contatoDe} onClose={() => setContatoDe(null)} />
         </Card>
+    );
+}
+
+type Unidade = { id: number; nome: string; endereco: string | null; bairro: string | null; cidade: string | null; whatsapp: string | null };
+
+/** Endereço e WhatsApp da unidade: aparecem no rodapé do site e nos botões "Agendar". */
+function ContatoUnidadeDialog({ unidade, onClose }: { unidade: Unidade | null; onClose: () => void }) {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const [form, setForm] = useState({ endereco: '', bairro: '', cidade: '', whatsapp: '' });
+    const [aberta, setAberta] = useState<number | null>(null);
+    if (unidade && aberta !== unidade.id) {
+        setAberta(unidade.id);
+        setForm({ endereco: unidade.endereco ?? '', bairro: unidade.bairro ?? '', cidade: unidade.cidade ?? '', whatsapp: unidade.whatsapp ?? '' });
+    }
+    const fechar = () => { setAberta(null); onClose(); };
+    const salvarMut = trpc.unidades.update.useMutation({
+        onSuccess: () => { utils.unidades.list.invalidate(); toast({ title: 'Contato salvo. Já aparece no site.', variant: 'success' }); fechar(); },
+        onError: (e) => toast({ title: e.message, variant: 'error' }),
+    });
+    const campo = (k: keyof typeof form) => ({ value: form[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value })) });
+
+    return (
+        <Dialog open={!!unidade} onOpenChange={(v) => !v && fechar()}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Endereço e WhatsApp · {unidade?.nome}</DialogTitle>
+                    <p className="text-sm text-gray-500">Aparecem no rodapé do site. O WhatsApp é para onde vão os botões "Agendar".</p>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (unidade) salvarMut.mutate({ id: unidade.id, ...form }); }}>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="un-end">Rua e número</Label>
+                        <Input id="un-end" placeholder="R. das Flores, 123" {...campo('endereco')} />
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="un-bairro">Bairro</Label>
+                            <Input id="un-bairro" {...campo('bairro')} />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="un-cidade">Cidade</Label>
+                            <Input id="un-cidade" placeholder="Maringá – PR" {...campo('cidade')} />
+                        </div>
+                    </div>
+                    <div className="space-y-1.5">
+                        <Label htmlFor="un-whats">WhatsApp</Label>
+                        <TelefoneInput id="un-whats" value={form.whatsapp} onChange={(v) => setForm((f) => ({ ...f, whatsapp: v }))} />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={fechar}>Cancelar</Button>
+                        <Button type="submit" disabled={salvarMut.isPending}>{salvarMut.isPending ? 'Salvando…' : 'Salvar'}</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 }
 
@@ -585,6 +653,56 @@ function SitePanel() {
                         Salvar textos
                     </Button>
                 </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/** Instagram e textos do rodapé: um só para a clínica. Endereço e WhatsApp ficam em cada unidade. */
+const CAMPOS_MARCA = [
+    { chave: 'instagram', label: 'Instagram', placeholder: 'seu_perfil', dica: 'Só o nome do perfil, sem @.' },
+    { chave: 'nome_mensagem', label: 'Nome nas mensagens do WhatsApp', placeholder: 'Ana', dica: 'A mensagem pronta começa com "Olá, Ana!".' },
+    { chave: 'rodape_texto', label: 'Frase do rodapé', placeholder: 'Massoterapia e estética…', dica: '' },
+    { chave: 'rodape_assinatura', label: 'Nome no fim da página', placeholder: 'Clínica Exemplo · Estética', dica: 'Aparece depois do ©.' },
+] as const;
+
+function RodapePanel() {
+    const { toast } = useToast();
+    const utils = trpc.useUtils();
+    const configQ = trpc.siteConfig.getAll.useQuery();
+    const cfg = (configQ.data ?? {}) as Record<string, string>;
+    const [editado, setEditado] = useState<Record<string, string>>({});
+    const setMut = trpc.siteConfig.set.useMutation({ onError: (e) => toast({ title: e.message, variant: 'error' }) });
+
+    async function salvar() {
+        for (const [chave, valor] of Object.entries(editado)) {
+            const limpo = chave === 'instagram' ? valor.trim().replace(/^@/, '').replace(/^https?:\/\/(www\.)?instagram\.com\//, '').replace(/\/.*$/, '') : valor.trim();
+            await setMut.mutateAsync({ chave: chave as any, valor: limpo || null });
+        }
+        setEditado({});
+        utils.siteConfig.getAll.invalidate();
+        toast({ title: 'Rodapé atualizado!', variant: 'success' });
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="text-base">Rodapé e redes sociais</CardTitle>
+                <p className="text-sm text-gray-500">Endereço e WhatsApp ficam em Configurações → Unidades.</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {CAMPOS_MARCA.map((c) => (
+                    <div key={c.chave} className="space-y-1.5">
+                        <Label htmlFor={`marca-${c.chave}`}>{c.label}</Label>
+                        <Input id={`marca-${c.chave}`} placeholder={c.placeholder}
+                            value={editado[c.chave] ?? cfg[c.chave] ?? ''}
+                            onChange={(e) => setEditado((m) => ({ ...m, [c.chave]: e.target.value }))} />
+                        {c.dica && <p className="text-xs text-gray-500">{c.dica}</p>}
+                    </div>
+                ))}
+                <Button size="sm" disabled={setMut.isPending || !Object.keys(editado).length} onClick={salvar}>
+                    {setMut.isPending ? 'Salvando…' : 'Salvar rodapé'}
+                </Button>
             </CardContent>
         </Card>
     );

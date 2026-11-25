@@ -5,12 +5,13 @@ import { useProtocolo, useProtocolos, type Modalidade, type ProtocoloDetalhe } f
 import { iconeProtocolo } from '@/lib/icons';
 import { imagemProtocolo, imagemReserva } from '@/lib/media';
 import { calcularEconomia, formatBRL, formatDuracoes } from '@/lib/format';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 import { useReveal } from '@/lib/useReveal';
 import ProtocoloTile from '@/components/ProtocoloTile';
 import NotFound from './NotFound';
 
 function ModalidadeCard({ p, m }: { p: ProtocoloDetalhe; m: Modalidade }) {
+    const whatsappUrl = useWhatsapp();
     const [selecionado, setSelecionado] = useState<number | null>(null);
     const unica = p.modalidades.length === 1;
     const nome = m.nome_modalidade || (unica ? 'Sessão' : m.nome);
@@ -66,6 +67,7 @@ function Lista({ titulo, itens, icone: Icone }: { titulo: string; itens: string[
 }
 
 function Conteudo({ p }: { p: ProtocoloDetalhe }) {
+    const whatsappUrl = useWhatsapp();
     const { data: todos } = useProtocolos();
     const refMods = useReveal<HTMLElement>();
     const Icone = iconeProtocolo(p.icone);

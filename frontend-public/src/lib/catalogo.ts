@@ -30,7 +30,10 @@ export type ProtocoloDetalhe = ProtocoloResumo & {
     frase_final: string | null;
     modalidades: Modalidade[];
 };
-export type SiteConfig = Partial<Record<'hero_imagem_url' | 'sobre_imagem_url' | 'hero_titulo' | 'hero_subtitulo', string>>;
+export type SiteConfig = Partial<Record<
+    'hero_imagem_url' | 'sobre_imagem_url' | 'hero_titulo' | 'hero_subtitulo' | 'instagram' | 'nome_mensagem' | 'rodape_texto' | 'rodape_assinatura',
+    string
+>>;
 
 // O tipo do AppRouter não é exportado para o site (AppRouter = any), por isso o cast.
 const api = trpc as any;
@@ -46,6 +49,6 @@ export function useProtocolo(slug: string) {
 }
 
 export function useSiteConfig(): SiteConfig {
-    const q = api.public.getSiteConfig.useQuery();
+    const q = api.public.getSiteConfig.useQuery(undefined, { staleTime: 5 * 60_000 });
     return (q.data ?? {}) as SiteConfig;
 }

@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Instagram, Menu, MessageCircle, X } from 'lucide-react';
 import Brand from './Brand';
-import { whatsappUrl } from '@/lib/whatsapp';
-import { INSTAGRAM_URL } from '@/lib/contato';
+import { useContato, useWhatsapp } from '@/lib/contato';
 
 const LINKS = [
     { to: '/', label: 'Início' },
@@ -15,6 +14,8 @@ const LINKS = [
 ];
 
 export default function Header() {
+    const whatsappUrl = useWhatsapp();
+    const { instagramUrl } = useContato();
     const [open, setOpen] = useState(false);
     const { pathname, hash, key } = useLocation();
     const menuRef = useRef<HTMLButtonElement>(null);
@@ -42,7 +43,7 @@ export default function Header() {
                 {LINKS.map((l) => <Link key={l.to} to={l.to} className={ativo(l.to) ? 'on' : ''}>{l.label}</Link>)}
             </nav>
             <div className="right">
-                <a className="circle-btn soc" href={INSTAGRAM_URL} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram /></a>
+                {instagramUrl && <a className="circle-btn soc" href={instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram"><Instagram /></a>}
                 <a className="circle-btn soc" href={whatsappUrl({})} target="_blank" rel="noreferrer" aria-label="WhatsApp"><MessageCircle /></a>
                 <a className="pill" href={whatsappUrl({})} target="_blank" rel="noreferrer">Agendar</a>
                 <button ref={menuRef} className="circle-btn menu-btn" aria-label="Abrir menu" aria-expanded={open} onClick={() => setOpen(true)}><Menu /></button>

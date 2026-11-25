@@ -2,11 +2,12 @@ import { MessageCircle } from 'lucide-react';
 import type { ProtocoloResumo } from '@/lib/catalogo';
 import ProtocoloTile from '@/components/ProtocoloTile';
 import { useReveal } from '@/lib/useReveal';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 
 const AREAS = ['ta', 'tb', 'tc', 'td', 'te', 'tf'];
 
 export default function Protocolos({ protocolos }: { protocolos?: ProtocoloResumo[] }) {
+    const whatsappUrl = useWhatsapp();
     const ref = useReveal<HTMLElement>();
     const lista = protocolos ?? [];
     const bento = lista.length === 6; // layout editorial só fecha com 6; senão grade regular

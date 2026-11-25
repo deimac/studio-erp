@@ -1,6 +1,6 @@
 import { MessageCircle, Plus } from 'lucide-react';
 import { useReveal } from '@/lib/useReveal';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 
 const PERGUNTAS = [
     { p: 'Como faço para agendar?', r: 'Pelo WhatsApp. Você me conta o que procura, eu indico o protocolo e encontramos juntas o melhor horário. O atendimento é individual e com hora marcada.' },
@@ -13,6 +13,7 @@ const PERGUNTAS = [
 ];
 
 export default function FAQ() {
+    const whatsappUrl = useWhatsapp();
     const ref = useReveal<HTMLElement>();
     return (
         <section className="faq reveal" id="faq" ref={ref}>

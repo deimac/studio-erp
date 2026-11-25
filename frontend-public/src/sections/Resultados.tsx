@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Volume2, VolumeX } from 'lucide-react';
 import { useReveal } from '@/lib/useReveal';
-import { whatsappUrl } from '@/lib/whatsapp';
+import { useWhatsapp } from '@/lib/contato';
 
 const VIDEOS = [
     { src: '/images/massagem01.mp4', poster: '/images/site/video-01.jpg', chip: 'Modeladora', titulo: 'Método TS', texto: 'Contorno e firmeza' },
@@ -32,6 +32,7 @@ function Reel({ v }: { v: (typeof VIDEOS)[number] }) {
 }
 
 export default function Resultados() {
+    const whatsappUrl = useWhatsapp();
     const ref = useReveal<HTMLElement>();
     return (
         <section className="results reveal" id="resultados" ref={ref}>

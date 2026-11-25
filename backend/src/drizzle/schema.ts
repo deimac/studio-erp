@@ -30,6 +30,12 @@ export const unidades = mysqlTable('unidades', {
     falta_por_profissional: dbBoolean('falta_por_profissional').notNull().default(false),
     /** CLINICA: o admin vê os dados de todos. INDIVIDUAL: cada um vê só o seu (agenda mostra "Ocupado"). */
     modo_trabalho: mysqlEnum('modo_trabalho', ['CLINICA', 'INDIVIDUAL']).notNull().default('CLINICA'),
+    /** Contato que aparece no site (rodapé e WhatsApp). */
+    endereco: varchar('endereco', { length: 200 }),
+    bairro: varchar('bairro', { length: 120 }),
+    cidade: varchar('cidade', { length: 120 }),
+    /** Internacional (+5543998468294). */
+    whatsapp: varchar('whatsapp', { length: 30 }),
     created_at: timestamp('created_at').defaultNow(),
     updated_at: timestamp('updated_at').defaultNow(),
 });
@@ -166,7 +172,17 @@ export const siteConfig = mysqlTable('site_config', {
     valor: text('valor'),
 });
 
-export const SITE_CONFIG_CHAVES = ['hero_imagem_url', 'sobre_imagem_url', 'hero_titulo', 'hero_subtitulo'] as const;
+export const SITE_CONFIG_CHAVES = [
+    'hero_imagem_url',
+    'sobre_imagem_url',
+    'hero_titulo',
+    'hero_subtitulo',
+    // Marca (rodapé e mensagens do WhatsApp)
+    'instagram',
+    'nome_mensagem',
+    'rodape_texto',
+    'rodape_assinatura',
+] as const;
 
 /* =========================================================================
    Técnicas  +  servico_tecnica (N:N)
