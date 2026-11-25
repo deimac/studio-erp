@@ -130,3 +130,12 @@ input[type='time']::-webkit-date-and-time-value {
 .folha[data-state='closed'] { animation: folha-desce 0.18s ease-in; }
 .fundo-folha[data-state='open'] { animation: fundo-aparece 0.2s ease-out; }
 .fundo-folha[data-state='closed'] { animation: fundo-aparece 0.18s ease-in reverse; }
+
+/* Painel lateral (abre da direita para a esquerda) */
+@keyframes painel-entra {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.painel-lateral[data-state='open'] { animation: painel-entra 0.22s ease-out; }
+.painel-lateral[data-state='closed'] { animation: painel-entra 0.18s ease-in reverse; }

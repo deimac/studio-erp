@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { trpc } from '@/services/trpc';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { ListEditor } from '@/components/ui/list-editor';
 import { ImageUpload } from '@/components/ImageUpload';
 import { useToast } from '@/hooks/useToast';
@@ -45,9 +46,24 @@ const ICONES_INFO: Record<(typeof ICONES_PROTOCOLO)[number], { Icone: LucideIcon
     Gem: { Icone: Gem, rotulo: 'Joia' },
 };
 
-export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: Protocolo; onSuccess?: () => void; trigger?: React.ReactNode }) {
+type Props = {
+    protocolo?: Protocolo;
+    /** Recebe o id da página salva (na criação, o id novo). */
+    onSuccess?: (id: number) => void;
+    trigger?: React.ReactNode;
+    /** 'painel': abre pela direita, sem botão próprio, controlado por `open`. */
+    modo?: 'dialog' | 'painel';
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    nomeInicial?: string;
+};
+
+export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', open: openProp, onOpenChange, nomeInicial }: Props) {
     const { toast } = useToast();
-    const [open, setOpen] = useState(false);
+    const [openLocal, setOpenLocal] = useState(false);
+    const controlado = openProp !== undefined;
+    const open = controlado ? openProp : openLocal;
+    const setOpen = (v: boolean) => { if (!controlado) setOpenLocal(v); onOpenChange?.(v); };
     const [f, setF] = useState(() => vazio());
 
     function vazio() {
@@ -60,7 +76,10 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
     const set = <K extends keyof ReturnType<typeof vazio>>(k: K, v: ReturnType<typeof vazio>[K]) => setF((prev) => ({ ...prev, [k]: v }));
 
     const opts = {
-        onSuccess: () => { setOpen(false); onSuccess?.(); },
+        onSuccess: (r: { id?: number } | { ok: boolean }) => {
+            setOpen(false);
+            onSuccess?.(protocolo?.id ?? ('id' in r ? r.id ?? 0 : 0));
+        },
         onError: (e: any) => toast({ title: e.message, variant: 'error' as const }),
     };
     const createMut = trpc.protocolos.create.useMutation(opts);
@@ -72,9 +91,15 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
             inclui: protocolo.inclui, beneficios: protocolo.beneficios, aviso: protocolo.aviso ?? '', frase_final: protocolo.frase_final ?? '',
             icone: protocolo.icone ?? 'Sparkles', imagem_url: protocolo.imagem_url ?? '',
             permite_vale_presente: protocolo.permite_vale_presente, ativo: protocolo.ativo,
-        } : vazio());
+        } : { ...vazio(), nome: nomeInicial ?? '' });
         setOpen(true);
     }
+
+    // Aberto de fora (modo painel): começa com os dados certos
+    useEffect(() => {
+        if (controlado && openProp) handleOpen();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [openProp]);
 
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -103,17 +128,26 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
 
     const isPending = createMut.isPending || updateMut.isPending;
 
+    const painel = modo === 'painel';
+    const Raiz = painel ? Sheet : Dialog;
+    const Conteudo = painel ? SheetContent : DialogContent;
+    const Cabecalho = painel ? SheetHeader : DialogHeader;
+    const Titulo = painel ? SheetTitle : DialogTitle;
+    const Rodape = painel ? SheetFooter : DialogFooter;
+
     return (
         <>
-            <Button size="sm" variant={protocolo ? 'ghost' : 'outline'} onClick={handleOpen}>
-                {trigger ?? (protocolo ? 'Editar página' : 'Nova página do site')}
-            </Button>
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>{protocolo ? `Página do site: ${protocolo.nome}` : 'Nova página do site (protocolo)'}</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4 max-h-[75vh] overflow-y-auto px-1 pr-2">
+            {!painel && (
+                <Button size="sm" variant={protocolo ? 'ghost' : 'outline'} onClick={handleOpen}>
+                    {trigger ?? (protocolo ? 'Editar página' : 'Nova página do site')}
+                </Button>
+            )}
+            <Raiz open={open} onOpenChange={setOpen}>
+                <Conteudo className={painel ? undefined : 'sm:max-w-2xl'}>
+                    <Cabecalho>
+                        <Titulo>{protocolo ? `Página do site: ${protocolo.nome}` : 'Nova página do site'}</Titulo>
+                    </Cabecalho>
+                    <form onSubmit={(e) => { e.stopPropagation(); handleSubmit(e); }} className={cn('space-y-4 px-1 pr-2', !painel && 'max-h-[75vh] overflow-y-auto')}>
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div>
                                 <Label>Nome *</Label>
@@ -186,16 +220,18 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger }: { protocolo?: P
                                 </label>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-500">
-                            Serviços, preços e pacotes ficam logo abaixo da página, na tela de Serviços (botão "+ Serviço").
-                        </p>
-                        <DialogFooter>
+                        {!painel && (
+                            <p className="text-xs text-gray-500">
+                                Serviços, preços e pacotes ficam logo abaixo da página, na tela de Serviços (botão "+ Serviço").
+                            </p>
+                        )}
+                        <Rodape>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isPending}>{isPending ? 'Salvando…' : 'Salvar'}</Button>
-                        </DialogFooter>
+                        </Rodape>
                     </form>
-                </DialogContent>
-            </Dialog>
+                </Conteudo>
+            </Raiz>
         </>
     );
 }

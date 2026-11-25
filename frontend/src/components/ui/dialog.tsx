@@ -22,13 +22,13 @@ const DialogClose = DialogPrimitive.Close;
 
 const DialogPortal = DialogPrimitive.Portal;
 
-const ehCelular = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
+export const ehCelular = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches;
 
 /**
  * Celular: quanto o teclado (ou seletor de data) está cobrindo do rodapé.
  * A folha sobe junto para nenhum campo ficar escondido.
  */
-function useTecladoNoRodape() {
+export function useTecladoNoRodape() {
     const [cobre, setCobre] = React.useState(0);
     React.useEffect(() => {
         const vv = window.visualViewport;

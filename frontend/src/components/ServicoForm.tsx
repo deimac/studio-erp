@@ -14,6 +14,7 @@ import { maskMoney } from '@/lib/masks';
 import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TecnicasSelect } from '@/components/TecnicasSelect';
+import { ProtocoloForm } from '@/components/ProtocoloForm';
 
 /**
  * Formulário do SERVIÇO: o que se vende e agenda (nome, duração, preço da sessão)
@@ -98,6 +99,8 @@ export function ServicoForm({
 
     const tecnicasQ = trpc.tecnicas.list.useQuery(undefined, { enabled: open });
     const protocolosQ = trpc.protocolos.list.useQuery(undefined, { enabled: open && isAdmin });
+    const [novaPagina, setNovaPagina] = useState(false);
+    const semPaginas = protocolosQ.isSuccess && (protocolosQ.data as any[]).length === 0;
     const pacotesQ = trpc.pacotes.list.useQuery({ apenasAtivos: false }, { enabled: false });
 
     const protocolo = noSite
@@ -368,12 +371,15 @@ export function ServicoForm({
                                     <>
                                         <div className="grid gap-3 sm:grid-cols-[1fr_6rem]">
                                             <div>
-                                                <Label>Página do site (protocolo) *</Label>
-                                                <select aria-label="Protocolo" className="mt-1 h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                                                <Label>Página do site *</Label>
+                                                <select aria-label="Página do site" className="mt-1 h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
                                                     value={idProtocolo} onChange={(e) => setIdProtocolo(e.target.value)}>
-                                                    <option value="">Escolha…</option>
+                                                    <option value="">{semPaginas ? 'Nenhuma página ainda' : 'Escolha…'}</option>
                                                     {((protocolosQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                                 </select>
+                                                <Button type="button" size="sm" variant={semPaginas ? 'outline' : 'ghost'} className="mt-1.5 -ml-2" onClick={() => setNovaPagina(true)}>
+                                                    <Plus className="mr-1 h-4 w-4" /> Criar nova página
+                                                </Button>
                                             </div>
                                             <div>
                                                 <Label>Ordem</Label>
@@ -402,7 +408,7 @@ export function ServicoForm({
                             </label>
                         </div>
 
-                        {tecnicasQ.data && (tecnicasQ.data as any[]).length > 0 && (
+                        {tecnicasQ.data && (
                             <div>
                                 <Label>Técnicas</Label>
                                 <div className="mt-1.5">
@@ -443,6 +449,14 @@ export function ServicoForm({
                             <Button type="submit" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
                         </DialogFooter>
                     </form>
+                    {isAdmin && (
+                        <ProtocoloForm modo="painel" open={novaPagina} onOpenChange={setNovaPagina}
+                            onSuccess={(id) => {
+                                utils.protocolos.list.invalidate();
+                                if (id) setIdProtocolo(String(id));
+                                toast({ title: 'Página criada e escolhida', variant: 'success' });
+                            }} />
+                    )}
                 </DialogContent>
             </Dialog>
         </>
