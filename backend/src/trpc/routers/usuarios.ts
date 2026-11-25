@@ -45,7 +45,7 @@ export const usuariosRouter = createTRPCRouter({
             const token = jwt.sign(
                 { id: usuarioDb.id, perfil: usuarioDb.perfil },
                 process.env.JWT_SECRET as string,
-                { expiresIn: '8h' },
+                { expiresIn: '30d' },
             );
 
             return {
