@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/useToast';
 import { useAuth } from '@/hooks/useAuth';
@@ -60,9 +61,15 @@ export function ServicoForm({
     variant,
     triggerClassName,
     abrirSinal,
+    modo = 'dialog',
+    open: openProp,
+    onOpenChange,
+    nomeInicial,
+    semSite = false,
 }: {
     servico?: Servico;
-    onSuccess?: () => void;
+    /** Recebe o id do serviço salvo. */
+    onSuccess?: (id: number) => void;
     trigger?: React.ReactNode;
     /** Ao criar dentro de um protocolo, já vem selecionado. */
     idProtocoloPadrao?: number;
@@ -71,11 +78,21 @@ export function ServicoForm({
     triggerClassName?: string;
     /** Muda de valor (>0) para abrir por fora, ex.: botão + do rodapé. */
     abrirSinal?: number;
+    /** 'painel': abre pela direita (por cima de outro formulário), controlado por `open`. */
+    modo?: 'dialog' | 'painel';
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    nomeInicial?: string;
+    /** Aberto de dentro da página do site: a página é escolhida lá, então esconde essa parte. */
+    semSite?: boolean;
 }) {
     const { toast } = useToast();
     const { isAdmin } = useAuth();
     const utils = trpc.useUtils();
-    const [open, setOpen] = useState(false);
+    const [openLocal, setOpenLocal] = useState(false);
+    const controlado = openProp !== undefined;
+    const open = controlado ? openProp : openLocal;
+    const setOpen = (v: boolean) => { if (!controlado) setOpenLocal(v); onOpenChange?.(v); };
     const [salvando, setSalvando] = useState(false);
 
     const [nomeCurto, setNomeCurto] = useState('');
@@ -142,7 +159,7 @@ export function ServicoForm({
                     .map((p) => ({ key: `p${p.id}`, id: p.id, sessoes: String(p.quantidade_sessoes), valor: mascarar(p.valor_total), ativo: String(p.status).toLowerCase() === 'ativo' })),
             );
         } else {
-            setNomeCurto('');
+            setNomeCurto(nomeInicial ?? '');
             setNomeVendas('');
             setNomeProprio(false);
             setDescricao('');
@@ -236,7 +253,7 @@ export function ServicoForm({
             utils.pacotes.list.invalidate();
             utils.protocolos.list.invalidate();
             setOpen(false);
-            onSuccess?.();
+            onSuccess?.(idServico);
         } catch (err: any) {
             toast({ title: err.message ?? 'Erro ao salvar', variant: 'error' });
         } finally {
@@ -249,24 +266,37 @@ export function ServicoForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [abrirSinal]);
 
+    // Aberto de fora (modo painel)
+    useEffect(() => {
+        if (controlado && openProp) abrir();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [openProp]);
+
+    const painel = modo === 'painel';
+    const Raiz = painel ? Sheet : Dialog;
+    const Conteudo = painel ? SheetContent : DialogContent;
+    const Cabecalho = painel ? SheetHeader : DialogHeader;
+    const Titulo = painel ? SheetTitle : DialogTitle;
+    const Rodape = painel ? SheetFooter : DialogFooter;
+
     return (
         <>
-            {abrirSinal !== undefined ? null : triggerClassName ? (
+            {abrirSinal !== undefined || painel ? null : triggerClassName ? (
                 <button type="button" className={triggerClassName} onClick={abrir}>{trigger}</button>
             ) : (
                 <Button size="sm" variant={variant ?? (servico ? 'ghost' : 'default')} onClick={abrir}>
                     {trigger ?? (servico ? 'Editar' : 'Novo serviço')}
                 </Button>
             )}
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-xl">
-                    <DialogHeader>
-                        <DialogTitle>
+            <Raiz open={open} onOpenChange={setOpen}>
+                <Conteudo className={painel ? undefined : 'sm:max-w-xl'}>
+                    <Cabecalho>
+                        <Titulo>
                             {servico ? 'Editar serviço' : protocolo && idProtocoloPadrao ? `Novo serviço em ${protocolo.nome}` : 'Novo serviço'}
-                        </DialogTitle>
-                    </DialogHeader>
+                        </Titulo>
+                    </Cabecalho>
 
-                    <form onSubmit={salvar} className="space-y-5">
+                    <form onSubmit={(e) => { e.stopPropagation(); salvar(e); }} className="space-y-5">
                         {servico?.id_profissional && (
                             <p className="rounded-md bg-violet-50 px-3 py-2 text-xs text-violet-700">
                                 Serviço próprio de <strong>{servico.profissional_nome ?? 'profissional'}</strong>.
@@ -358,7 +388,7 @@ export function ServicoForm({
                         </section>
 
                         {/* Site: só o admin publica */}
-                        {isAdmin ? (
+                        {semSite ? null : isAdmin ? (
                             <section className="space-y-3 rounded-lg border border-dashed p-3">
                                 <label className="flex cursor-pointer items-start gap-2 text-sm">
                                     <input type="checkbox" className="mt-0.5" checked={noSite} onChange={(e) => setNoSite(e.target.checked)} />
@@ -372,14 +402,16 @@ export function ServicoForm({
                                         <div className="grid gap-3 sm:grid-cols-[1fr_6rem]">
                                             <div>
                                                 <Label>Página do site *</Label>
-                                                <select aria-label="Página do site" className="mt-1 h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
-                                                    value={idProtocolo} onChange={(e) => setIdProtocolo(e.target.value)}>
-                                                    <option value="">{semPaginas ? 'Nenhuma página ainda' : 'Escolha…'}</option>
-                                                    {((protocolosQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                                                </select>
-                                                <Button type="button" size="sm" variant={semPaginas ? 'outline' : 'ghost'} className="mt-1.5 -ml-2" onClick={() => setNovaPagina(true)}>
-                                                    <Plus className="mr-1 h-4 w-4" /> Criar nova página
-                                                </Button>
+                                                <div className="mt-1 flex items-center gap-1">
+                                                    <select aria-label="Página do site" className="h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                                                        value={idProtocolo} onChange={(e) => setIdProtocolo(e.target.value)}>
+                                                        <option value="">{semPaginas ? 'Nenhuma página ainda' : 'Escolha…'}</option>
+                                                        {((protocolosQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                                                    </select>
+                                                    <Button type="button" size="sm" variant="outline" onClick={() => setNovaPagina(true)} aria-label="Criar nova página" title="Criar nova página">
+                                                        <Plus className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                             <div>
                                                 <Label>Ordem</Label>
@@ -444,12 +476,12 @@ export function ServicoForm({
                             )}
                         </div>
 
-                        <DialogFooter className="gap-2">
+                        <Rodape className="gap-2">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={salvando}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
-                        </DialogFooter>
+                        </Rodape>
                     </form>
-                    {isAdmin && (
+                    {isAdmin && novaPagina && (
                         <ProtocoloForm modo="painel" open={novaPagina} onOpenChange={setNovaPagina}
                             onSuccess={(id) => {
                                 utils.protocolos.list.invalidate();
@@ -457,8 +489,8 @@ export function ServicoForm({
                                 toast({ title: 'Página criada e escolhida', variant: 'success' });
                             }} />
                     )}
-                </DialogContent>
-            </Dialog>
+                </Conteudo>
+            </Raiz>
         </>
     );
 }

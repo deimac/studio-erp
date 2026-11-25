@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { SeletorBusca } from '@/components/TecnicasSelect';
+import { ServicoForm } from '@/components/ServicoForm';
 import { ListEditor } from '@/components/ui/list-editor';
 import { ImageUpload } from '@/components/ImageUpload';
 import { useToast } from '@/hooks/useToast';
@@ -65,6 +67,12 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
     const open = controlado ? openProp : openLocal;
     const setOpen = (v: boolean) => { if (!controlado) setOpenLocal(v); onOpenChange?.(v); };
     const [f, setF] = useState(() => vazio());
+    const [servicoIds, setServicoIds] = useState<number[]>([]);
+    const [novoServico, setNovoServico] = useState<string | null>(null);
+    const utils = trpc.useUtils();
+    const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false }, { enabled: open });
+    const paginasQ = trpc.protocolos.list.useQuery(undefined, { enabled: open });
+    const nomePagina = (id: number | null) => ((paginasQ.data ?? []) as any[]).find((p) => p.id === id)?.nome as string | undefined;
 
     function vazio() {
         return {
@@ -92,6 +100,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
             icone: protocolo.icone ?? 'Sparkles', imagem_url: protocolo.imagem_url ?? '',
             permite_vale_presente: protocolo.permite_vale_presente, ativo: protocolo.ativo,
         } : { ...vazio(), nome: nomeInicial ?? '' });
+        setServicoIds(protocolo?.servicos?.map((s) => s.id) ?? []);
         setOpen(true);
     }
 
@@ -121,6 +130,7 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
             imagem_url: f.imagem_url || null,
             permite_vale_presente: f.permite_vale_presente,
             ativo: f.ativo,
+            servico_ids: servicoIds,
         };
         if (protocolo) updateMut.mutate({ id: protocolo.id, ...data });
         else createMut.mutate(data);
@@ -220,16 +230,26 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
                                 </label>
                             </div>
                         </div>
-                        {!painel && (
-                            <p className="text-xs text-gray-500">
-                                Serviços, preços e pacotes ficam logo abaixo da página, na tela de Serviços (botão "+ Serviço").
-                            </p>
-                        )}
+                        <div>
+                            <Label>Serviços nesta página</Label>
+                            <p className="mb-1.5 text-xs text-gray-500">Os preços e pacotes deles aparecem abaixo da página, no site.</p>
+                            <SeletorBusca
+                                itens={((servicosQ.data ?? []) as any[]).map((s) => ({ id: s.id, nome: s.nome, id_protocolo: s.id_protocolo }))}
+                                value={servicoIds} onChange={setServicoIds}
+                                rotuloEscolher="Adicionar serviço" placeholder="Buscar serviço…" vazio="Nenhum serviço com esse nome."
+                                detalhe={(s: any) => (s.id_protocolo && s.id_protocolo !== protocolo?.id && !servicoIds.includes(s.id) ? `em ${nomePagina(s.id_protocolo) ?? 'outra página'}` : undefined)}
+                                onNovo={(nome) => setNovoServico(nome)} />
+                        </div>
                         <Rodape>
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isPending}>{isPending ? 'Salvando…' : 'Salvar'}</Button>
                         </Rodape>
                     </form>
+                    {novoServico !== null && (
+                        <ServicoForm modo="painel" semSite open nomeInicial={novoServico}
+                            onOpenChange={(v) => { if (!v) setNovoServico(null); }}
+                            onSuccess={(id) => { utils.servicos.list.invalidate(); setServicoIds((l) => [...l, id]); }} />
+                    )}
                 </Conteudo>
             </Raiz>
         </>

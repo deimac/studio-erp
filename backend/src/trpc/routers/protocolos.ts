@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { protocolos, servicos } from '../../drizzle/schema';
+import { pacotes, protocolos, servicos } from '../../drizzle/schema';
 import { parseLista, slugify } from '../../lib/protocolos';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 
@@ -19,7 +19,58 @@ const protocoloInput = z.object({
     ordem: z.number().int().optional(),
     permite_vale_presente: z.boolean().optional(),
     ativo: z.boolean().optional(),
+    /** Serviços que aparecem nesta página, na ordem. Omitido: não mexe nos serviços. */
+    servico_ids: z.array(z.number().int().positive()).optional(),
 });
+
+const SEP = ' – ';
+
+/** Troca o nome nas vendas (e o dos pacotes) só quando ele foi gerado pelo sistema. */
+async function renomear(db: any, s: { id: number; nome: string }, novo: string) {
+    if (novo === s.nome) return;
+    await db.update(servicos).set({ nome: novo, updated_at: new Date() }).where(eq(servicos.id, s.id));
+    const ps = await db.select({ id: pacotes.id, nome: pacotes.nome }).from(pacotes).where(eq(pacotes.id_servico, s.id));
+    for (const p of ps) {
+        if (p.nome.startsWith(`${s.nome}${SEP}`)) {
+            await db.update(pacotes).set({ nome: novo + p.nome.slice(s.nome.length) }).where(eq(pacotes.id, p.id));
+        }
+    }
+}
+
+/**
+ * Liga à página os serviços escolhidos nela (na ordem) e desliga os que saíram.
+ * Faz o mesmo que marcar/desmarcar "Exibir no site" no formulário do serviço.
+ */
+async function ligarServicos(db: any, idProtocolo: number, ids: number[], nomeAntigo?: string) {
+    const [pagina] = await db.select({ nome: protocolos.nome }).from(protocolos).where(eq(protocolos.id, idProtocolo)).limit(1);
+    if (!pagina) return;
+    const todos: { id: number; nome: string; nome_modalidade: string | null; id_protocolo: number | null }[] = await db
+        .select({ id: servicos.id, nome: servicos.nome, nome_modalidade: servicos.nome_modalidade, id_protocolo: servicos.id_protocolo })
+        .from(servicos);
+    const nomesPaginas = new Map<number, string>(
+        (await db.select({ id: protocolos.id, nome: protocolos.nome }).from(protocolos)).map((p: any) => [p.id, p.nome]),
+    );
+    // Página renomeada agora: os nomes gerados ainda usam o nome antigo
+    if (nomeAntigo) nomesPaginas.set(idProtocolo, nomeAntigo);
+    const escolhidos = new Set(ids);
+
+    for (const s of todos) {
+        if (s.id_protocolo !== idProtocolo || escolhidos.has(s.id)) continue;
+        const curto = s.nome_modalidade || s.nome;
+        await db.update(servicos).set({ id_protocolo: null, nome_modalidade: null, regioes: '[]', ordem_modalidade: 0 }).where(eq(servicos.id, s.id));
+        if (s.nome === `${nomesPaginas.get(idProtocolo)}${SEP}${curto}`) await renomear(db, s, curto);
+    }
+
+    for (const [ordem, id] of ids.entries()) {
+        const s = todos.find((x) => x.id === id);
+        if (!s) continue;
+        const curto = s.nome_modalidade || s.nome;
+        const anterior = s.id_protocolo ? nomesPaginas.get(s.id_protocolo) : undefined;
+        const gerado = anterior ? s.nome === `${anterior}${SEP}${curto}` : s.nome === curto;
+        await db.update(servicos).set({ id_protocolo: idProtocolo, nome_modalidade: curto, ordem_modalidade: ordem }).where(eq(servicos.id, id));
+        if (gerado) await renomear(db, s, `${pagina.nome}${SEP}${curto}`);
+    }
+}
 
 type ProtocoloRow = typeof protocolos.$inferSelect;
 
@@ -68,22 +119,31 @@ export const protocolosRouter = createTRPCRouter({
     }),
 
     create: adminProcedure.input(protocoloInput).mutation(async ({ ctx, input }) => {
-        const slug = slugify(input.slug || input.nome);
+        const { servico_ids, ...dados } = input;
+        const slug = slugify(dados.slug || dados.nome);
         await garantirSlugLivre(ctx.db, slug);
-        const ids = await ctx.db
-            .insert(protocolos)
-            .values({ ...(paraBanco(input) as any), nome: input.nome, slug })
-            .$returningId();
-        return { id: ids[0]?.id };
+        return ctx.db.transaction(async (tx) => {
+            const ids = await tx
+                .insert(protocolos)
+                .values({ ...(paraBanco(dados) as any), nome: dados.nome, slug })
+                .$returningId();
+            const id = ids[0]?.id;
+            if (id && servico_ids) await ligarServicos(tx, id, servico_ids);
+            return { id };
+        });
     }),
 
     update: adminProcedure
         .input(protocoloInput.partial().extend({ id: z.number().int().positive() }))
         .mutation(async ({ ctx, input }) => {
-            const { id, ...dados } = input;
+            const { id, servico_ids, ...dados } = input;
             const set = paraBanco(dados);
             if (typeof set.slug === 'string') await garantirSlugLivre(ctx.db, set.slug, id);
-            await ctx.db.update(protocolos).set({ ...(set as any), updated_at: new Date() }).where(eq(protocolos.id, id));
+            const [antes] = await ctx.db.select({ nome: protocolos.nome }).from(protocolos).where(eq(protocolos.id, id)).limit(1);
+            await ctx.db.transaction(async (tx) => {
+                await tx.update(protocolos).set({ ...(set as any), updated_at: new Date() }).where(eq(protocolos.id, id));
+                if (servico_ids) await ligarServicos(tx, id, servico_ids, antes?.nome);
+            });
             return { ok: true };
         }),
 

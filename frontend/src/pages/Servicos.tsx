@@ -279,7 +279,7 @@ function AbaPaginas({ todos, protocolos, carregando }: { todos: ServicoItem[]; p
                             <p className={cn('mt-1 text-sm', servs.length ? 'text-gray-600' : 'text-amber-700')}>
                                 {servs.length
                                     ? `Preços de: ${servs.map((s) => s.nome_modalidade || s.nome).join(', ')}`
-                                    : 'Sem serviço ligado: aparece no site sem preço. Ligue um serviço na aba Serviços.'}
+                                    : 'Sem serviço ligado: aparece no site sem preço. Adicione serviços em Editar página.'}
                             </p>
                             <div className="mt-2 flex flex-wrap items-center gap-1">
                                 <a href={`${SITE_URL}/protocolos/${p.slug}`} target="_blank" rel="noopener noreferrer"
