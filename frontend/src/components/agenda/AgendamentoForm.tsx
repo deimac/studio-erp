@@ -75,7 +75,7 @@ let seq = 0;
 const chave = () => ++seq;
 
 export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props) {
-    const { user, isAdmin, veTudo } = useAuth();
+    const { user, isAdmin } = useAuth();
     const { toast } = useToast();
     const utils = trpc.useUtils();
     const editando = !!inicial.id;
@@ -108,7 +108,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const [intervaloSemanas, setIntervaloSemanas] = useState(1);
     const [aplicarProximas, setAplicarProximas] = useState(false);
     const [conflito, setConflito] = useState<string | null>(null);
-    const [trocandoProf, setTrocandoProf] = useState(false);
 
     useEffect(() => {
         if (!open) return;
@@ -123,7 +122,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setDuracao(durInicial > 0 ? durInicial : 60);
         setDuracaoManual(durInicial > 0);
         setVerLivres(false);
-        setTrocandoProf(false);
         const itens = inicial.itens_ids?.length ? inicial.itens_ids : inicial.id_venda_item ? [inicial.id_venda_item] : [];
         setUsarItens(itens);
         setItensTocados(editando);
@@ -144,8 +142,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
 
     const clientesQ = trpc.pessoas.listClientes.useQuery(undefined, { enabled: open && !editando });
     const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open });
-    const profs = (profsQ.data ?? []) as { id: number; nome: string }[];
-    const podeTrocarProf = veTudo && profs.length > 1;
     const salasQ = trpc.agenda.salas.list.useQuery(undefined, { enabled: open });
     const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open });
     const pacotesQ = trpc.pacotes.list.useQuery(undefined, { enabled: open });
@@ -369,24 +365,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                     {semCliente && <p className="rounded-md bg-[hsl(var(--muted))] px-3 py-2 text-sm text-[hsl(var(--muted-foreground))]">Escolha ou cadastre o cliente para continuar.</p>}
 
                     <fieldset disabled={semCliente} className={cn('min-w-0 space-y-6', semCliente && 'pointer-events-none opacity-40')}>
-                        {/* 1. Profissional: quem lança é quem atende; só o admin da clínica pode trocar */}
-                        {podeTrocarProf && (
-                            trocandoProf ? (
-                                <div className="space-y-1.5">
-                                    <Label>Profissional</Label>
-                                    <select aria-label="Profissional" className={selectCls} value={idProf}
-                                        onChange={(e) => { setIdProf(Number(e.target.value)); setNovos([]); setUsarItens([]); setItensTocados(false); }}>
-                                        {profs.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                                    </select>
-                                </div>
-                            ) : (
-                                <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                                    Para <span className="font-medium text-gray-900">{profs.find((p) => p.id === idProf)?.nome ?? 'você'}</span>
-                                    {' · '}
-                                    <button type="button" className="text-[hsl(var(--primary))] hover:underline" onClick={() => setTrocandoProf(true)}>trocar</button>
-                                </p>
-                            )
-                        )}
                         {temSalas && (
                             <div className="space-y-1.5">
                                 <Label>Sala / maca</Label>
