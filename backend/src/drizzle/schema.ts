@@ -151,7 +151,7 @@ export const protocolos = mysqlTable('protocolos', {
     descricao: text('descricao'),
     inclui: text('inclui'), // JSON string[]
     beneficios: text('beneficios'), // JSON string[]
-    /** Técnicas dos serviços que esta página não mostra em "O que inclui" (JSON number[]). */
+    /** Técnicas e benefícios dos serviços que esta página não mostra no site (JSON number[]). */
     tecnicas_ocultas: text('tecnicas_ocultas'),
     aviso: text('aviso'),
     frase_final: varchar('frase_final', { length: 255 }),
@@ -190,6 +190,8 @@ export const SITE_CONFIG_CHAVES = [
 export const tecnicas = mysqlTable('tecnicas', {
     id: serial('id').primaryKey(),
     nome: varchar('nome', { length: 255 }).notNull(),
+    /** TECNICA (aparece em "Técnicas aplicadas") ou BENEFICIO (em "Benefícios"). */
+    tipo: varchar('tipo', { length: 20 }).notNull().default('TECNICA'),
     /** Dono: técnica própria de um profissional. NULL = da clínica. */
     id_profissional: int('id_profissional'),
 });
@@ -206,8 +208,6 @@ export const servicoTecnica = mysqlTable(
     },
     (t) => ({
         pk: primaryKey({ columns: [t.servico_id, t.tecnica_id] }),
-    /** TECNICA (aparece em "Técnicas aplicadas") ou BENEFICIO (em "Benefícios"). */
-    tipo: varchar('tipo', { length: 20 }).notNull().default('TECNICA'),
     }),
 );
 

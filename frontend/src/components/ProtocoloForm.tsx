@@ -73,10 +73,35 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
     const utils = trpc.useUtils();
     const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false }, { enabled: open });
     const paginasQ = trpc.protocolos.list.useQuery(undefined, { enabled: open });
-    /** Técnicas marcadas nos serviços desta página (na ordem dos serviços, sem repetir). */
-    const tecnicasDosServicos = servicoIds
-        .flatMap((id) => (((servicosQ.data ?? []) as any[]).find((s) => s.id === id)?.tecnicas ?? []) as { id: number; nome: string; tipo?: string }[])
-        .filter((t, i, l) => l.findIndex((x) => x.id === t.id) === i);
+    type ItemServico = { id: number; nome: string; tipo?: string };
+    const servicosDaPagina = servicoIds
+        .map((id) => ((servicosQ.data ?? []) as any[]).find((s) => s.id === id))
+        .filter(Boolean) as { id: number; nome: string; nome_modalidade?: string | null; tecnicas?: ItemServico[] }[];
+    /** Técnicas e benefícios marcados nos serviços desta página (sem repetir, na ordem do cadastro, como no site). */
+    const tecnicasDosServicos = servicosDaPagina
+        .flatMap((s) => s.tecnicas ?? [])
+        .filter((t, i, l) => l.findIndex((x) => x.id === t.id) === i)
+        .sort((a, b) => a.id - b.id);
+    /**
+     * Com mais de um serviço, separa os itens por serviço: o que está em todos
+     * fica junto em "Todos os serviços"; o resto, sob o(s) serviço(s) que o têm.
+     */
+    function agruparPorServico(itens: ItemServico[]) {
+        if (servicosDaPagina.length < 2) return [{ titulo: null as string | null, itens }];
+        const nomeCurto = (s: (typeof servicosDaPagina)[number]) => s.nome_modalidade || s.nome;
+        const grupos = new Map<string, { titulo: string; itens: ItemServico[] }>();
+        for (const t of itens) {
+            const donos = servicosDaPagina.filter((s) => (s.tecnicas ?? []).some((x) => x.id === t.id));
+            const chave = donos.map((s) => s.id).join(',');
+            const titulo = donos.length === servicosDaPagina.length ? 'Todos os serviços' : donos.map(nomeCurto).join(' e ');
+            if (!grupos.has(chave)) grupos.set(chave, { titulo, itens: [] });
+            grupos.get(chave)!.itens.push(t);
+        }
+        // "Todos os serviços" primeiro, depois na ordem dos serviços
+        return [...grupos.entries()]
+            .sort(([a], [b]) => (b.split(',').length - a.split(',').length) || (servicoIds.indexOf(Number(a.split(',')[0])) - servicoIds.indexOf(Number(b.split(',')[0]))))
+            .map(([, g]) => g);
+    }
     const nomePagina = (id: number | null) => ((paginasQ.data ?? []) as any[]).find((p) => p.id === id)?.nome as string | undefined;
 
     function vazio() {
@@ -205,12 +230,17 @@ export function ProtocoloForm({ protocolo, onSuccess, trigger, modo = 'dialog', 
                                         <Label>{titulo}</Label>
                                         {itens.length > 0 ? (
                                             <div className="mt-1 space-y-1">
-                                                {itens.map((t) => (
-                                                    <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-gray-50">
-                                                        <input type="checkbox" checked={!ocultas.includes(t.id)}
-                                                            onChange={(e) => setOcultas((l) => (e.target.checked ? l.filter((x) => x !== t.id) : [...l, t.id]))} />
-                                                        {t.nome}
-                                                    </label>
+                                                {agruparPorServico(itens).map((g) => (
+                                                    <div key={g.titulo ?? 'todos'} className={cn(g.titulo && 'pt-1')}>
+                                                        {g.titulo && <p className="px-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-gray-500">{g.titulo}</p>}
+                                                        {g.itens.map((t) => (
+                                                            <label key={t.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1.5 text-sm hover:bg-gray-50">
+                                                                <input type="checkbox" checked={!ocultas.includes(t.id)}
+                                                                    onChange={(e) => setOcultas((l) => (e.target.checked ? l.filter((x) => x !== t.id) : [...l, t.id]))} />
+                                                                {t.nome}
+                                                            </label>
+                                                        ))}
+                                                    </div>
                                                 ))}
                                                 <p className="px-1 text-xs text-gray-500">Vêm dos serviços desta página. Desmarque o que não quer mostrar.</p>
                                             </div>
