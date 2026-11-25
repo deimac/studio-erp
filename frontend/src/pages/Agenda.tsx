@@ -289,29 +289,49 @@ export default function Agenda() {
         });
     }
 
-    // Visão dia: um toque simples num horário vazio já abre o agendamento.
-    // No computador o clique já é tratado pela seleção do calendário; no celular ela só reage
-    // a toque longo, então o toque curto é tratado aqui.
+    // Visão dia: tocar (ou segurar) num horário vazio abre o agendamento.
+    // No computador o clique já é tratado pela seleção do calendário. No celular o dedo cai na
+    // camada transparente dos atendimentos, por cima das linhas, então o horário é achado pela
+    // posição do toque (cada linha carrega a hora em data-hora).
     const novoNoSlotRef = useRef(novoNoSlot);
     novoNoSlotRef.current = novoNoSlot;
-    const ultimoToque = useRef(0);
-    const SlotTocavel = useMemo(
+    const toque = useRef<{ x: number; y: number; moveu: boolean } | null>(null);
+    const SlotComHora = useMemo(
         () =>
-            function SlotTocavel({ children, value, resource }: { children?: ReactNode; value: Date; resource?: number | string }) {
+            function SlotComHora({ children, value, resource }: { children?: ReactNode; value: Date; resource?: number | string }) {
                 if (!isValidElement(children)) return <>{children}</>;
-                return cloneElement(children as ReactElement<any>, {
-                    onTouchStart: () => { ultimoToque.current = Date.now(); },
-                    onClick: (ev: React.MouseEvent<HTMLElement>) => {
-                        if (Date.now() - ultimoToque.current > 1000) return;
-                        if (!ev.currentTarget.closest('.rbc-day-slot')) return;
-                        ultimoToque.current = 0;
-                        const fim = new Date(value.getTime() + 15 * 60_000);
-                        novoNoSlotRef.current({ start: value, end: fim, slots: [value], action: 'click', resourceId: resource } as SlotInfo);
-                    },
-                });
+                return cloneElement(children as ReactElement<any>, { 'data-hora': value.getTime(), 'data-recurso': resource ?? '' });
             },
         [],
     );
+    const toqueNoDia = {
+        onTouchStart: (ev: React.TouchEvent) => {
+            const t = ev.touches[0];
+            toque.current = ev.touches.length === 1 ? { x: t.clientX, y: t.clientY, moveu: false } : null;
+        },
+        onTouchMove: (ev: React.TouchEvent) => {
+            const t = ev.touches[0];
+            if (toque.current && Math.hypot(t.clientX - toque.current.x, t.clientY - toque.current.y) > 10) toque.current.moveu = true;
+        },
+        onTouchEnd: (ev: React.TouchEvent) => {
+            const ini = toque.current;
+            toque.current = null;
+            if (!ini || ini.moveu) return;
+            const alvo = ev.target as HTMLElement;
+            if (alvo.closest('.rbc-event, .rbc-background-event')) return;
+            const coluna = alvo.closest('.rbc-day-slot');
+            if (!coluna) return;
+            const linha = [...coluna.querySelectorAll<HTMLElement>('.rbc-time-slot[data-hora]')].find((el) => {
+                const r = el.getBoundingClientRect();
+                return ini.y >= r.top && ini.y < r.bottom;
+            });
+            if (!linha) return;
+            ev.preventDefault(); // evita o clique "fantasma" depois do toque
+            const inicio = new Date(Number(linha.dataset.hora));
+            const recurso = linha.dataset.recurso ? Number(linha.dataset.recurso) : undefined;
+            novoNoSlotRef.current({ start: inicio, end: new Date(inicio.getTime() + 15 * 60_000), slots: [inicio], action: 'click', resourceId: recurso } as SlotInfo);
+        },
+    };
 
     const removerBloqueio = trpc.agenda.bloqueios.delete.useMutation({
         onSuccess: () => { utils.agenda.eventos.invalidate(); toast({ title: 'Bloqueio removido', variant: 'success' }); },
@@ -478,7 +498,7 @@ export default function Agenda() {
                 };
             }}
             components={{
-                ...(view === 'day' ? { timeSlotWrapper: SlotTocavel as any } : {}),
+                ...(view === 'day' ? { timeSlotWrapper: SlotComHora as any } : {}),
                 event: ({ event }: { event: Evento }) => {
                     if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
                     const a = event.atendimento!;
@@ -543,7 +563,7 @@ export default function Agenda() {
                 {view === 'day' ? (
                     <div className="space-y-2">
                         <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} />
-                        <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+                        <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')} {...toqueNoDia}>
                             {calendario}
                         </div>
                     </div>
@@ -645,7 +665,7 @@ export default function Agenda() {
             </div>
 
             {/* Calendário */}
-            <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+            <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
                 {calendario}
             </div>
 
