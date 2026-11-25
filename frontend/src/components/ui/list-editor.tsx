@@ -43,6 +43,8 @@ export function ListEditor({ value, onChange, placeholder }: { value: string[]; 
                     value={novo}
                     placeholder={placeholder ?? 'Novo item'}
                     onChange={(e) => setNovo(e.target.value)}
+                    // Digitou e foi direto para Salvar (sem o +): o texto entra na lista do mesmo jeito
+                    onBlur={adicionar}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); adicionar(); } }}
                 />
                 <Button type="button" size="sm" variant="outline" onClick={adicionar} aria-label="Adicionar item">
