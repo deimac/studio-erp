@@ -82,7 +82,8 @@
 /* Fora do expediente: cinza com hachura leve */
 .agenda-studio .rbc-fora-expediente,
 .agenda-legenda-fora {
-    background: repeating-linear-gradient(-45deg, #f1f5f9, #f1f5f9 6px, #e9eef4 6px, #e9eef4 12px);
+    /* cinza liso: listra é só para bloqueio */
+    background: #f1f5f9;
 }
 
 .agenda-studio .rbc-slot-selection {
@@ -142,9 +143,23 @@
     background: repeating-linear-gradient(45deg, #fee2e2, #fee2e2 6px, #fecaca 6px, #fecaca 12px);
     color: #991b1b;
     border: 0;
+    border-left: 3px solid #dc2626;
     border-radius: 4px;
-    opacity: 0.85;
+    opacity: 0.95;
     padding: 2px 6px;
+}
+
+/* Bloqueio na visão Mês: chip vermelho */
+.agenda-studio .rbc-month-view .rbc-event.evt-bloqueio,
+.agenda-studio .rbc-month-view .rbc-event.evt-bloqueio-mes {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 0;
+    border-left: 3px solid #dc2626;
+    border-radius: 4px;
+    padding: 1px 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
 }
 
 .agenda-studio .rbc-month-view .rbc-event.evt-atendimento {

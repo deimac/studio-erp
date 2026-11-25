@@ -6,7 +6,7 @@ import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import '@/styles/agenda.css';
 import { addDays, endOfMonth, endOfWeek, format, getDay, parse, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Ban, BellRing, CalendarPlus, ChevronLeft, ChevronRight, Clock, Plus } from 'lucide-react';
+import { Ban, BellRing, CalendarPlus, ChevronLeft, ChevronRight, Clock, Lock, Plus } from 'lucide-react';
 import { useAcoesDaTela } from '@/components/acoes/AcoesRapidas';
 import { trpc } from '@/services/trpc';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +22,7 @@ import { AgendaLista } from '@/components/agenda/AgendaLista';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEscopo } from '@/hooks/useEscopo';
 import { FaixaSemana } from '@/components/agenda/FaixaSemana';
+import { SeletorData } from '@/components/agenda/SeletorData';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 
@@ -170,7 +171,7 @@ export default function Agenda() {
                 for (const r of alvos) {
                     lista.push({
                         id: `b${b.id}-${dataISO(d)}-${r ?? ''}`,
-                        title: `${b.motivo || 'Bloqueado'}${!usarRecursos ? ` · ${nomeAlvo}` : ''}`,
+                        title: `Bloqueado${b.motivo ? ` · ${b.motivo}` : ''}${!usarRecursos && profsVisiveis.length !== 1 ? ` (${nomeAlvo})` : ''}`,
                         start: s,
                         end: e,
                         resourceId: r,
@@ -182,7 +183,7 @@ export default function Agenda() {
             }
         }
         return lista;
-    }, [dados, usarRecursos, recursos, colunas, selProfs, profissionais, salas]);
+    }, [dados, usarRecursos, recursos, colunas, selProfs, profissionais, salas, profsVisiveis.length]);
 
     // expediente por profissional: dia_semana -> [inicio, fim][]
     const expedientes = useMemo(() => {
@@ -409,6 +410,51 @@ export default function Agenda() {
         </>
     );
 
+    // Visão Dia com um profissional: diz o horário de atendimento e os bloqueios do dia
+    const DIA_NOME = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    const profAviso = view === 'day' && profsVisiveis.length === 1 ? profsVisiveis[0] : null;
+    const avisoDia = (() => {
+        if (!profAviso || !dados) return null;
+        const porDia = expedientes.get(profAviso.id);
+        const dia = data.getDay();
+        const nome = profAviso.nome.split(' ')[0];
+        const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+        const periodos = [...(porDia?.get(dia) ?? [])].sort((a, b) => a[0] - b[0]);
+        const fimDeSemana = dia === 0 || dia === 6;
+        const expediente = !porDia
+            ? null
+            : periodos.length
+              ? `${nome} atende ${periodos.map(([i, f]) => `das ${hhmm(i)} às ${hhmm(f)}`).join(' e ')} ${fimDeSemana ? 'neste' : 'nesta'} ${DIA_NOME[dia]}`
+              : `${nome} não atende ${fimDeSemana ? 'aos' : 'às'} ${DIA_NOME[dia]}s`;
+        const iso = dataISO(data);
+        const doDia = (dados.bloqueios ?? []).filter((b) => (b.id_profissional == null || b.id_profissional === profAviso.id)
+            && b.inicio.slice(0, 10) <= iso && b.fim.slice(0, 10) >= iso);
+        if (!expediente && !doDia.length) return null;
+        return (
+            <div className="space-y-1 text-sm">
+                {expediente && (
+                    <p className="flex items-center gap-1.5 text-[hsl(var(--muted-foreground))]">
+                        <Clock className="h-4 w-4 shrink-0" /> {expediente}
+                    </p>
+                )}
+                {doDia.map((b) => (
+                    <button key={b.id} type="button" onClick={() => perguntarRemoverBloqueio(b)}
+                        className="flex w-full items-center gap-1.5 rounded-md bg-red-50 px-2 py-1 text-left font-medium text-red-800">
+                        <Lock className="h-4 w-4 shrink-0" />
+                        Bloqueado{b.motivo ? `: ${b.motivo}` : ''} · {b.inicio.slice(0, 10) === b.fim.slice(0, 10) ? `${b.inicio.slice(11, 16)}–${b.fim.slice(11, 16)}` : `até ${b.fim.slice(8, 10)}/${b.fim.slice(5, 7)}`}
+                    </button>
+                ))}
+            </div>
+        );
+    })();
+
+    const legendaFundo = (
+        <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm border agenda-legenda-fora" /> Fora do expediente</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm agenda-legenda-bloqueio" /> Bloqueado</span>
+        </div>
+    );
+
     const dialogos = (
         <>
             <AgendamentoForm open={form.open} onOpenChange={(v) => setForm((f) => ({ ...f, open: v }))} inicial={form.inicial} />
@@ -459,8 +505,8 @@ export default function Agenda() {
             views={['day', 'week', 'month', 'agenda']}
             date={data}
             onNavigate={(d) => setData(d)}
-            events={eventos}
-            backgroundEvents={fundos}
+            events={view === 'month' ? [...eventos, ...fundos] : eventos}
+            backgroundEvents={view === 'month' ? undefined : fundos}
             resources={recursos}
             resourceIdAccessor={(r) => r.id}
             resourceTitleAccessor={(r) => r.titulo}
@@ -500,7 +546,7 @@ export default function Agenda() {
             components={{
                 ...(view === 'day' ? { timeSlotWrapper: SlotComHora as any } : {}),
                 event: ({ event }: { event: Evento }) => {
-                    if (event.tipo === 'bloqueio') return <span className="text-[11px] font-medium">{event.title}</span>;
+                    if (event.tipo === 'bloqueio') return <span className="inline-flex items-center gap-1 text-[11px] font-semibold"><Lock className="h-3 w-3 shrink-0" />{event.title}</span>;
                     const a = event.atendimento!;
                     if (mobile && view === 'week') return <div className="truncate font-semibold leading-tight">{event.title.split(' ')[0]}</div>;
                     return (
@@ -521,19 +567,14 @@ export default function Agenda() {
     );
 
     if (mobile) {
-        const t = view === 'day' ? format(data, "EEEE, d 'de' MMM", { locale: ptBR }) : tituloPeriodo(view, data);
+        const t = view === 'day' ? format(data, "EEE, d 'de' MMM", { locale: ptBR }) : tituloPeriodo(view, data);
         const titulo = t.charAt(0).toUpperCase() + t.slice(1);
         return (
             <div className="flex flex-col gap-3">
                 {/* Navegação do dia */}
                 <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Anterior" onClick={() => navegar(-1)}><ChevronLeft className="h-5 w-5" /></Button>
-                    <label className="relative min-w-0 flex-1 text-center">
-                        <span className="block truncate text-lg font-semibold">{titulo}</span>
-                        <input type="date" aria-label="Escolher data" value={dataISO(data)}
-                            onChange={(e) => e.target.value && setData(paraDate(e.target.value))}
-                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-                    </label>
+                    <SeletorData className="flex flex-1 justify-center" data={data} onData={setData} titulo={titulo} soMes={view === 'month'} />
                     <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Próximo" onClick={() => navegar(1)}><ChevronRight className="h-5 w-5" /></Button>
                     {dataISO(data) !== dataISO(new Date()) && (
                         <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={() => navegar(0)}>Hoje</Button>
@@ -541,7 +582,7 @@ export default function Agenda() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex rounded-lg border p-0.5">
+                    <div role="group" aria-label="Como ver a agenda" className="flex rounded-lg border p-0.5">
                         {([['day', 'Dia'], ['week', 'Sem.'], ['month', 'Mês'], ['agenda', 'Lista']] as [View, string][]).map(([v, rotulo]) => (
                             <button key={v} type="button" onClick={() => setView(v)} aria-label={v === 'week' ? 'Semana' : undefined}
                                 className={cn('rounded-md px-2.5 py-1.5 text-sm', view === v ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))]')}>
@@ -563,13 +604,18 @@ export default function Agenda() {
                 {view === 'day' ? (
                     <div className="space-y-2">
                         <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} />
+                        {avisoDia}
                         <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')} {...toqueNoDia}>
                             {calendario}
                         </div>
+                        {legendaFundo}
                     </div>
                 ) : view === 'week' ? (
-                    <div className={cn('agenda-studio agenda-compacta h-[72vh] min-h-[440px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
-                        {calendario}
+                    <div className="space-y-2">
+                        <div className={cn('agenda-studio agenda-compacta h-[72vh] min-h-[440px] rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')}>
+                            {calendario}
+                        </div>
+                        {legendaFundo}
                     </div>
                 ) : view === 'agenda' ? (
                     <AgendaLista
@@ -596,7 +642,7 @@ export default function Agenda() {
                             views={['month']}
                             date={data}
                             onNavigate={(d) => setData(d)}
-                            events={eventos}
+                            events={[...eventos, ...fundos]}
                             selectable
                             longPressThreshold={250}
                             onSelectSlot={(slot) => { setData(slot.start as Date); setView('day'); }}
@@ -604,7 +650,10 @@ export default function Agenda() {
                             onDrillDown={(d) => { setData(d); setView('day'); }}
                             onView={() => undefined}
                             draggableAccessor={() => false}
-                            eventPropGetter={(e) => ({
+                            components={{ event: ({ event }: { event: Evento }) => event.tipo === 'bloqueio'
+                                ? <span className="inline-flex items-center gap-0.5"><Lock className="h-3 w-3 shrink-0" />Bloq.</span>
+                                : <span>{event.title}</span> }}
+                            eventPropGetter={(e) => e.tipo === 'bloqueio' ? { className: 'evt-bloqueio-mes' } : ({
                                 className: cn('evt-atendimento', e.atendimento && `evt-${e.atendimento.status.toLowerCase()}`, e.atendimento?.restrito && 'evt-restrito'),
                                 style: { '--evt-cor': e.atendimento?.restrito ? '#94a3b8' : e.cor } as React.CSSProperties,
                             })}
@@ -626,9 +675,10 @@ export default function Agenda() {
                     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Anterior" onClick={() => navegar(-1)}><ChevronLeft className="h-4 w-4" /></Button>
                     <Button variant="ghost" size="icon" className="h-9 w-9" aria-label="Próximo" onClick={() => navegar(1)}><ChevronRight className="h-4 w-4" /></Button>
                 </div>
-                <h2 className="min-w-0 flex-1 truncate text-lg font-semibold capitalize">{tituloPeriodo(view, data)}</h2>
+                <SeletorData data={data} onData={setData} titulo={tituloPeriodo(view, data)} soMes={view === 'month'} />
+                <div className="flex-1" />
 
-                <div className="flex rounded-md border p-0.5">
+                <div role="group" aria-label="Como ver a agenda" className="flex rounded-md border p-0.5">
                     {VIEWS.map((v) => (
                         <button key={v.id} type="button" onClick={() => setView(v.id)}
                             className={cn('rounded px-3 py-1 text-sm', view === v.id ? 'bg-[hsl(var(--primary))] text-white' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]')}>
@@ -663,6 +713,8 @@ export default function Agenda() {
                     <Button variant="ghost" size="sm" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="mr-1.5 h-4 w-4" /> Meu expediente</Button>
                 </div>
             </div>
+
+            {avisoDia}
 
             {/* Calendário */}
             <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-lg border bg-white', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
