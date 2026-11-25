@@ -221,12 +221,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     useEffect(() => {
         setPagamentos((ps) => (ps.length === 1 ? [{ ...ps[0], valor: mascara(totalVenda) }] : ps));
     }, [totalVenda]);
-    /** Pagamento não recebido vence no dia da sessão (ou hoje, se a sessão já passou) — igual ao servidor. */
-    const diaVenc = (() => {
-        const hojeISO = new Date().toLocaleDateString('sv-SE');
-        const d = /^\d{4}-\d{2}-\d{2}$/.test(data) && data > hojeISO ? data : hojeISO;
-        return d === hojeISO ? 'hoje' : `em ${d.split('-').reverse().slice(0, 2).join('/')}`;
-    })();
     const pagoC = pagamentos.reduce((t, p) => t + paraCentavos(p.valor), 0);
     const falta = totalVenda - pagoC;
 
@@ -654,21 +648,16 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                                                     onChange={(e) => alterarPagamento(p.chave, { valor: maskMoney(e.target.value) })} />
                                                             </div>
                                                         )}
-                                                        <select aria-label="Parcelas" className={cn(selectCls, 'w-auto')} value={String(nParc)} onChange={(e) => alterarPagamento(p.chave, { parcelas: e.target.value })}>
-                                                            <option value="1">À vista</option>
-                                                            {Array.from({ length: Math.max(11, nParc - 1) }, (_, i) => i + 2).map((n) => <option key={n} value={n}>{n}x</option>)}
-                                                        </select>
+                                                        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                                                            <Input type="number" min={1} max={48} inputMode="numeric" aria-label="Parcelas" className="w-14 px-2 text-center" value={p.parcelas}
+                                                                onChange={(e) => alterarPagamento(p.chave, { parcelas: e.target.value })} />
+                                                            <span className="whitespace-nowrap tabular-nums">{nParc === 1 ? 'à vista' : `x de ${brl(Math.floor(paraCentavos(p.valor) / nParc))}`}</span>
+                                                        </div>
                                                     </div>
-                                                    {nParc === 1 ? (
-                                                        <label className="flex cursor-pointer flex-wrap items-center gap-x-2 text-sm">
+                                                    {nParc === 1 && (
+                                                        <label className="flex cursor-pointer items-center gap-2 text-sm">
                                                             <input type="checkbox" className="h-4 w-4" checked={p.pago} onChange={(e) => alterarPagamento(p.chave, { pago: e.target.checked })} /> Já recebido
-                                                            {!p.pago && <span className="text-xs text-[hsl(var(--muted-foreground))]">· a receber {diaVenc}</span>}
                                                         </label>
-                                                    ) : (
-                                                        <p className="text-sm tabular-nums text-gray-700">
-                                                            {nParc}x de {brl(Math.floor(paraCentavos(p.valor) / nParc))}
-                                                            <span className="block text-xs text-[hsl(var(--muted-foreground))]">1ª parcela {diaVenc}, depois uma por mês</span>
-                                                        </p>
                                                     )}
                                                 </div>
                                             );
