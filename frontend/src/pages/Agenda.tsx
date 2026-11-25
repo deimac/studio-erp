@@ -22,6 +22,7 @@ import { AgendaLista } from '@/components/agenda/AgendaLista';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useEscopo } from '@/hooks/useEscopo';
 import { FaixaSemana } from '@/components/agenda/FaixaSemana';
+import { layoutIgual } from '@/lib/layoutAgenda';
 import { SeletorData } from '@/components/agenda/SeletorData';
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
@@ -546,7 +547,7 @@ export default function Agenda() {
             resizableAccessor={podeMexer}
             resizable
             popup
-            dayLayoutAlgorithm="no-overlap"
+            dayLayoutAlgorithm={layoutIgual as any}
             slotPropGetter={slotPropGetter as any}
             formats={{
                 timeGutterFormat: 'HH:mm',
@@ -568,17 +569,20 @@ export default function Agenda() {
             components={{
                 ...(view === 'day' ? { timeSlotWrapper: SlotComHora as any } : {}),
                 week: {
-                    header: ({ date, label }: { date: Date; label: string }) => {
+                    header: ({ date }: { date: Date }) => {
                         const nomes = feriadosPorDia.get(dataISO(date));
+                        const hoje = dataISO(date) === dataISO(new Date());
                         return (
-                            <span title={nomes?.join(' · ')} className={cn('block', nomes && 'text-amber-700')}>
-                                {label}
-                                {nomes && (mobile
-                                    ? <span className="mx-auto mt-0.5 block h-1 w-1 rounded-full bg-amber-500" />
-                                    : <span className="block truncate text-[10px] font-semibold normal-case">{nomes.join(' · ')}</span>)}
+                            <span title={nomes?.join(' · ')} className="cab-dia">
+                                <span className={cn('cab-dia-semana', nomes && 'text-amber-700')}>{DIA_CURTO[date.getDay()]}</span>
+                                <span className={cn('cab-dia-num', hoje && 'cab-hoje', !hoje && nomes && 'text-amber-600')}>{date.getDate()}</span>
+                                {nomes && !mobile && <span className="cab-feriado">{nomes.join(' · ')}</span>}
                             </span>
                         );
                     },
+                } as any,
+                month: {
+                    header: ({ date }: { date: Date }) => <span className="cab-dia-semana">{DIA_CURTO[date.getDay()]}</span>,
                 } as any,
                 event: ({ event }: { event: Evento }) => {
                     if (event.tipo === 'bloqueio') return <span className="inline-flex items-center gap-1 text-[11px] font-semibold"><Lock className="h-3 w-3 shrink-0" />{event.title}</span>;
@@ -594,7 +598,7 @@ export default function Agenda() {
                             {!a.restrito && nomesAtendimento(a) && (
                                 <div className="truncate opacity-80">{nomesAtendimento(a)}</div>
                             )}
-                            {view !== 'day' && <div className="truncate opacity-70">{a.profissional_nome.split(' ')[0]}{a.sala_nome ? ` · ${a.sala_nome}` : ''}</div>}
+                            {view !== 'day' && profsVisiveis.length !== 1 && <div className="truncate opacity-70">{a.profissional_nome.split(' ')[0]}{a.sala_nome ? ` · ${a.sala_nome}` : ''}</div>}
                         </div>
                     );
                 },
@@ -603,7 +607,7 @@ export default function Agenda() {
     );
 
     if (mobile) {
-        const t = view === 'day' ? format(data, "EEE, d 'de' MMM", { locale: ptBR }) : view === 'month' ? format(data, "MMM 'de' yyyy", { locale: ptBR }) : tituloPeriodo(view, data);
+        const t = view === 'day' ? `${DIA_CURTO[data.getDay()]}, ${format(data, "d 'de' MMM", { locale: ptBR })}` : view === 'month' ? format(data, "MMM 'de' yyyy", { locale: ptBR }) : tituloPeriodo(view, data);
         const titulo = t.charAt(0).toUpperCase() + t.slice(1);
         return (
             <div className="flex flex-col gap-3">

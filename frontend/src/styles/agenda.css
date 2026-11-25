@@ -55,10 +55,73 @@
 .agenda-studio .rbc-today {
     background: transparent;
 }
-.agenda-studio .rbc-time-header .rbc-header.rbc-today {
-    color: hsl(var(--primary));
-    font-weight: 700;
-    box-shadow: inset 0 -2px 0 hsl(var(--primary));
+/* Cabeçalho das colunas: dia da semana pequeno em cima, número grande embaixo */
+.agenda-studio .rbc-time-header .rbc-header {
+    padding: 0.375rem 0.125rem 0.5rem;
+    border-bottom: 0;
+    overflow: hidden;
+}
+.agenda-studio .rbc-time-header .rbc-header .rbc-button-link {
+    display: block;
+    width: 100%;
+}
+.agenda-studio .cab-dia {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.1;
+    word-spacing: normal;
+    white-space: nowrap;
+}
+.agenda-studio .cab-dia-semana {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--muted-foreground));
+}
+.agenda-studio .cab-dia-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+}
+.agenda-studio .cab-dia-num.cab-hoje {
+    background: hsl(var(--primary));
+    color: #fff;
+}
+.agenda-studio .cab-feriado {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #b45309;
+}
+/* Linha de "dia inteiro" não é usada: some para não deixar um vão embaixo das datas */
+.agenda-studio .rbc-time-view .rbc-allday-cell {
+    display: none;
+}
+.agenda-studio .rbc-time-header-content {
+    border-bottom: 1px solid hsl(var(--border));
+}
+/* Visão Dia com colunas por profissional/sala */
+.agenda-studio .rbc-time-view-resources .rbc-header {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #0f172a;
+    text-transform: none;
+}
+/* Mês: dias da semana no topo */
+.agenda-studio .rbc-month-header .rbc-header {
+    padding: 0.5rem 0;
 }
 .agenda-studio .rbc-month-view .rbc-date-cell.rbc-now > * {
     display: inline-flex;
@@ -205,12 +268,6 @@
 }
 
 /* Semana no celular: 7 colunas apertadas */
-.agenda-compacta .rbc-header {
-    padding: 0.375rem 0;
-    font-size: 0.6875rem;
-    white-space: nowrap;
-    overflow: hidden;
-}
 .agenda-compacta .rbc-time-gutter .rbc-label,
 .agenda-compacta .rbc-time-header-gutter {
     padding: 0 3px;
@@ -227,11 +284,7 @@
 .agenda-compacta .rbc-event .rbc-event-label {
     display: none;
 }
-.agenda-compacta .rbc-header {
-    white-space: normal;
-    line-height: 1.15;
-    word-spacing: 100vw; /* nome do dia em cima, número embaixo */
-}
+
 
 /* Feriado: só aviso, em laranja */
 .agenda-studio .rbc-event.evt-feriado {
@@ -243,4 +296,33 @@
     padding: 1px 4px;
     font-size: 0.6875rem;
     font-weight: 600;
+}
+
+/* Semana no celular: número menor para caber 7 colunas */
+.agenda-compacta .cab-dia-num {
+    min-width: 1.625rem;
+    height: 1.625rem;
+    font-size: 0.9375rem;
+}
+.agenda-compacta .cab-dia-semana {
+    font-size: 0.625rem;
+    letter-spacing: 0;
+}
+
+/* Cards ocupam a coluna toda (a biblioteca reservava 10px à direita) */
+.agenda-studio .rbc-day-slot .rbc-events-container {
+    margin-right: 2px;
+}
+.agenda-studio .rbc-day-slot .rbc-event.evt-atendimento {
+    padding: 2px 4px;
+}
+
+/* Card estreito (vários no mesmo horário): mostra só o nome, sem o horário */
+.agenda-studio .rbc-day-slot .rbc-event {
+    container-type: inline-size;
+}
+@container (max-width: 64px) {
+    .agenda-studio .rbc-event .rbc-event-label {
+        display: none;
+    }
 }
