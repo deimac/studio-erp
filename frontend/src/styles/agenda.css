@@ -123,15 +123,47 @@
 .agenda-studio .rbc-month-header .rbc-header {
     padding: 0.5rem 0;
 }
-.agenda-studio .rbc-month-view .rbc-date-cell.rbc-now > * {
+/* Mês: linha do número do dia, com o feriado à esquerda */
+.agenda-studio .rbc-month-view .rbc-date-cell {
+    padding: 2px 3px 0 4px;
+    text-align: left;
+}
+.agenda-studio .cab-mes {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+}
+.agenda-studio .cab-mes-feriado {
     display: inline-flex;
-    min-width: 1.5rem;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+    margin-right: auto;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #b45309;
+}
+.agenda-studio .cab-mes-num {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
     justify-content: center;
+    min-width: 1.5rem;
+    height: 1.5rem;
     border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+}
+.agenda-studio .cab-mes-num.cab-hoje {
     background: hsl(var(--primary));
     color: #fff;
     font-weight: 700;
-    padding: 0 0.25rem;
+}
+.agenda-studio .cab-mes-num-feriado {
+    color: #b45309;
+    font-weight: 700;
 }
 
 .agenda-studio .rbc-current-time-indicator {
@@ -325,4 +357,9 @@
     .agenda-studio .rbc-event .rbc-event-label {
         display: none;
     }
+}
+
+/* Dia de feriado no Mês: fundo laranja bem leve */
+.agenda-studio .rbc-month-view .rbc-day-bg.dia-feriado {
+    background: #fffbeb;
 }

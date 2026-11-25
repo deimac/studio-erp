@@ -136,11 +136,25 @@ export default function Agenda() {
         for (const f of dados?.feriados ?? []) m.set(f.data, [...(m.get(f.data) ?? []), f.nome]);
         return m;
     }, [dados]);
-    const eventosFeriado: Evento[] = useMemo(
-        () => [...feriadosPorDia].map(([d, nomes]) => ({
-            id: `f${d}`, title: nomes.join(' · '), start: paraDate(d, '00:00'), end: paraDate(d, '00:00'), allDay: true, tipo: 'feriado' as const, cor: '#d97706',
-        })),
-        [feriadosPorDia],
+    const diaFeriadoProp = useCallback((d: Date) => (feriadosPorDia.has(dataISO(d)) ? { className: 'dia-feriado' } : {}), [feriadosPorDia]);
+    /** Mês: número do dia com o feriado na mesma linha (não ocupa espaço dos atendimentos). */
+    const CabecalhoDataMes = useCallback(
+        ({ date, label, onDrillDown }: { date: Date; label: string; onDrillDown: () => void }) => {
+            const nomes = feriadosPorDia.get(dataISO(date));
+            const hoje = dataISO(date) === dataISO(new Date());
+            return (
+                <div className="cab-mes" title={nomes ? `Feriado: ${nomes.join(' · ')}` : undefined}>
+                    {nomes && (
+                        <span className="cab-mes-feriado">
+                            <PartyPopper className="h-3 w-3 shrink-0" />
+                            {!mobile && <span className="truncate">{nomes.join(' · ')}</span>}
+                        </span>
+                    )}
+                    <button type="button" onClick={onDrillDown} className={cn('cab-mes-num', hoje && 'cab-hoje', !hoje && nomes && 'cab-mes-num-feriado')}>{label}</button>
+                </div>
+            );
+        },
+        [feriadosPorDia, mobile],
     );
 
     const eventos: Evento[] = useMemo(
@@ -474,6 +488,7 @@ export default function Agenda() {
         <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm border agenda-legenda-fora" /> Fora do expediente</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm agenda-legenda-bloqueio" /> Bloqueado</span>
+            <span className="inline-flex items-center gap-1.5 text-amber-700"><PartyPopper className="h-3.5 w-3.5" /> Feriado</span>
         </div>
     );
 
@@ -527,7 +542,7 @@ export default function Agenda() {
             views={['day', 'week', 'month', 'agenda']}
             date={data}
             onNavigate={(d) => setData(d)}
-            events={view === 'month' ? [...eventosFeriado, ...eventos, ...fundos] : eventos}
+            events={view === 'month' ? [...eventos, ...fundos] : eventos}
             backgroundEvents={view === 'month' ? undefined : fundos}
             resources={recursos}
             resourceIdAccessor={(r) => r.id}
@@ -549,6 +564,7 @@ export default function Agenda() {
             popup
             dayLayoutAlgorithm={layoutIgual as any}
             slotPropGetter={slotPropGetter as any}
+            dayPropGetter={view === 'month' ? diaFeriadoProp : undefined}
             formats={{
                 timeGutterFormat: 'HH:mm',
                 eventTimeRangeFormat: ({ start, end }) => `${format(start, 'HH:mm')}–${format(end, 'HH:mm')}`,
@@ -583,6 +599,7 @@ export default function Agenda() {
                 } as any,
                 month: {
                     header: ({ date }: { date: Date }) => <span className="cab-dia-semana">{DIA_CURTO[date.getDay()]}</span>,
+                    dateHeader: CabecalhoDataMes,
                 } as any,
                 event: ({ event }: { event: Evento }) => {
                     if (event.tipo === 'bloqueio') return <span className="inline-flex items-center gap-1 text-[11px] font-semibold"><Lock className="h-3 w-3 shrink-0" />{event.title}</span>;
@@ -682,15 +699,18 @@ export default function Agenda() {
                             views={['month']}
                             date={data}
                             onNavigate={(d) => setData(d)}
-                            events={[...eventosFeriado, ...eventos, ...fundos]}
+                            events={[...eventos, ...fundos]}
                             selectable
                             longPressThreshold={250}
                             onSelectSlot={(slot) => { setData(slot.start as Date); setView('day'); }}
+                            dayPropGetter={diaFeriadoProp}
                             onSelectEvent={(e) => { setData(e.start); setView('day'); }}
                             onDrillDown={(d) => { setData(d); setView('day'); }}
                             onView={() => undefined}
                             draggableAccessor={() => false}
-                            components={{ event: ({ event }: { event: Evento }) => event.tipo === 'bloqueio'
+                            components={{
+                                month: { header: ({ date }: { date: Date }) => <span className="cab-dia-semana">{DIA_CURTO[date.getDay()]}</span>, dateHeader: CabecalhoDataMes } as any,
+                                event: ({ event }: { event: Evento }) => event.tipo === 'bloqueio'
                                 ? <span className="inline-flex items-center gap-0.5"><Lock className="h-3 w-3 shrink-0" />Bloq.</span>
                                 : event.tipo === 'feriado'
                                   ? <span className="inline-flex items-center gap-0.5"><PartyPopper className="h-3 w-3 shrink-0" />{event.title}</span>
@@ -770,6 +790,7 @@ export default function Agenda() {
                 ))}
                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm agenda-legenda-fora" /> Fora do expediente</span>
                 <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-4 rounded-sm agenda-legenda-bloqueio" /> Bloqueado</span>
+                <span className="inline-flex items-center gap-1.5 text-amber-700"><PartyPopper className="h-3.5 w-3.5" /> Feriado</span>
             </div>
 
             {dialogos}
