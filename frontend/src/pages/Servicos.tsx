@@ -325,6 +325,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
     const aberto = true;
     const [nome, setNome] = useState('');
     const [tipo, setTipo] = useState<'TECNICA' | 'BENEFICIO'>('TECNICA');
+    const [filtro, setFiltro] = useState<'TODOS' | 'TECNICA' | 'BENEFICIO'>('TODOS');
     const [editId, setEditId] = useState<number | null>(null);
     const [editNome, setEditNome] = useState('');
     const [editTipo, setEditTipo] = useState<'TECNICA' | 'BENEFICIO'>('TECNICA');
@@ -413,7 +414,22 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                         </p>
                     )}
 
-                    {(['TECNICA', 'BENEFICIO'] as const).map((g) => {
+                    {lista.length > 0 && (
+                        <div role="radiogroup" aria-label="Mostrar" className="flex flex-wrap gap-2">
+                            {([['TODOS', 'Todos'], ['TECNICA', 'Técnicas'], ['BENEFICIO', 'Benefícios']] as const).map(([v, rotulo]) => {
+                                const n = v === 'TODOS' ? lista.length : lista.filter((t) => (t.tipo ?? 'TECNICA') === v).length;
+                                const ativo = filtro === v;
+                                return (
+                                    <button key={v} type="button" role="radio" aria-checked={ativo} onClick={() => setFiltro(v)}
+                                        className={`rounded-full border px-3 py-1.5 text-sm ${ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/10 font-medium text-[hsl(var(--primary))]' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                        {rotulo} <span className="tabular-nums opacity-70">{n}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {(['TECNICA', 'BENEFICIO'] as const).filter((g) => filtro === 'TODOS' || filtro === g).map((g) => {
                         const itens = lista.filter((t) => (t.tipo ?? 'TECNICA') === g);
                         if (!itens.length) return null;
                         return (
@@ -452,8 +468,11 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                             <>
                                                 <div className="min-w-0 flex-1">
                                                     <p className="truncate text-sm font-medium" title={t.nome}>{t.nome}</p>
-                                                    <p className={`text-xs tabular-nums ${u?.ativos ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                        {descreverUso(u)}
+                                                    <p className="mt-0.5 flex items-center gap-1.5 text-xs">
+                                                        <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${t.tipo === 'BENEFICIO' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>
+                                                            {t.tipo === 'BENEFICIO' ? 'Benefício' : 'Técnica'}
+                                                        </span>
+                                                        <span className={`tabular-nums ${u?.ativos ? 'text-gray-600' : 'text-gray-400'}`}>{descreverUso(u)}</span>
                                                     </p>
                                                 </div>
                                                 {podeEditarTecnica(t) && <div className="flex shrink-0 items-center opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
