@@ -80,9 +80,36 @@ export default function Vendas() {
         onSuccess: () => {
             toast({ title: 'Venda excluída', variant: 'success' });
             utils.vendas.list.invalidate();
+            utils.agenda.invalidate();
         },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
+
+    async function excluirVenda(id: number) {
+        let agendados: { data: unknown; hora_inicio: string }[] = [];
+        try {
+            agendados = await utils.vendas.agendadosDaVenda.fetch({ id });
+        } catch (e: any) {
+            toast({ title: e?.message ?? 'Não foi possível verificar os agendamentos', variant: 'error' });
+            return;
+        }
+        if (agendados.length) {
+            const quando = agendados
+                .map((a) => `${fmtDate(a.data as any).slice(0, 5)} às ${String(a.hora_inicio).slice(0, 5)}`)
+                .join(', ');
+            const umOuMais = agendados.length === 1 ? 'um atendimento agendado' : `${agendados.length} atendimentos agendados`;
+            const ok = await confirm({
+                title: 'Esta venda tem atendimento agendado',
+                description: `O cliente tem ${umOuMais} para ${quando}. Ao excluir a venda, ${agendados.length === 1 ? 'ele também será excluído' : 'eles também serão excluídos'} da agenda, junto com as parcelas. Deseja realmente excluir?`,
+                confirmLabel: 'Excluir mesmo assim',
+                variant: 'danger',
+            });
+            if (ok) deleteMut.mutate({ id, confirmarAgendados: true });
+            return;
+        }
+        const ok = await confirm({ title: 'Excluir venda', description: 'Excluir esta venda e todas as parcelas? Essa ação não pode ser desfeita.', confirmLabel: 'Excluir', variant: 'danger' });
+        if (ok) deleteMut.mutate({ id });
+    }
 
     const filtered = vendasQ.data?.filter(
         (v) =>
@@ -173,10 +200,7 @@ export default function Vendas() {
                                             <div className="flex gap-2 px-4 pt-3">
                                                 {v.canDelete && (
                                                     <Button variant="outline" size="sm" className="h-10 flex-1 text-red-600"
-                                                        onClick={async () => {
-                                                            const ok = await confirm({ title: 'Excluir venda', description: 'Excluir esta venda e todas as parcelas? Essa ação não pode ser desfeita.', confirmLabel: 'Excluir', variant: 'danger' });
-                                                            if (ok) deleteMut.mutate({ id: v.id });
-                                                        }}>
+                                                        onClick={() => excluirVenda(v.id)}>
                                                         <Trash2 className="mr-1 h-4 w-4" /> Excluir
                                                     </Button>
                                                 )}
@@ -300,15 +324,7 @@ export default function Vendas() {
                                                             variant="ghost"
                                                             size="sm"
                                                             className="h-8 w-24 justify-start px-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                            onClick={async () => {
-                                                                const ok = await confirm({
-                                                                    title: 'Excluir venda',
-                                                                    description: 'Excluir esta venda e todas as parcelas? Essa ação não pode ser desfeita.',
-                                                                    confirmLabel: 'Excluir',
-                                                                    variant: 'danger',
-                                                                });
-                                                                if (ok) deleteMut.mutate({ id: v.id });
-                                                            }}
+                                                            onClick={() => excluirVenda(v.id)}
                                                         >
                                                             <Trash2 className="mr-1 h-4 w-4" />
                                                             Excluir

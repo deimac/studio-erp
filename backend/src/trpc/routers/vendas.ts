@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull, isNotNull, sql, count, or, exists } from 'drizzle-orm';
+import { and, eq, isNull, isNotNull, sql, count, or, exists, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import {
     vendas,
@@ -11,6 +11,8 @@ import {
     atendimentos,
     usuarios,
     vendaItens,
+    atendimentoItens,
+    atendimentoServicos,
 } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
@@ -42,6 +44,15 @@ function nomesVenda(r: { itens_rotulo: string | null; tem_pacote: unknown; forma
         servico_nome: temPacote ? null : r.itens_rotulo,
         forma_pagamento_nome: r.formas_rotulo ?? r.forma_pagamento_nome,
     };
+}
+
+/** Atendimentos ligados à venda (vínculo antigo ou por itens). */
+async function atendimentosLigados(db: DbOuTx, idVenda: number) {
+    return db
+        .select({ id: atendimentos.id, status: atendimentos.status, data: atendimentos.data, hora_inicio: atendimentos.hora_inicio })
+        .from(atendimentos)
+        .where(or(eq(atendimentos.id_venda, idVenda), sql`${atendimentos.id} IN ${atendimentosDaVenda(sql`${idVenda}`)}`))
+        .orderBy(atendimentos.data, atendimentos.hora_inicio);
 }
 
 /* ── validações compartilhadas (lançar e editar venda) ───── */
@@ -324,6 +335,8 @@ export const vendasRouter = createTRPCRouter({
                     profissional_nome: usuarios.nome,
                     temPagamento: sql<boolean>`EXISTS(SELECT 1 FROM financeiro f WHERE f.id_venda = ${vendas.id} AND f.data_pagamento IS NOT NULL)`.as('tem_pagamento'),
                     temAtendimento: sql<boolean>`EXISTS(SELECT 1 FROM atendimentos a WHERE a.id_venda = ${vendas.id} OR a.id IN ${atendimentosDaVenda(vendas.id)})`.as('tem_atendimento'),
+                    // Realizado ou falta impede excluir; cancelado não conta
+                    temAtendimentoUsado: sql<boolean>`EXISTS(SELECT 1 FROM atendimentos a WHERE (a.id_venda = ${vendas.id} OR a.id IN ${atendimentosDaVenda(vendas.id)}) AND a.status IN ('REALIZADO','FALTOU'))`.as('tem_atendimento_usado'),
                     sessoes_realizadas: sql<number>`(SELECT COUNT(*) FROM atendimento_itens aix JOIN venda_itens vix ON vix.id = aix.id_venda_item JOIN atendimentos a ON a.id = aix.id_atendimento WHERE vix.id_venda = ${vendas.id} AND a.status = 'REALIZADO')`.as('sessoes_realizadas'),
                 })
                 .from(vendas)
@@ -339,7 +352,7 @@ export const vendasRouter = createTRPCRouter({
                 temPagamento: Boolean(r.temPagamento),
                 temAtendimento: Boolean(r.temAtendimento),
                 sessoes_realizadas: Number(r.sessoes_realizadas) || 0,
-                canDelete: !r.temPagamento && !r.temAtendimento,
+                canDelete: !Number(r.temPagamento) && !Number(r.temAtendimentoUsado),
                 canClose: Boolean(r.temPagamento) || Boolean(r.temAtendimento),
             }));
         }),
@@ -664,8 +677,23 @@ export const vendasRouter = createTRPCRouter({
         }),
 
     /* ============= Excluir venda ============= */
-    delete: protectedProcedure
+    /** Atendimentos agendados/confirmados que somem junto com a venda (para o aviso antes de excluir). */
+    agendadosDaVenda: protectedProcedure
         .input(z.object({ id: z.number().int().positive() }))
+        .query(async ({ ctx, input }) => {
+            await vendaGerenciavel(ctx.db, ctx.session, input.id);
+            const rows = await atendimentosLigados(ctx.db, input.id);
+            return rows
+                .filter((a) => a.status === 'AGENDADO' || a.status === 'CONFIRMADO')
+                .map((a) => ({ id: a.id, data: a.data, hora_inicio: a.hora_inicio }));
+        }),
+
+    delete: protectedProcedure
+        .input(z.object({
+            id: z.number().int().positive(),
+            /** O usuário já viu o aviso de atendimentos agendados e confirmou. */
+            confirmarAgendados: z.boolean().optional(),
+        }))
         .mutation(async ({ ctx, input }) => {
             await vendaGerenciavel(ctx.db, ctx.session, input.id);
 
@@ -683,18 +711,53 @@ export const vendasRouter = createTRPCRouter({
                 });
             }
 
-            const [atd] = await ctx.db
-                .select({ cnt: count() })
-                .from(atendimentos)
-                .where(or(eq(atendimentos.id_venda, input.id), sql`${atendimentos.id} IN ${atendimentosDaVenda(sql`${input.id}`)}`));
-            if (Number(atd?.cnt) > 0) {
+            const ligados = await atendimentosLigados(ctx.db, input.id);
+            if (ligados.some((a) => a.status === 'REALIZADO' || a.status === 'FALTOU')) {
                 throw new TRPCError({
                     code: 'CONFLICT',
-                    message: 'Não é possível excluir: existem atendimentos vinculados',
+                    message: 'Não é possível excluir: existem atendimentos realizados ou faltas nesta venda',
+                });
+            }
+            if (!input.confirmarAgendados && ligados.some((a) => a.status === 'AGENDADO' || a.status === 'CONFIRMADO')) {
+                throw new TRPCError({
+                    code: 'CONFLICT',
+                    message: 'Esta venda tem atendimentos agendados. Confirme para excluir junto.',
                 });
             }
 
             await ctx.db.transaction(async (tx) => {
+                const itensVenda = (await tx.select({ id: vendaItens.id }).from(vendaItens).where(eq(vendaItens.id_venda, input.id))).map((i) => i.id);
+                for (const a of ligados) {
+                    const itensAtd = await tx
+                        .select({ id_venda: vendaItens.id_venda })
+                        .from(atendimentoItens)
+                        .innerJoin(vendaItens, eq(vendaItens.id, atendimentoItens.id_venda_item))
+                        .where(eq(atendimentoItens.id_atendimento, a.id));
+                    const usaOutraVenda = itensAtd.some((i) => i.id_venda !== input.id);
+                    if (usaOutraVenda) {
+                        // Atendimento também usa outra venda: só desliga desta
+                        if (itensVenda.length) {
+                            await tx.delete(atendimentoItens).where(and(
+                                eq(atendimentoItens.id_atendimento, a.id),
+                                inArray(atendimentoItens.id_venda_item, itensVenda),
+                            ));
+                        }
+                        const [outro] = await tx
+                            .select({ id: vendaItens.id, id_venda: vendaItens.id_venda })
+                            .from(atendimentoItens)
+                            .innerJoin(vendaItens, eq(vendaItens.id, atendimentoItens.id_venda_item))
+                            .where(eq(atendimentoItens.id_atendimento, a.id))
+                            .limit(1);
+                        await tx.update(atendimentos)
+                            .set({ id_venda: outro?.id_venda ?? null, id_venda_item: outro?.id ?? null, updated_at: new Date() })
+                            .where(eq(atendimentos.id, a.id));
+                    } else {
+                        await tx.delete(atendimentoItens).where(eq(atendimentoItens.id_atendimento, a.id));
+                        await tx.delete(atendimentoServicos).where(eq(atendimentoServicos.id_atendimento, a.id));
+                        await tx.delete(atendimentos).where(eq(atendimentos.id, a.id));
+                    }
+                }
+                await tx.update(atendimentos).set({ id_venda_extra: null }).where(eq(atendimentos.id_venda_extra, input.id));
                 await tx.delete(financeiro).where(eq(financeiro.id_venda, input.id));
                 await tx.delete(vendas).where(eq(vendas.id, input.id));
             });
