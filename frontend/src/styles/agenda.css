@@ -253,11 +253,13 @@
 .agenda-legenda-bloqueio {
     background: repeating-linear-gradient(45deg, hsl(var(--agenda-bloqueio-bg)), hsl(var(--agenda-bloqueio-bg)) 6px, hsl(var(--agenda-bloqueio-bg2)) 6px, hsl(var(--agenda-bloqueio-bg2)) 12px);
     color: hsl(var(--agenda-bloqueio));
-    border: 1px solid hsl(var(--agenda-bloqueio-faixa) / 0.55);
+    border: 1.5px solid hsl(var(--agenda-bloqueio-faixa));
     border-radius: 8px;
     opacity: 1;
     padding: 2px 6px;
     cursor: not-allowed;
+    font-weight: 600;
+    text-shadow: 0 0 6px hsl(var(--agenda-bloqueio-bg)), 0 0 2px hsl(var(--agenda-bloqueio-bg));
 }
 
 /* Bloqueio na visão Mês: chip vermelho */

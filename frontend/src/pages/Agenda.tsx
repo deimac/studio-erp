@@ -324,7 +324,14 @@ export default function Agenda() {
         // Horário bloqueado: não abre o agendamento
         if (!diaInteiro) {
             const fimSlot = e.getTime() > s.getTime() ? e : new Date(s.getTime() + 15 * 60_000);
-            const bloqueado = (dados?.bloqueios ?? []).some((b) => {
+            // Bloqueado se cair num bloqueio que está na tela nesta coluna (o que a pessoa vê listrado)
+            // ou num bloqueio de quem vai receber o agendamento
+            const naTela = fundos.some((f) => {
+                const fi = new Date(f.start as Date).getTime();
+                const ff = new Date(f.end as Date).getTime();
+                return fi < fimSlot.getTime() && ff > s.getTime() && (f.resourceId == null || rid == null || f.resourceId === rid);
+            });
+            const doProfissional = (dados?.bloqueios ?? []).some((b) => {
                 const bi = new Date(String(b.inicio).replace(' ', 'T'));
                 const bf = new Date(String(b.fim).replace(' ', 'T'));
                 if (!(bi < fimSlot && bf > s)) return false;
@@ -332,6 +339,7 @@ export default function Agenda() {
                 if (usarRecursos && colunas === 'sala') return b.id_sala != null && b.id_sala === rid;
                 return b.id_profissional != null && b.id_profissional === idProf;
             });
+            const bloqueado = naTela || doProfissional;
             if (bloqueado) return avisarBloqueado();
         }
         const duracao = (e.getTime() - s.getTime()) / 60_000;
