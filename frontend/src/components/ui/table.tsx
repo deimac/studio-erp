@@ -1,15 +1,19 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+/**
+ * `sangria`: dentro de um painel com espaçamento interno, a tabela (e a faixa do
+ * cabeçalho) vai de uma borda à outra do painel.
+ */
+const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement> & { sangria?: boolean }>(({ className, sangria, ...props }, ref) => (
+    <div className={cn('relative overflow-auto', sangria ? '-mx-5 w-[calc(100%+2.5rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5 sm:[&_td:first-child]:pl-6 sm:[&_td:last-child]:pr-6 sm:[&_th:first-child]:pl-6 sm:[&_th:last-child]:pr-6' : 'w-full')}>
         <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
 ));
 Table.displayName = 'Table';
 
 const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn('[&_tr]:border-0 [&_tr:hover]:bg-transparent [&_th]:bg-[hsl(var(--muted))] [&_th:first-child]:rounded-l-xl [&_th:last-child]:rounded-r-xl', className)} {...props} />
+    <thead ref={ref} className={cn('[&_tr]:border-b [&_tr]:border-[hsl(var(--border))] [&_tr:hover]:bg-transparent [&_th]:bg-[hsl(var(--muted))]', className)} {...props} />
 ));
 TableHeader.displayName = 'TableHeader';
 

@@ -197,7 +197,7 @@ export default function Vendas() {
             </Card>
 
             {/* Tabela */}
-            <Card className="hidden md:block">
+            <Card className="hidden overflow-hidden md:block">
                 <CardContent className="p-0 overflow-x-auto">
                     <Table>
                         <TableHeader>

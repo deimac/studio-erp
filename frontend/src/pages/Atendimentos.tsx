@@ -144,7 +144,7 @@ export default function Atendimentos() {
                 </div>
             </section>
 
-            <Card>
+            <Card className="overflow-hidden">
                 <CardContent className="p-0">
                     <ListaAtendimentos
                         atendimentos={filtered}

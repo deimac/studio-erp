@@ -134,7 +134,7 @@ export default function Pessoas() {
                 </ul>
             </Card>
 
-            <Card className="hidden md:block">
+            <Card className="hidden overflow-hidden md:block">
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>

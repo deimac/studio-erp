@@ -171,7 +171,7 @@ function FormasPagamentoPanel() {
                         <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
                     )}
                 </form>
-                <Table>
+                <Table sangria>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
@@ -268,7 +268,7 @@ function UnidadesPanel() {
                         <Button type="submit" size="sm" disabled={createMut.isPending}>Adicionar</Button>
                     )}
                 </form>
-                <Table>
+                <Table sangria>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
@@ -411,7 +411,7 @@ function ProfissionaisPanel() {
                 <Button size="sm" onClick={() => setOpen(true)}>Novo usuário</Button>
             </CardHeader>
             <CardContent>
-                <Table>
+                <Table sangria>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
@@ -574,7 +574,7 @@ function CategoriasReceitasDespesasPanel() {
                         )}
                     </div>
                 </form>
-                <Table>
+                <Table sangria>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Nome</TableHead>
@@ -772,7 +772,7 @@ function SalasPanel() {
                     <Button type="submit" size="sm" disabled={createMut.isPending || updateMut.isPending}>{editId ? 'Salvar' : 'Adicionar'}</Button>
                     {editId && <Button type="button" size="sm" variant="ghost" onClick={() => { setEditId(null); setNome(''); }}>Cancelar</Button>}
                 </form>
-                <Table>
+                <Table sangria>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Sala</TableHead>
