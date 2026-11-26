@@ -80,6 +80,8 @@ function tituloPeriodo(view: View, data: Date) {
     return `${format(a, 'd MMM', { locale: ptBR })} – ${format(b, "d MMM yyyy", { locale: ptBR })}`;
 }
 
+const OCUPAM = ['AGENDADO', 'CONFIRMADO', 'REALIZADO'];
+
 export default function Agenda() {
     const { user, isAdmin, veTudo, isEspectador } = useAuth();
     // Espectador: só olha a agenda compartilhada (não marca, não move, não bloqueia)
@@ -121,6 +123,11 @@ export default function Agenda() {
     const salas = (salasQ.data ?? []) as { id: number; nome: string; cor: string | null }[];
     const corProf = useCallback((id: number) => corPadrao(id, profissionais.find((p) => p.id === id)?.cor), [profissionais]);
     const eu = profissionais.find((p) => p.id === user?.id);
+    // Quem divide o mesmo espaço: um atendimento de qualquer um ocupa o horário de todos
+    const compartilhados = useMemo(
+        () => new Set(((profsQ.data ?? []) as { id: number; agenda_compartilhada?: boolean }[]).filter((p) => p.agenda_compartilhada).map((p) => p.id)),
+        [profsQ.data],
+    );
 
     const profsVisiveis = selProfs.length ? profissionais.filter((p) => selProfs.includes(p.id)) : profissionais;
     // Colunas por profissional/sala no Dia: só para quem vê tudo; os demais veem uma agenda só (espaço compartilhado)
@@ -162,9 +169,9 @@ export default function Agenda() {
 
     const eventos: Evento[] = useMemo(
         () =>
-            (dados?.atendimentos ?? []).map((a) => {
+            (dados?.atendimentos ?? []).flatMap((a) => {
                 const m = movendo[a.id];
-                return {
+                const ev: Evento = {
                     id: `a${a.id}`,
                     title: a.restrito ? `Ocupado · ${a.profissional_nome.split(' ')[0]}` : a.pessoa_nome,
                     start: m?.start ?? paraDate(a.data, a.hora_inicio),
@@ -174,8 +181,12 @@ export default function Agenda() {
                     atendimento: a,
                     cor: corProf(a.id_profissional),
                 };
+                // Colega fora do filtro com colunas por profissional: o espaço é o mesmo, ocupa todas as colunas
+                if (a.de_colega && usarRecursos && colunas === 'profissional' && recursos)
+                    return recursos.map((r) => ({ ...ev, id: `${ev.id}-${r.id}`, resourceId: r.id }));
+                return [ev];
             }),
-        [dados, movendo, colunas, corProf],
+        [dados, movendo, colunas, corProf, usarRecursos, recursos],
     );
 
     // Bloqueios viram eventos de fundo, quebrados por dia e replicados nas colunas a que se aplicam
@@ -347,6 +358,15 @@ export default function Agenda() {
             });
             const bloqueado = naTela || doProfissional;
             if (bloqueado) return avisarBloqueado();
+            // Ocupado: atendimento do mesmo profissional ou de um colega que divide o espaço
+            const ocupante = (dados?.atendimentos ?? []).find((a) => {
+                if (!OCUPAM.includes(a.status)) return false;
+                const ai = paraDate(a.data, a.hora_inicio).getTime();
+                const af = paraDate(a.data, a.hora_fim).getTime();
+                if (!(ai < fimSlot.getTime() && af > s.getTime())) return false;
+                return a.id_profissional === idProf || a.restrito || (compartilhados.has(a.id_profissional) && idProf != null && compartilhados.has(idProf));
+            });
+            if (ocupante) return toast({ title: 'Horário ocupado', description: `${ocupante.profissional_nome.split(' ')[0]} já tem atendimento das ${ocupante.hora_inicio} às ${ocupante.hora_fim}.` });
             // Fora do expediente: o que aparece cinza na tela, ou fora do horário de quem vai atender
             const foraNaTela = (slotPropGetter(s, rid) as { className?: string }).className === 'rbc-fora-expediente';
             const foraDoProfissional = idProf != null && expedientes.has(idProf) && !trabalhando(idProf, s);

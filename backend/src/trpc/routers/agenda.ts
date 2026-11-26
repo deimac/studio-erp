@@ -770,7 +770,22 @@ export const agendaRouter = createTRPCRouter({
                 eq(atendimentos.id_unidade, ctx.session.unidadeId),
                 sql`${atendimentos.data} BETWEEN ${input.de} AND ${input.ate}`,
             ];
-            if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
+            // Filtro de profissionais: os colegas da agenda compartilhada continuam aparecendo como "Ocupado"
+            // (o espaço é o mesmo, então o horário deles nunca fica livre na tela)
+            const filtro = input.profissionais?.length ? input.profissionais : null;
+            let colegas: number[] = [];
+            if (filtro) {
+                const grupo = await carregarCompartilhados(ctx.db, ctx.session.unidadeId);
+                colegas = filtro.some((id) => grupo.includes(id)) ? grupo.filter((id) => !filtro.includes(id)) : [];
+                parts.push(
+                    colegas.length
+                        ? or(
+                              inArray(atendimentos.id_profissional, filtro),
+                              and(inArray(atendimentos.id_profissional, colegas), inArray(atendimentos.status, [...STATUS_OCUPAM])),
+                          )!
+                        : inArray(atendimentos.id_profissional, filtro),
+                );
+            }
             if (input.salas?.length) parts.push(inArray(atendimentos.id_sala, input.salas));
             if (!input.incluirCancelados) parts.push(ne(atendimentos.status, 'CANCELADO'));
 
@@ -826,7 +841,8 @@ export const agendaRouter = createTRPCRouter({
 
             const veTudo = ctx.session.veTudo;
             const atends = rows.map((r) => {
-                const restrito = !espectador && !veTudo && r.id_profissional !== ctx.session.id;
+                const deColega = colegas.includes(r.id_profissional);
+                const restrito = deColega || (!espectador && !veTudo && r.id_profissional !== ctx.session.id);
                 return {
                     ...r,
                     ...(espectador
@@ -835,6 +851,8 @@ export const agendaRouter = createTRPCRouter({
                     hora_inicio: r.hora_inicio.slice(0, 5),
                     hora_fim: r.hora_fim.slice(0, 5),
                     restrito,
+                    /** Colega fora do filtro: só marca o horário como ocupado. */
+                    de_colega: deColega,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
                         ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }

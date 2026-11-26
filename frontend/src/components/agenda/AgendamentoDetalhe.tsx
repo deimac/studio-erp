@@ -32,6 +32,8 @@ export type EventoAgenda = {
     confirmado_em: string | null;
     lembrete_enviado_em: string | null;
     restrito: boolean;
+    /** Colega fora do filtro (agenda compartilhada): só ocupa o horário. */
+    de_colega?: boolean;
     servicos: { id: number; nome: string; duracao: number }[];
     /** Atendimento livre (sem serviço cadastrado). */
     titulo_extra?: string | null;
