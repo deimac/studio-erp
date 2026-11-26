@@ -56,7 +56,7 @@ type Props = {
     contraido?: boolean;
 };
 
-const ilhaCls = 'rounded-[1.75rem] border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel';
+const ilhaCls = 'rounded-[1.25rem] border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel';
 
 export function Sidebar({ onNavigate, contraido = false }: Props) {
     const { isAdmin, isEspectador } = useAuth();
@@ -83,7 +83,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
 
     const itemCls = (ativo: boolean) =>
         cn(
-            'group/item relative flex items-center rounded-full text-sm font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)]',
+            'group/item relative flex items-center rounded-xl text-sm font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)]',
             contraido ? 'h-12 w-12 justify-center' : 'h-11 gap-3 px-3.5',
             ativo
                 ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_8px_18px_-8px_hsl(var(--primary)/0.7)]'
