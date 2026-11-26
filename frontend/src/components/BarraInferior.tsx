@@ -31,7 +31,7 @@ export function BarraInferior() {
                     <Icone className="h-[22px] w-[22px]" />
                     {id === 'inicio' && atrasadas > 0 && (
                         <span aria-label={`${atrasadas} a receber atrasada${atrasadas > 1 ? 's' : ''}`}
-                            className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-none text-white">
+                            className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[10px] font-bold leading-none text-[hsl(var(--destructive-foreground))]">
                             {atrasadas > 9 ? '9+' : atrasadas}
                         </span>
                     )}
@@ -43,13 +43,13 @@ export function BarraInferior() {
 
     return (
         <nav aria-label="Atalhos"
-            className="fixed inset-x-0 bottom-0 z-30 border-t border-[hsl(var(--border))] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
+            className="fixed inset-x-0 bottom-0 z-30 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] pb-[env(safe-area-inset-bottom)] lg:hidden">
             <div className="mx-auto grid h-16 max-w-lg grid-cols-5 px-1">
                 {ids.slice(0, 2).map(item)}
                 <div className="flex items-start justify-center">
                     <button type="button" aria-label="Ações rápidas"
                         onClick={() => { navigator.vibrate?.(10); abrirPainel(); }}
-                        className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[hsl(var(--primary))] text-white shadow-[0_6px_16px_-4px_rgb(37_99_235/0.5)] active:scale-95">
+                        className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-[hsl(var(--card))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_6px_16px_-4px_hsl(var(--primary)/0.5)] active:scale-95">
                         <Plus className="h-7 w-7" />
                     </button>
                 </div>

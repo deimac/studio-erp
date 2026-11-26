@@ -34,7 +34,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         switch (v) {
             case 'success': return 'border-green-500 bg-green-50 text-green-900';
             case 'error': return 'border-red-500 bg-red-50 text-red-900';
-            default: return 'border-[hsl(var(--border))] bg-white text-[hsl(var(--foreground))]';
+            default: return 'border-[hsl(var(--border))] bg-[hsl(var(--card))] text-[hsl(var(--foreground))]';
         }
     };
 

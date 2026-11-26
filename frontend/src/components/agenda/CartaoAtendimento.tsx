@@ -45,7 +45,7 @@ export function CartaoAtendimento({ a, mostrarProfissional, onAbrir }: { a: Even
                 <p className="text-sm font-semibold tabular-nums">{a.hora_inicio}</p>
                 <p className="text-xs tabular-nums text-[hsl(var(--muted-foreground))]">{a.hora_fim}</p>
             </div>
-            <div className={cn('min-w-0 flex-1 overflow-hidden rounded-xl border bg-white shadow-sm', a.restrito && 'evt-restrito')}
+            <div className={cn('min-w-0 flex-1 overflow-hidden rounded-xl border bg-[hsl(var(--card))] shadow-sm', a.restrito && 'evt-restrito')}
                 style={{ borderColor: `color-mix(in srgb, ${cor} 35%, white)` }}>
                 <button type="button" onClick={() => p.onAbrir(a)} className="block w-full px-3 py-2.5 text-left active:bg-[hsl(var(--accent))]">
                     <div className="flex items-start justify-between gap-2">

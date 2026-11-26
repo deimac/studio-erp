@@ -72,7 +72,7 @@ export function RegistrarPagamentoDialog(p: {
                                 onClick={() => p.onParcial(o.v)}
                                 className={cn(
                                     'h-10 rounded-md text-sm font-medium transition-colors',
-                                    p.parcial === o.v ? 'bg-white text-[hsl(var(--foreground))] shadow-sm' : 'text-[hsl(var(--muted-foreground))]',
+                                    p.parcial === o.v ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-sm' : 'text-[hsl(var(--muted-foreground))]',
                                 )}
                             >
                                 {o.label}
@@ -116,7 +116,7 @@ export function RegistrarPagamentoDialog(p: {
                                 <Label>Pago com</Label>
                                 <select
                                     aria-label="Forma de pagamento"
-                                    className="h-10 w-full rounded-md border border-[hsl(var(--input))] bg-white px-3 text-sm"
+                                    className="h-10 w-full rounded-md border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-3 text-sm"
                                     value={p.forma.valor}
                                     onChange={(e) => p.forma!.onChange(e.target.value)}
                                 >

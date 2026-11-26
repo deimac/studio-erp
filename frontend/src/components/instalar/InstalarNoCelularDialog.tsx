@@ -23,7 +23,7 @@ export function InstalarNoCelularDialog({ open, onOpenChange }: { open: boolean;
                     <DialogTitle>Instalar no celular</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
-                    <div className="mx-auto w-fit rounded-xl border bg-white p-3">
+                    <div className="mx-auto w-fit rounded-xl border bg-[hsl(var(--card))] p-3">
                         <QRCodeSVG value={url} size={192} level="M" />
                     </div>
                     <ol className="list-decimal space-y-1 pl-5 text-sm text-[hsl(var(--muted-foreground))]">

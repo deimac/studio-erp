@@ -403,7 +403,7 @@ export function ServicoForm({
                                             <div>
                                                 <Label>Página do site *</Label>
                                                 <div className="mt-1 flex items-center gap-1">
-                                                    <select aria-label="Página do site" className="h-10 w-full rounded-md border border-gray-200 bg-white px-2 text-sm"
+                                                    <select aria-label="Página do site" className="h-10 w-full rounded-md border border-gray-200 bg-[hsl(var(--card))] px-2 text-sm"
                                                         value={idProtocolo} onChange={(e) => setIdProtocolo(e.target.value)}>
                                                         <option value="">{semPaginas ? 'Nenhuma página ainda' : 'Escolha…'}</option>
                                                         {((protocolosQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}

@@ -153,7 +153,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     {filtros.map((f) => (
                         <button key={f.id} type="button" onClick={() => setFiltro(f.id)}
                             className={cn('shrink-0 rounded-full border px-3 py-1 text-sm transition-colors',
-                                filtro === f.id ? 'border-transparent bg-gray-900 text-white' : 'bg-white text-gray-600 hover:bg-gray-50')}>
+                                filtro === f.id ? 'border-transparent bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'bg-[hsl(var(--card))] text-gray-600 hover:bg-gray-50')}>
                             {f.rotulo} <span className="tabular-nums opacity-70">{contagem[f.id]}</span>
                         </button>
                     ))}
@@ -397,7 +397,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                     >
                         <Input placeholder={tipo === 'BENEFICIO' ? 'Ex.: Reduz estresse e ansiedade' : 'Ex.: Ventosaterapia'} value={nome} onChange={(e) => setNome(e.target.value)} className="min-w-0 flex-1 sm:max-w-sm" aria-label="Nome" />
                         <select aria-label="Tipo" value={tipo} onChange={(e) => setTipo(e.target.value as 'TECNICA' | 'BENEFICIO')}
-                            className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm">
+                            className="h-9 rounded-md border border-gray-200 bg-[hsl(var(--card))] px-2 text-sm">
                             <option value="TECNICA">Técnica</option>
                             <option value="BENEFICIO">Benefício</option>
                         </select>
@@ -445,7 +445,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                                         {editando ? (
                                             <form className="flex flex-1 items-center gap-1" onSubmit={(e) => { e.preventDefault(); salvarEdicao(); }}>
                                                 <select aria-label="Tipo" value={editTipo} onChange={(e) => setEditTipo(e.target.value as 'TECNICA' | 'BENEFICIO')}
-                                                    className="h-8 rounded-md border border-gray-200 bg-white px-1 text-xs">
+                                                    className="h-8 rounded-md border border-gray-200 bg-[hsl(var(--card))] px-1 text-xs">
                                                     <option value="TECNICA">Técnica</option>
                                                     <option value="BENEFICIO">Benefício</option>
                                                 </select>

@@ -64,7 +64,7 @@ export function Sidebar({ onNavigate }: Props) {
                             cn(
                                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                                 isActive
-                                    ? 'bg-[hsl(var(--primary))] text-white shadow-sm'
+                                    ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-sm'
                                     : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))]',
                             )
                         }

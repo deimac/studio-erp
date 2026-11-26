@@ -203,7 +203,7 @@ export function VendaDetail({ venda }: Props) {
 
                     {/* ── Tab: Itens ── */}
                     <TabsContent value="itens">
-                        <ul className="divide-y rounded-lg border bg-white">
+                        <ul className="divide-y rounded-lg border bg-[hsl(var(--card))]">
                             {detalheQ.isLoading && <li className="px-3 py-4 text-center text-sm text-gray-400">Carregando…</li>}
                             {itens.map((i) => (
                                 <li key={i.id} className="flex items-center gap-3 px-3 py-2.5">

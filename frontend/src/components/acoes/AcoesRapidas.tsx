@@ -93,7 +93,7 @@ export function AcoesRapidasProvider({ children }: { children: ReactNode }) {
 
             <DialogPrimitive.Root open={painel} onOpenChange={setPainel}>
                 <DialogPrimitive.Portal>
-                    <DialogPrimitive.Overlay className="fundo-folha fixed inset-0 z-50 bg-slate-900/30" />
+                    <DialogPrimitive.Overlay className="fundo-folha fixed inset-0 z-50 bg-[hsl(var(--overlay)/0.45)]" />
                     <Folha onFechar={() => setPainel(false)}>
                         {daTela.length > 0 && (
                             <section className="mb-4">

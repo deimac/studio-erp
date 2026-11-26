@@ -71,7 +71,7 @@ export function BuscaPessoa({
     if (valor) {
         const nomeAtual = pessoas?.find((p) => p.id === valor)?.nome ?? nome ?? '';
         return (
-            <div className="flex items-center justify-between gap-2 rounded-md border border-[hsl(var(--input))] bg-white px-3 py-2 text-sm">
+            <div className="flex items-center justify-between gap-2 rounded-md border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-3 py-2 text-sm">
                 <span className="min-w-0 truncate font-medium">{nomeAtual}</span>
                 {!travado && (
                     <button type="button" className="shrink-0 text-xs text-[hsl(var(--primary))] hover:underline" onClick={() => escolher(null)}>trocar</button>
@@ -101,7 +101,7 @@ export function BuscaPessoa({
         <div className="relative">
             <Input placeholder={placeholder} value={busca} onChange={(e) => setBusca(e.target.value)} />
             {busca && (
-                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border bg-white shadow-lg">
+                <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border bg-[hsl(var(--card))] shadow-lg">
                     {filtradas.map((p) => (
                         <button key={p.id} type="button" className="block w-full px-3 py-2.5 text-left text-sm hover:bg-[hsl(var(--accent))]" onClick={() => escolher(p.id, p.nome)}>
                             {p.nome}

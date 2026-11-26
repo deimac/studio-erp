@@ -84,7 +84,7 @@ export function HoraInput({ value, onChange, passo = 15, de = '06:00', ate = '22
 
     return (
         <div ref={caixaRef} className={cn('relative', className)}>
-            <div className="flex h-10 w-full items-center rounded-md border border-[hsl(var(--input))] bg-white focus-within:ring-2 focus-within:ring-[hsl(var(--ring))]">
+            <div className="flex h-10 w-full items-center rounded-md border border-[hsl(var(--input))] bg-[hsl(var(--card))] focus-within:ring-2 focus-within:ring-[hsl(var(--ring))]">
                 <input
                     type="text"
                     inputMode="numeric"
@@ -102,12 +102,12 @@ export function HoraInput({ value, onChange, passo = 15, de = '06:00', ate = '22
                 </button>
             </div>
             {aberto && (
-                <ul ref={listaRef} className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-white py-1 shadow-lg">
+                <ul ref={listaRef} className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-[hsl(var(--card))] py-1 shadow-lg">
                     {opcoes.map((o) => (
                         <li key={o}>
                             <button type="button" data-perto={o === perto ? '1' : undefined}
                                 onClick={() => { setTexto(o); onChange(o); setAberto(false); }}
-                                className={cn('block w-full px-3 py-2 text-left text-sm tabular-nums hover:bg-[hsl(var(--accent))]', o === value && 'bg-[hsl(var(--primary))] text-white hover:bg-[hsl(var(--primary))]')}>
+                                className={cn('block w-full px-3 py-2 text-left text-sm tabular-nums hover:bg-[hsl(var(--accent))]', o === value && 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]')}>
                                 {o}
                             </button>
                         </li>

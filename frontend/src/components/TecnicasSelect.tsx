@@ -100,7 +100,7 @@ export function SeletorBusca({ itens, value, onChange, rotuloEscolher = 'Escolhe
                                     <button type="button" onClick={() => { alternar(t.id); if (fecharAoEscolher && !marcada) fechar(); }}
                                         className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-[hsl(var(--accent))]">
                                         <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded border',
-                                            marcada && 'border-transparent bg-[hsl(var(--primary))] text-white')}>
+                                            marcada && 'border-transparent bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]')}>
                                             {marcada && <Check className="h-3.5 w-3.5" />}
                                         </span>
                                         <span className="min-w-0 flex-1">{t.nome}</span>

@@ -44,10 +44,10 @@ export function PersonalizarBarra({ aoSalvar }: { aoSalvar?: () => void }) {
             </p>
 
             {/* Como vai ficar */}
-            <div className="mx-auto grid max-w-sm grid-cols-5 items-center gap-1 rounded-xl border bg-white p-2">
+            <div className="mx-auto grid max-w-sm grid-cols-5 items-center gap-1 rounded-xl border bg-[hsl(var(--card))] p-2">
                 {lugar(0)}{lugar(1)}
                 <div className="flex justify-center">
-                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-white"><Plus className="h-6 w-6" /></span>
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"><Plus className="h-6 w-6" /></span>
                 </div>
                 {lugar(2)}{lugar(3)}
             </div>
@@ -64,7 +64,7 @@ export function PersonalizarBarra({ aoSalvar }: { aoSalvar?: () => void }) {
                             <a.icone className="h-4 w-4 shrink-0" />
                             <span className="min-w-0 flex-1 truncate">{a.label}</span>
                             {marcado && (
-                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[11px] font-bold text-white">{pos + 1}</span>
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[11px] font-bold text-[hsl(var(--primary-foreground))]">{pos + 1}</span>
                             )}
                         </button>
                     );

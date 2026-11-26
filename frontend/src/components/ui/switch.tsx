@@ -22,13 +22,13 @@ export function Switch({ checked, onCheckedChange, disabled, label, ...props }: 
                 <span
                     className={
                         `absolute left-0 top-0 w-10 h-6 rounded-full transition-colors duration-200 ` +
-                        (checked ? 'bg-blue-600' : 'bg-gray-300')
+                        (checked ? 'bg-[hsl(var(--primary))]' : 'bg-[hsl(var(--input))]')
                     }
                 />
                 <span
                     className={
-                        `absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ` +
-                        (checked ? 'translate-x-4' : '')
+                        `absolute top-1 left-1 w-4 h-4 rounded-full shadow transition-transform duration-200 ` +
+                        (checked ? 'translate-x-4 bg-[hsl(var(--primary-foreground))]' : 'bg-white')
                     }
                 />
             </span>

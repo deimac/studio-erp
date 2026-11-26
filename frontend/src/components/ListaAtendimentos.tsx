@@ -39,11 +39,11 @@ function Folhinha({ data, className }: { data: string; className?: string }) {
     return (
         <div className={cn(
             'flex w-14 shrink-0 flex-col items-center overflow-hidden rounded-xl border text-center',
-            rel ? 'border-[hsl(var(--primary)/0.4)] bg-[hsl(var(--primary)/0.06)]' : 'border-[hsl(var(--border))] bg-white',
+            rel ? 'border-[hsl(var(--primary)/0.4)] bg-[hsl(var(--primary)/0.06)]' : 'border-[hsl(var(--border))] bg-[hsl(var(--card))]',
             className,
         )}>
             <span className={cn('w-full py-0.5 text-[10px] font-semibold uppercase tracking-wide',
-                rel ? 'bg-[hsl(var(--primary))] text-white' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]')}>
+                rel ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]')}>
                 {rel ?? format(d, 'EEE', { locale: ptBR }).replace('.', '').slice(0, 3)}
             </span>
             <span className="pt-0.5 text-xl font-bold leading-none tabular-nums">{format(d, 'd')}</span>

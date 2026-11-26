@@ -26,10 +26,10 @@ export function FaixaSemana({ data, onData, atendimentos, feriados }: { data: Da
                 return (
                     <button key={iso} type="button" onClick={() => onData(d)} aria-label={`${DIAS[d.getDay()]} ${d.getDate()}, ${qtd} atendimentos${feriados?.has(iso) ? `, feriado: ${feriados.get(iso)!.join(', ')}` : ''}`}
                         className={cn('flex flex-col items-center rounded-xl py-1.5 transition-colors',
-                            ativo ? 'bg-[hsl(var(--primary))] text-white' : iso === hoje ? 'bg-[hsl(var(--primary))]/10' : 'hover:bg-[hsl(var(--accent))]')}>
-                        <span className={cn('text-[11px]', ativo ? 'text-white/80' : 'text-[hsl(var(--muted-foreground))]')}>{DIAS[d.getDay()]}</span>
+                            ativo ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : iso === hoje ? 'bg-[hsl(var(--primary))]/10' : 'hover:bg-[hsl(var(--accent))]')}>
+                        <span className={cn('text-[11px]', ativo ? 'text-[hsl(var(--primary-foreground))]/80' : 'text-[hsl(var(--muted-foreground))]')}>{DIAS[d.getDay()]}</span>
                         <span className={cn('text-base font-semibold tabular-nums', !ativo && feriados?.has(iso) && 'text-amber-600')}>{d.getDate()}</span>
-                        <span className={cn('mt-0.5 h-1.5 w-1.5 rounded-full', qtd ? (ativo ? 'bg-white' : 'bg-[hsl(var(--primary))]') : 'bg-transparent')} />
+                        <span className={cn('mt-0.5 h-1.5 w-1.5 rounded-full', qtd ? (ativo ? 'bg-[hsl(var(--card))]' : 'bg-[hsl(var(--primary))]') : 'bg-transparent')} />
                     </button>
                 );
             })}

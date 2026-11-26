@@ -102,7 +102,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                         <div className="flex flex-wrap gap-1.5">
                             {PALETA.map((c) => (
                                 <button key={c} type="button" aria-label={`Cor ${c}`} onClick={() => setCor(c)}
-                                    className={cn('h-6 w-6 rounded-full ring-offset-2', cor === c && 'ring-2 ring-gray-900')} style={{ background: c }} />
+                                    className={cn('h-6 w-6 rounded-full ring-offset-2', cor === c && 'ring-2 ring-[hsl(var(--foreground))]')} style={{ background: c }} />
                             ))}
                         </div>
                     </div>
@@ -167,7 +167,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                 {porProfissional && (
                     <div className="space-y-1.5">
                         <Label>Quando o cliente falta</Label>
-                        <select aria-label="Quando o cliente falta" className="h-10 w-full rounded-md border bg-white px-2 text-sm" value={faltaRegra}
+                        <select aria-label="Quando o cliente falta" className="h-10 w-full rounded-md border bg-[hsl(var(--card))] px-2 text-sm" value={faltaRegra}
                             onChange={(e) => setFaltaRegra(e.target.value)}>
                             <option value="">Seguir a regra da clínica</option>
                             <option value="PERGUNTAR">Perguntar na hora</option>
@@ -198,7 +198,7 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                                 return (
                                     <button key={s.id} type="button"
                                         onClick={() => setServicosSel((sel) => (ativo ? sel.filter((x) => x !== s.id) : [...sel, s.id]))}
-                                        className={cn('rounded-full border px-2.5 py-1 text-xs', ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                                        className={cn('rounded-full border px-2.5 py-1 text-xs', ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:bg-[hsl(var(--accent))]')}>
                                         {s.nome}{s.nome_modalidade && !s.nome.includes(s.nome_modalidade) ? ` · ${s.nome_modalidade}` : ''}
                                     </button>
                                 );

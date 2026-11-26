@@ -748,7 +748,7 @@ function SalasPanel() {
                     <div className="flex gap-1 pb-2">
                         {PALETA.slice(0, 6).map((c) => (
                             <button key={c} type="button" aria-label={`Cor ${c}`} onClick={() => setCor(c)}
-                                className={`h-6 w-6 rounded-full ring-offset-2 ${cor === c ? 'ring-2 ring-gray-900' : ''}`} style={{ background: c }} />
+                                className={`h-6 w-6 rounded-full ring-offset-2 ${cor === c ? 'ring-2 ring-[hsl(var(--foreground))]' : ''}`} style={{ background: c }} />
                         ))}
                     </div>
                     <Button type="submit" size="sm" disabled={createMut.isPending || updateMut.isPending}>{editId ? 'Salvar' : 'Adicionar'}</Button>

@@ -90,12 +90,12 @@
     border-radius: 9999px;
     font-size: 1.125rem;
     font-weight: 600;
-    color: #0f172a;
+    color: hsl(var(--foreground));
     font-variant-numeric: tabular-nums;
 }
 .agenda-studio .cab-dia-num.cab-hoje {
     background: hsl(var(--primary));
-    color: #fff;
+    color: hsl(var(--primary-foreground));
 }
 .agenda-studio .cab-feriado {
     max-width: 100%;
@@ -103,7 +103,7 @@
     text-overflow: ellipsis;
     font-size: 0.625rem;
     font-weight: 600;
-    color: #b45309;
+    color: hsl(var(--agenda-feriado));
 }
 /* Linha de "dia inteiro" não é usada: some para não deixar um vão embaixo das datas */
 .agenda-studio .rbc-time-view .rbc-allday-cell {
@@ -116,7 +116,7 @@
 .agenda-studio .rbc-time-view-resources .rbc-header {
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #0f172a;
+    color: hsl(var(--foreground));
     text-transform: none;
 }
 /* Mês: dias da semana no topo */
@@ -143,7 +143,7 @@
     margin-right: auto;
     font-size: 0.6875rem;
     font-weight: 600;
-    color: #b45309;
+    color: hsl(var(--agenda-feriado));
 }
 .agenda-studio .cab-mes-num {
     display: inline-flex;
@@ -158,16 +158,16 @@
 }
 .agenda-studio .cab-mes-num.cab-hoje {
     background: hsl(var(--primary));
-    color: #fff;
+    color: hsl(var(--primary-foreground));
     font-weight: 700;
 }
 .agenda-studio .cab-mes-num-feriado {
-    color: #b45309;
+    color: hsl(var(--agenda-feriado));
     font-weight: 700;
 }
 
 .agenda-studio .rbc-current-time-indicator {
-    background: #ef4444;
+    background: hsl(var(--agenda-agora));
     height: 2px;
 }
 
@@ -194,7 +194,7 @@
 .agenda-studio .rbc-fora-expediente,
 .agenda-legenda-fora {
     /* cinza liso: listra é só para bloqueio */
-    background: #f1f5f9;
+    background: hsl(var(--agenda-fora));
 }
 
 .agenda-studio .rbc-slot-selection {
@@ -207,16 +207,16 @@
 /* Atendimentos: fundo claro na cor do profissional, faixa lateral forte */
 .agenda-studio .rbc-event.evt-atendimento,
 .agenda-studio .rbc-day-slot .rbc-background-event.evt-atendimento {
-    background: color-mix(in srgb, var(--evt-cor) 14%, white);
-    color: #0f172a;
-    border: 1px solid color-mix(in srgb, var(--evt-cor) 45%, white);
+    background: color-mix(in srgb, var(--evt-cor) 14%, hsl(var(--card)));
+    color: hsl(var(--foreground));
+    border: 1px solid color-mix(in srgb, var(--evt-cor) 45%, hsl(var(--card)));
     border-radius: 6px;
     padding: 2px 6px;
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+    box-shadow: 0 1px 2px hsl(var(--overlay) / 0.08);
 }
 
 .agenda-studio .rbc-event.evt-atendimento.rbc-selected {
-    background: color-mix(in srgb, var(--evt-cor) 26%, white);
+    background: color-mix(in srgb, var(--evt-cor) 26%, hsl(var(--card)));
 }
 
 .agenda-studio .rbc-event .rbc-event-label {
@@ -225,7 +225,7 @@
 }
 
 .agenda-studio .rbc-event.evt-confirmado {
-    background: color-mix(in srgb, var(--evt-cor) 24%, white);
+    background: color-mix(in srgb, var(--evt-cor) 24%, hsl(var(--card)));
 }
 
 .agenda-studio .rbc-event.evt-realizado {
@@ -243,18 +243,18 @@
 }
 
 .agenda-studio .rbc-event.evt-restrito {
-    background: repeating-linear-gradient(-45deg, #f8fafc, #f8fafc 5px, #eef2f6 5px, #eef2f6 10px);
-    color: #64748b;
+    background: repeating-linear-gradient(-45deg, hsl(var(--card)), hsl(var(--card)) 5px, hsl(var(--muted)) 5px, hsl(var(--muted)) 10px);
+    color: hsl(var(--muted-foreground));
     cursor: default;
 }
 
 /* Bloqueios (eventos de fundo) */
 .agenda-studio .rbc-background-event.evt-bloqueio,
 .agenda-legenda-bloqueio {
-    background: repeating-linear-gradient(45deg, #fee2e2, #fee2e2 6px, #fecaca 6px, #fecaca 12px);
-    color: #991b1b;
+    background: repeating-linear-gradient(45deg, hsl(var(--agenda-bloqueio-bg)), hsl(var(--agenda-bloqueio-bg)) 6px, hsl(var(--agenda-bloqueio-bg2)) 6px, hsl(var(--agenda-bloqueio-bg2)) 12px);
+    color: hsl(var(--agenda-bloqueio));
     border: 0;
-    border-left: 3px solid #dc2626;
+    border-left: 3px solid hsl(var(--agenda-bloqueio-faixa));
     border-radius: 4px;
     opacity: 0.95;
     padding: 2px 6px;
@@ -263,10 +263,10 @@
 /* Bloqueio na visão Mês: chip vermelho */
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio,
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio-mes {
-    background: #fee2e2;
-    color: #991b1b;
+    background: hsl(var(--agenda-bloqueio-bg));
+    color: hsl(var(--agenda-bloqueio));
     border: 0;
-    border-left: 3px solid #dc2626;
+    border-left: 3px solid hsl(var(--agenda-bloqueio-faixa));
     border-radius: 4px;
     padding: 1px 4px;
     font-size: 0.6875rem;
@@ -320,10 +320,10 @@
 
 /* Feriado: só aviso, em laranja */
 .agenda-studio .rbc-event.evt-feriado {
-    background: #fef3c7;
-    color: #92400e;
+    background: hsl(var(--agenda-feriado-bg));
+    color: hsl(var(--agenda-feriado));
     border: 0;
-    border-left: 3px solid #d97706;
+    border-left: 3px solid hsl(var(--warning));
     border-radius: 4px;
     padding: 1px 4px;
     font-size: 0.6875rem;
@@ -361,5 +361,5 @@
 
 /* Dia de feriado no Mês: fundo laranja bem leve */
 .agenda-studio .rbc-month-view .rbc-day-bg.dia-feriado {
-    background: #fffbeb;
+    background: hsl(var(--agenda-feriado-dia));
 }

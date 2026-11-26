@@ -67,7 +67,7 @@ type Novo = {
 };
 type Pagamento = { chave: number; id_forma: string; valor: string; parcelas: string; pago: boolean };
 
-const selectCls = 'w-full rounded-md border border-[hsl(var(--input))] bg-white px-3 py-2 text-sm disabled:opacity-60';
+const selectCls = 'w-full rounded-md border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-3 py-2 text-sm disabled:opacity-60';
 const paraCentavos = (m: string) => Math.round(Number(m.replace(/\./g, '').replace(',', '.') || 0) * 100);
 const mascara = (c: number) => (c > 0 ? maskMoney(String(c)) : '');
 const brl = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -531,7 +531,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                             <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
                                 {[30, 45, 60, 75, 90, 120].map((m) => (
                                     <button key={m} type="button" onClick={() => { setDuracao(m); setDuracaoManual(true); }}
-                                        className={cn('h-9 rounded-full border px-3 text-sm tabular-nums transition-colors', duracao === m ? 'border-transparent bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                                        className={cn('h-9 rounded-full border px-3 text-sm tabular-nums transition-colors', duracao === m ? 'border-transparent bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:bg-[hsl(var(--accent))]')}>
                                         {m}
                                     </button>
                                 ))}
@@ -547,7 +547,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                         {livresQ.isLoading && <span className="text-xs text-[hsl(var(--muted-foreground))]">Carregando…</span>}
                                         {((livresQ.data ?? []) as string[]).map((h) => (
                                             <button key={h} type="button" onClick={() => setHoraInicio(h)}
-                                                className={cn('rounded border px-2 py-1 text-xs', h === horaInicio ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-white' : 'hover:bg-[hsl(var(--accent))]')}>
+                                                className={cn('rounded border px-2 py-1 text-xs', h === horaInicio ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:bg-[hsl(var(--accent))]')}>
                                                 {h}
                                             </button>
                                         ))}
@@ -602,12 +602,12 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={() => setPagarAgora(false)}
-                                        className={cn('rounded-lg border px-3 py-2 text-sm', !pagarAgora ? 'border-[hsl(var(--primary))] bg-white font-medium ring-1 ring-[hsl(var(--primary))]' : 'bg-white')}>
+                                        className={cn('rounded-lg border px-3 py-2 text-sm', !pagarAgora ? 'border-[hsl(var(--primary))] bg-[hsl(var(--card))] font-medium ring-1 ring-[hsl(var(--primary))]' : 'bg-[hsl(var(--card))]')}>
                                         Receber depois
                                     </button>
                                     <button type="button"
                                         onClick={() => { setPagarAgora(true); if (!pagamentos.length) setPagamentos([{ chave: chave(), id_forma: formas[0] ? String(formas[0].id) : '', valor: mascara(totalVenda), parcelas: '1', pago: true }]); }}
-                                        className={cn('rounded-lg border px-3 py-2 text-sm', pagarAgora ? 'border-[hsl(var(--primary))] bg-white font-medium ring-1 ring-[hsl(var(--primary))]' : 'bg-white')}>
+                                        className={cn('rounded-lg border px-3 py-2 text-sm', pagarAgora ? 'border-[hsl(var(--primary))] bg-[hsl(var(--card))] font-medium ring-1 ring-[hsl(var(--primary))]' : 'bg-[hsl(var(--card))]')}>
                                         Informar agora
                                     </button>
                                 </div>
@@ -618,7 +618,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                                         {pagamentos.map((p) => {
                                             const nParc = Number(p.parcelas) || 1;
                                             return (
-                                                <div key={p.chave} className="space-y-2.5 rounded-lg border bg-white p-3">
+                                                <div key={p.chave} className="space-y-2.5 rounded-lg border bg-[hsl(var(--card))] p-3">
                                                     <div className="flex items-center gap-2">
                                                         <select aria-label="Forma de pagamento" className={cn(selectCls, 'min-w-0 flex-1')} value={p.id_forma} onChange={(e) => alterarPagamento(p.chave, { id_forma: e.target.value })}>
                                                             {!p.id_forma && <option value="" disabled>Escolha a forma</option>}
@@ -718,7 +718,7 @@ function CartaoItem({ ativo, onClick, titulo, duracao, restantes, total, pacote,
         <button type="button" onClick={onClick} aria-pressed={ativo}
             className={cn('flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors',
                 ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))]/5 ring-1 ring-[hsl(var(--primary))]' : 'hover:bg-[hsl(var(--accent))]')}>
-            <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded border', ativo && 'border-transparent bg-[hsl(var(--primary))] text-white')}>
+            <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded border', ativo && 'border-transparent bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]')}>
                 {ativo && <Check className="h-3.5 w-3.5" />}
             </span>
             <span className="min-w-0 flex-1">

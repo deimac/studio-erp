@@ -59,7 +59,7 @@ export function SeletorData({ data, onData, titulo, soMes, className }: Props) {
 
             {aberto && (
                 <div role="dialog" aria-label="Escolher data"
-                    className="absolute left-1/2 top-full z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 md:left-0 md:translate-x-0 rounded-xl border bg-white p-3 shadow-lg">
+                    className="absolute left-1/2 top-full z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 md:left-0 md:translate-x-0 rounded-xl border bg-[hsl(var(--card))] p-3 shadow-lg">
                     <div className="mb-2 flex items-center justify-between">
                         <button type="button" aria-label={modo === 'dias' ? 'Mês anterior' : 'Ano anterior'} className={seta}
                             onClick={() => setMesVisto((m) => addMonths(m, modo === 'dias' ? -1 : -12))}><ChevronLeft className="h-4 w-4" /></button>
@@ -83,7 +83,7 @@ export function SeletorData({ data, onData, titulo, soMes, className }: Props) {
                                     <button key={d.toISOString()} type="button" onClick={() => escolher(d)}
                                         className={cn('h-9 rounded-md text-sm tabular-nums',
                                             !isSameMonth(d, mesVisto) && 'text-gray-300',
-                                            escolhido ? 'bg-[hsl(var(--primary))] font-semibold text-white'
+                                            escolhido ? 'bg-[hsl(var(--primary))] font-semibold text-[hsl(var(--primary-foreground))]'
                                                 : isSameDay(d, hoje) ? 'font-semibold text-[hsl(var(--primary))] ring-1 ring-inset ring-[hsl(var(--primary))]'
                                                 : 'hover:bg-[hsl(var(--accent))]')}>
                                         {d.getDate()}
@@ -104,7 +104,7 @@ export function SeletorData({ data, onData, titulo, soMes, className }: Props) {
                                             setModo('dias');
                                         }}
                                         className={cn('h-10 rounded-md text-sm capitalize',
-                                            escolhido ? 'bg-[hsl(var(--primary))] font-semibold text-white'
+                                            escolhido ? 'bg-[hsl(var(--primary))] font-semibold text-[hsl(var(--primary-foreground))]'
                                                 : isSameMonth(alvo, hoje) ? 'font-semibold text-[hsl(var(--primary))] ring-1 ring-inset ring-[hsl(var(--primary))]'
                                                 : 'hover:bg-[hsl(var(--accent))]')}>
                                         {m}

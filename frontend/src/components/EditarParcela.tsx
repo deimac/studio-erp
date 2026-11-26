@@ -96,7 +96,7 @@ export function EditarParcela({ lancamento, onClose, onSaved }: Props) {
                                     </div>
                                     <div className="space-y-1.5">
                                         <Label htmlFor="ep-forma">Forma de pagamento</Label>
-                                        <select id="ep-forma" className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={forma}
+                                        <select id="ep-forma" className="h-10 w-full rounded-md border bg-[hsl(var(--card))] px-3 text-sm" value={forma}
                                             onChange={(e) => setForma(e.target.value)}>
                                             <option value="">{lancamento.id_venda ? 'A definir' : 'Escolha…'}</option>
                                             {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}

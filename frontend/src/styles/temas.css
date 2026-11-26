@@ -1,0 +1,354 @@
+/* ━━━ Design system do Studio ERP — temas ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Dois estilos × dois modos, escolhidos no menu da conta:
+     <html data-estilo="classico | rose" class="dark?">
+   Regra de ouro: texto sempre legível. Todo par texto/fundo daqui foi conferido
+   (texto normal ≥ 7:1, texto secundário ≥ 4.5:1 sobre fundo, cartão e "muted").
+
+   Tokens semânticos (use estes nos componentes):
+     --background / --foreground          fundo da página e texto principal
+     --card / --card-foreground           cartões, painéis, menus, campos
+     --muted / --muted-foreground         superfícies discretas e texto secundário
+     --accent                             hover / item destacado
+     --primary / --primary-foreground     botão e seleção (texto em cima do primary)
+     --destructive, --success, --warning  estados (com *-foreground para o texto)
+     --border / --input / --ring          linhas, contorno de campo, foco
+   Cores da paleta do Tailwind (gray, red, amber…) são reescritas por tema, então
+   bg-red-50 + text-red-700 continuam legíveis no escuro sem mexer no componente.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* ── Clássico · claro (o visual atual, com o texto secundário um pouco mais firme) ── */
+:root {
+    color-scheme: light;
+    --background: 210 33% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 22% 36%;
+    --accent: 214 60% 95%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 72% 29%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 26 83% 14%;
+    --border: 214 32% 89%;
+    --input: 214 25% 80%;
+    --ring: 221 83% 53%;
+    --overlay: 222 47% 11%;
+
+    /* Agenda */
+    --agenda-fora: 210 40% 96%;
+    --agenda-feriado: 32 95% 30%;
+    --agenda-feriado-bg: 48 96% 89%;
+    --agenda-feriado-dia: 48 100% 96%;
+    --agenda-bloqueio: 0 63% 31%;
+    --agenda-bloqueio-bg: 0 93% 94%;
+    --agenda-bloqueio-bg2: 0 96% 89%;
+    --agenda-bloqueio-faixa: 0 72% 51%;
+    --agenda-agora: 0 84% 60%;
+
+    /* Textos claros da paleta subiram de tom para passar no contraste */
+    --color-gray-400: oklch(0.56 0.022 262);
+    --color-gray-500: oklch(0.5 0.025 262);
+    --color-slate-400: oklch(0.56 0.035 257);
+    --color-slate-500: oklch(0.5 0.04 257);
+}
+
+/* ── Clássico · escuro (azul-marinho, tons sobre tons) ── */
+.dark {
+    color-scheme: dark;
+    --background: 222 40% 7%;
+    --foreground: 214 40% 95%;
+    --card: 222 34% 10.5%;
+    --card-foreground: 214 40% 95%;
+    --popover: 222 32% 12%;
+    --popover-foreground: 214 40% 95%;
+    --primary: 214 95% 68%;
+    --primary-foreground: 222 60% 10%;
+    --secondary: 221 28% 16%;
+    --secondary-foreground: 214 40% 95%;
+    --muted: 221 28% 15%;
+    --muted-foreground: 216 22% 72%;
+    --accent: 219 32% 19%;
+    --accent-foreground: 214 40% 97%;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 145 60% 52%;
+    --success-foreground: 150 70% 8%;
+    --warning: 40 95% 58%;
+    --warning-foreground: 30 80% 10%;
+    --border: 220 24% 20%;
+    --input: 219 22% 30%;
+    --ring: 214 95% 68%;
+    --overlay: 222 60% 3%;
+}
+
+/* ── Rosé & linho · claro (mesmo DNA do site da Tayna) ── */
+[data-estilo='rose'] {
+    --background: 36 30% 95.5%;
+    --foreground: 28 12% 14%;
+    --card: 36 60% 99.4%;
+    --card-foreground: 28 12% 14%;
+    --popover: 36 60% 99.4%;
+    --popover-foreground: 28 12% 14%;
+    --primary: 354 26% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 33 26% 91%;
+    --secondary-foreground: 28 12% 14%;
+    --muted: 33 26% 91.5%;
+    --muted-foreground: 26 10% 35%;
+    --accent: 8 48% 94%;
+    --accent-foreground: 350 28% 24%;
+    --destructive: 0 62% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 150 40% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 62% 52%;
+    --warning-foreground: 28 60% 12%;
+    --border: 32 22% 86%;
+    --input: 30 18% 76%;
+    --ring: 354 26% 42%;
+    --overlay: 28 20% 12%;
+
+    --agenda-fora: 33 26% 92%;
+    --agenda-feriado-dia: 40 70% 95%;
+
+    /* Cinzas viram taupe quente; azul vira rosé-malva (tom sobre tom) */
+    --color-gray-50: oklch(0.975 0.006 70);
+    --color-gray-100: oklch(0.955 0.009 70);
+    --color-gray-200: oklch(0.91 0.012 68);
+    --color-gray-300: oklch(0.85 0.015 65);
+    --color-gray-400: oklch(0.56 0.018 60);
+    --color-gray-500: oklch(0.5 0.018 58);
+    --color-gray-600: oklch(0.43 0.017 55);
+    --color-gray-700: oklch(0.36 0.016 55);
+    --color-gray-800: oklch(0.28 0.013 55);
+    --color-gray-900: oklch(0.22 0.011 55);
+    --color-gray-950: oklch(0.16 0.009 55);
+    --color-slate-400: var(--color-gray-400);
+    --color-slate-500: var(--color-gray-500);
+    --color-slate-700: var(--color-gray-700);
+    --color-slate-900: var(--color-gray-900);
+
+    --color-blue-50: oklch(0.97 0.012 15);
+    --color-blue-100: oklch(0.94 0.024 12);
+    --color-blue-200: oklch(0.88 0.04 10);
+    --color-blue-300: oklch(0.8 0.06 10);
+    --color-blue-400: oklch(0.68 0.08 10);
+    --color-blue-500: oklch(0.6 0.085 10);
+    --color-blue-600: oklch(0.5 0.08 10);
+    --color-blue-700: oklch(0.44 0.07 10);
+    --color-blue-800: oklch(0.37 0.06 10);
+    --color-blue-900: oklch(0.3 0.045 10);
+}
+
+/* ── Rosé & linho · escuro (cacau, linho e rosé) ── */
+[data-estilo='rose'].dark {
+    --background: 24 14% 7.5%;
+    --foreground: 36 38% 93%;
+    --card: 24 13% 10.5%;
+    --card-foreground: 36 38% 93%;
+    --popover: 24 12% 12.5%;
+    --popover-foreground: 36 38% 93%;
+    --primary: 354 52% 78%;
+    --primary-foreground: 350 30% 12%;
+    --secondary: 24 11% 16%;
+    --secondary-foreground: 36 38% 93%;
+    --muted: 24 11% 15%;
+    --muted-foreground: 32 16% 73%;
+    --accent: 350 16% 19%;
+    --accent-foreground: 20 40% 95%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 148 40% 58%;
+    --success-foreground: 150 50% 8%;
+    --warning: 38 70% 62%;
+    --warning-foreground: 30 60% 10%;
+    --border: 24 10% 20%;
+    --input: 24 10% 30%;
+    --ring: 354 52% 78%;
+    --overlay: 24 30% 3%;
+}
+
+/* ── Paleta do Tailwind no escuro: escala invertida ──
+   50–100 viram tintas escuras de fundo, 200–300 viram bordas,
+   500–950 viram tons claros, próprios para texto sobre fundo escuro. */
+.dark {
+    --agenda-fora: 221 28% 13%;
+    --agenda-feriado: 40 90% 70%;
+    --agenda-feriado-bg: 36 50% 18%;
+    --agenda-feriado-dia: 36 40% 12%;
+    --agenda-bloqueio: 0 90% 82%;
+    --agenda-bloqueio-bg: 0 40% 18%;
+    --agenda-bloqueio-bg2: 0 40% 22%;
+    --agenda-bloqueio-faixa: 0 80% 62%;
+    --agenda-agora: 0 85% 65%;
+
+    --color-gray-50: oklch(0.2 0.018 262);
+    --color-gray-100: oklch(0.235 0.02 262);
+    --color-gray-200: oklch(0.3 0.022 262);
+    --color-gray-300: oklch(0.4 0.024 262);
+    --color-gray-400: oklch(0.72 0.02 262);
+    --color-gray-500: oklch(0.76 0.018 262);
+    --color-gray-600: oklch(0.8 0.016 262);
+    --color-gray-700: oklch(0.86 0.012 262);
+    --color-gray-800: oklch(0.91 0.008 262);
+    --color-gray-900: oklch(0.95 0.005 262);
+    --color-gray-950: oklch(0.98 0.003 262);
+    --color-slate-50: var(--color-gray-50);
+    --color-slate-100: var(--color-gray-100);
+    --color-slate-200: var(--color-gray-200);
+    --color-slate-300: var(--color-gray-300);
+    --color-slate-400: var(--color-gray-400);
+    --color-slate-500: var(--color-gray-500);
+    --color-slate-600: var(--color-gray-600);
+    --color-slate-700: var(--color-gray-700);
+    --color-slate-800: var(--color-gray-800);
+    --color-slate-900: var(--color-gray-900);
+
+    --color-red-50: oklch(0.24 0.05 25);
+    --color-red-100: oklch(0.28 0.07 25);
+    --color-red-200: oklch(0.36 0.09 25);
+    --color-red-300: oklch(0.48 0.12 25);
+    --color-red-400: oklch(0.7 0.15 25);
+    --color-red-500: oklch(0.68 0.17 25);
+    --color-red-600: oklch(0.76 0.13 25);
+    --color-red-700: oklch(0.8 0.11 25);
+    --color-red-800: oklch(0.86 0.08 25);
+    --color-red-900: oklch(0.91 0.05 25);
+
+    --color-orange-50: oklch(0.24 0.045 50);
+    --color-orange-100: oklch(0.28 0.06 50);
+    --color-orange-200: oklch(0.36 0.08 50);
+    --color-orange-300: oklch(0.48 0.11 50);
+    --color-orange-400: oklch(0.72 0.14 50);
+    --color-orange-500: oklch(0.72 0.16 50);
+    --color-orange-600: oklch(0.78 0.13 55);
+    --color-orange-700: oklch(0.82 0.11 55);
+    --color-orange-800: oklch(0.87 0.08 55);
+    --color-orange-900: oklch(0.92 0.05 55);
+
+    --color-amber-50: oklch(0.25 0.045 75);
+    --color-amber-100: oklch(0.29 0.06 75);
+    --color-amber-200: oklch(0.37 0.08 75);
+    --color-amber-300: oklch(0.5 0.1 75);
+    --color-amber-400: oklch(0.78 0.14 80);
+    --color-amber-500: oklch(0.78 0.15 75);
+    --color-amber-600: oklch(0.82 0.13 80);
+    --color-amber-700: oklch(0.85 0.11 82);
+    --color-amber-800: oklch(0.89 0.08 85);
+    --color-amber-900: oklch(0.93 0.05 85);
+
+    --color-yellow-50: oklch(0.25 0.045 90);
+    --color-yellow-100: oklch(0.29 0.06 90);
+    --color-yellow-200: oklch(0.37 0.075 90);
+    --color-yellow-300: oklch(0.5 0.09 90);
+    --color-yellow-400: oklch(0.82 0.14 92);
+    --color-yellow-500: oklch(0.82 0.15 90);
+    --color-yellow-600: oklch(0.85 0.13 92);
+    --color-yellow-700: oklch(0.88 0.11 95);
+    --color-yellow-800: oklch(0.91 0.08 95);
+    --color-yellow-900: oklch(0.94 0.05 95);
+
+    --color-green-50: oklch(0.24 0.04 150);
+    --color-green-100: oklch(0.28 0.055 150);
+    --color-green-200: oklch(0.36 0.075 150);
+    --color-green-300: oklch(0.48 0.1 150);
+    --color-green-400: oklch(0.74 0.14 150);
+    --color-green-500: oklch(0.7 0.15 150);
+    --color-green-600: oklch(0.78 0.13 150);
+    --color-green-700: oklch(0.82 0.11 150);
+    --color-green-800: oklch(0.87 0.08 150);
+    --color-green-900: oklch(0.92 0.05 150);
+
+    --color-emerald-50: oklch(0.24 0.04 165);
+    --color-emerald-100: oklch(0.28 0.055 165);
+    --color-emerald-200: oklch(0.36 0.07 165);
+    --color-emerald-300: oklch(0.48 0.09 165);
+    --color-emerald-400: oklch(0.74 0.13 165);
+    --color-emerald-500: oklch(0.7 0.14 165);
+    --color-emerald-600: oklch(0.78 0.12 165);
+    --color-emerald-700: oklch(0.82 0.1 165);
+    --color-emerald-800: oklch(0.87 0.07 165);
+    --color-emerald-900: oklch(0.92 0.045 165);
+
+    --color-blue-50: oklch(0.24 0.05 260);
+    --color-blue-100: oklch(0.28 0.065 260);
+    --color-blue-200: oklch(0.36 0.09 260);
+    --color-blue-300: oklch(0.48 0.12 260);
+    --color-blue-400: oklch(0.72 0.13 255);
+    --color-blue-500: oklch(0.68 0.15 258);
+    --color-blue-600: oklch(0.76 0.12 255);
+    --color-blue-700: oklch(0.8 0.1 255);
+    --color-blue-800: oklch(0.86 0.07 255);
+    --color-blue-900: oklch(0.91 0.045 255);
+
+    --color-sky-50: oklch(0.24 0.04 235);
+    --color-sky-100: oklch(0.28 0.055 235);
+    --color-sky-600: oklch(0.78 0.11 235);
+    --color-sky-700: oklch(0.82 0.09 235);
+
+    --color-violet-50: oklch(0.24 0.05 293);
+    --color-violet-100: oklch(0.28 0.065 293);
+    --color-violet-200: oklch(0.36 0.09 293);
+    --color-violet-300: oklch(0.48 0.12 293);
+    --color-violet-500: oklch(0.7 0.15 293);
+    --color-violet-600: oklch(0.77 0.12 293);
+    --color-violet-700: oklch(0.81 0.1 293);
+    --color-violet-800: oklch(0.86 0.07 293);
+
+    --color-purple-50: oklch(0.24 0.05 304);
+    --color-purple-100: oklch(0.28 0.065 304);
+    --color-purple-200: oklch(0.36 0.09 304);
+    --color-purple-500: oklch(0.7 0.15 304);
+    --color-purple-600: oklch(0.77 0.12 304);
+    --color-purple-700: oklch(0.81 0.1 304);
+    --color-purple-800: oklch(0.86 0.07 304);
+}
+
+/* Rosé escuro: cinzas quentes e o "azul" vira rosé claro */
+[data-estilo='rose'].dark {
+    --agenda-fora: 24 11% 12.5%;
+
+    --color-gray-50: oklch(0.2 0.009 55);
+    --color-gray-100: oklch(0.235 0.01 55);
+    --color-gray-200: oklch(0.3 0.012 55);
+    --color-gray-300: oklch(0.4 0.014 55);
+    --color-gray-400: oklch(0.73 0.016 60);
+    --color-gray-500: oklch(0.77 0.015 62);
+    --color-gray-600: oklch(0.81 0.014 65);
+    --color-gray-700: oklch(0.87 0.012 68);
+    --color-gray-800: oklch(0.92 0.01 70);
+    --color-gray-900: oklch(0.95 0.008 72);
+    --color-gray-950: oklch(0.98 0.005 72);
+
+    --color-blue-50: oklch(0.24 0.03 10);
+    --color-blue-100: oklch(0.28 0.04 10);
+    --color-blue-200: oklch(0.36 0.05 10);
+    --color-blue-300: oklch(0.48 0.065 10);
+    --color-blue-400: oklch(0.74 0.08 10);
+    --color-blue-500: oklch(0.72 0.09 10);
+    --color-blue-600: oklch(0.8 0.07 10);
+    --color-blue-700: oklch(0.84 0.06 10);
+    --color-blue-800: oklch(0.89 0.04 10);
+    --color-blue-900: oklch(0.93 0.025 10);
+}
+
+/* Troca de tema suave, sem piscar */
+html.trocando-tema,
+html.trocando-tema * {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
+}
+
+/* Anel de foco com espaço na cor do cartão (não branco) */
+* {
+    --tw-ring-offset-color: hsl(var(--card));
+}

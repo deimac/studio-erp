@@ -59,7 +59,7 @@ export function TelefoneInput({ value, onChange, id, placeholder, className, aut
     }, [busca]);
 
     return (
-        <div ref={caixaRef} className={cn('relative flex h-10 w-full rounded-md border border-[hsl(var(--input))] bg-white text-sm focus-within:ring-2 focus-within:ring-[hsl(var(--ring))]', className)}>
+        <div ref={caixaRef} className={cn('relative flex h-10 w-full rounded-md border border-[hsl(var(--input))] bg-[hsl(var(--card))] text-sm focus-within:ring-2 focus-within:ring-[hsl(var(--ring))]', className)}>
             <button type="button" aria-label={`País: ${atual?.nome}`} onClick={() => setAberto((v) => !v)}
                 className="flex shrink-0 items-center gap-1 border-r px-2 tabular-nums">
                 <span className="text-base leading-none">{bandeira(pais)}</span>
@@ -82,7 +82,7 @@ export function TelefoneInput({ value, onChange, id, placeholder, className, aut
                 }}
             />
             {aberto && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-72 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border bg-white shadow-lg">
+                <div className="absolute left-0 top-full z-50 mt-1 w-72 max-w-[calc(100vw-3rem)] overflow-hidden rounded-lg border bg-[hsl(var(--card))] shadow-lg">
                     <div className="flex items-center gap-2 border-b px-3">
                         <Search className="h-4 w-4 shrink-0 text-gray-400" />
                         <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar país ou código"

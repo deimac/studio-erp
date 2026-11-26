@@ -456,7 +456,7 @@ export default function Financeiro() {
                             </Button>
 
                             {presetMenuOpen && (
-                                <div className="absolute right-0 mt-2 z-20 w-48 rounded-md border bg-white p-1 shadow-sm">
+                                <div className="absolute right-0 mt-2 z-20 w-48 rounded-md border bg-[hsl(var(--card))] p-1 shadow-sm">
                                     {[
                                         { value: 'hoje', label: 'Hoje' },
                                         { value: 'semana', label: 'Esta semana' },

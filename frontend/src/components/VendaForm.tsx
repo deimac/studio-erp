@@ -279,7 +279,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                         {escolheVendedor && (
                             <div className="space-y-1.5">
                                 <Label>Vendido por</Label>
-                                <select aria-label="Vendido por" className="h-10 w-full rounded-md border bg-white px-3 text-sm" value={vendedor}
+                                <select aria-label="Vendido por" className="h-10 w-full rounded-md border bg-[hsl(var(--card))] px-3 text-sm" value={vendedor}
                                     onChange={(e) => { setVendedor(Number(e.target.value)); if (!editando) { setItens([]); setPagamentos([]); } }}>
                                     {((profsQ.data ?? []) as any[]).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
                                 </select>
@@ -392,11 +392,11 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
                                 </p>
                             )}
                             {pagamentos.map((p, idx) => (
-                                <div key={p.chave} className="space-y-3 rounded-lg border bg-white p-3">
+                                <div key={p.chave} className="space-y-3 rounded-lg border bg-[hsl(var(--card))] p-3">
                                     <div className="grid grid-cols-2 gap-3">
                                         <label className="col-span-2 space-y-1 text-xs text-gray-500 sm:col-span-1">
                                             Forma
-                                            <select aria-label="Forma de pagamento" className="h-10 w-full rounded-md border bg-white px-2 text-sm text-gray-900" value={p.id_forma}
+                                            <select aria-label="Forma de pagamento" className="h-10 w-full rounded-md border bg-[hsl(var(--card))] px-2 text-sm text-gray-900" value={p.id_forma}
                                                 onChange={(e) => alterarPagamento(p.chave, { id_forma: e.target.value })}>
                                                 <option value="">Escolha…</option>
                                                 {formas.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
@@ -438,7 +438,7 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
 
                             <div className="flex flex-wrap items-center justify-between gap-2">
                                 <button type="button" onClick={outraForma}
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed bg-white px-3 py-1.5 text-sm text-gray-600 hover:bg-[hsl(var(--accent))]">
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed bg-[hsl(var(--card))] px-3 py-1.5 text-sm text-gray-600 hover:bg-[hsl(var(--accent))]">
                                     <Plus className="h-4 w-4" /> Outra forma de pagamento
                                 </button>
                                 <span className={cn('inline-flex items-center gap-1 text-sm font-medium tabular-nums', falta === 0 ? 'text-emerald-700' : 'text-amber-700')}>

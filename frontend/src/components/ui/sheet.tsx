@@ -17,7 +17,7 @@ const SheetContent = React.forwardRef<
     const teclado = useTecladoNoRodape();
     return (
         <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fundo-folha fixed inset-0 z-[60] bg-slate-900/30" />
+            <DialogPrimitive.Overlay className="fundo-folha fixed inset-0 z-[60] bg-[hsl(var(--overlay)/0.45)]" />
             <DialogPrimitive.Content
                 ref={ref}
                 style={teclado > 0 ? { ...style, bottom: teclado } : style}

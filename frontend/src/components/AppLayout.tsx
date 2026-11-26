@@ -19,7 +19,7 @@ export function AppLayout() {
 
                 <div className="flex flex-1 overflow-hidden">
                     {/* Desktop sidebar */}
-                    <aside className="hidden w-[var(--sidebar-width)] shrink-0 border-r border-[hsl(var(--border))] bg-white lg:block">
+                    <aside className="hidden w-[var(--sidebar-width)] shrink-0 border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:block">
                         <Sidebar onNavigate={() => { }} />
                     </aside>
 
@@ -30,7 +30,7 @@ export function AppLayout() {
                                 className="absolute inset-0 bg-black/40"
                                 onClick={() => setSidebarOpen(false)}
                             />
-                            <aside className="relative z-50 h-full w-[var(--sidebar-width)] border-r border-[hsl(var(--border))] bg-white shadow-xl">
+                            <aside className="relative z-50 h-full w-[var(--sidebar-width)] border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-xl">
                                 <Sidebar onNavigate={() => setSidebarOpen(false)} />
                             </aside>
                         </div>
