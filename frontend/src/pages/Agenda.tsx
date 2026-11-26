@@ -818,10 +818,26 @@ export default function Agenda() {
 
             {avisoDia}
 
-            {/* Calendário */}
-            <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
-                {calendario}
-            </div>
+            {/* Calendário (na Lista, os mesmos cartões do celular) */}
+            {view === 'agenda' ? (
+                <AgendaLista
+                    de={de}
+                    ate={ate}
+                    mostrarVazios={false}
+                    atendimentos={dados?.atendimentos ?? []}
+                    bloqueios={dados?.bloqueios ?? []}
+                    profissionais={profissionais}
+                    visiveis={profsVisiveis}
+                    carregando={eventosQ.isLoading}
+                    onAbrir={setDetalhe}
+                    onDia={(d) => { setData(d); setView('day'); }}
+                    onBloqueio={perguntarRemoverBloqueio}
+                />
+            ) : (
+                <div className={cn('agenda-studio agenda-desktop min-h-[560px] flex-1 rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
+                    {calendario}
+                </div>
+            )}
 
             {/* Legenda */}
             <div className="flex flex-wrap gap-3 text-xs text-[hsl(var(--muted-foreground))]">

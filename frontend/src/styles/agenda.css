@@ -361,3 +361,32 @@
 .agenda-studio .rbc-month-view .rbc-day-bg.dia-feriado {
     background: hsl(var(--agenda-feriado-dia));
 }
+
+/* Computador: horas mais altas para os cartões de 30 min caberem horário + nome */
+.agenda-desktop .rbc-timeslot-group {
+    min-height: 88px;
+}
+
+/* Cartões no Dia/Semana: horário ao lado do nome (cartão curto mostra tudo na 1ª linha) */
+.agenda-studio .rbc-day-slot .rbc-event.evt-atendimento {
+    flex-flow: row wrap;
+    align-content: flex-start;
+    align-items: baseline;
+    column-gap: 6px;
+    padding: 4px 8px;
+    line-height: 1.25;
+}
+.agenda-studio .rbc-day-slot .rbc-event.evt-atendimento .rbc-event-label {
+    flex: none;
+    font-weight: 600;
+    opacity: 0.8;
+    padding-right: 0;
+}
+.agenda-studio .rbc-day-slot .rbc-event.evt-atendimento .rbc-event-content {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: 0.75rem;
+}
+.agenda-compacta .rbc-day-slot .rbc-event.evt-atendimento {
+    padding: 1px 2px;
+}
