@@ -9,7 +9,7 @@
 import { eq, isNull, or, type Column, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
-export type Sessao = { id: number; perfil: 'ADMIN' | 'PROFISSIONAL'; veTudo: boolean };
+export type Sessao = { id: number; perfil: 'ADMIN' | 'PROFISSIONAL' | 'ESPECTADOR'; veTudo: boolean };
 export type Escopo = 'GERAL' | 'MEU';
 
 export const zEscopo = z.enum(['GERAL', 'MEU']).optional();

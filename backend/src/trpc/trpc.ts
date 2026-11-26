@@ -1,14 +1,18 @@
 import { TRPCError, initTRPC } from '@trpc/server';
 import type { Context } from './context';
+import { podeEspectador } from '../lib/espectador';
 
 const t = initTRPC.context<Context>().create();
 
 export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
-export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
+export const protectedProcedure = t.procedure.use(async ({ ctx, next, path, type }) => {
     if (!ctx.session) {
         throw new TRPCError({ code: 'UNAUTHORIZED', message: 'Não autorizado' });
+    }
+    if (ctx.session.perfil === 'ESPECTADOR' && !podeEspectador(path, type)) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Seu acesso é só para ver a agenda e os serviços' });
     }
 
     return next({

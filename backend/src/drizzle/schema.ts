@@ -51,7 +51,7 @@ export const usuarios = mysqlTable(
         nome: varchar('nome', { length: 150 }).notNull(),
         email: varchar('email', { length: 150 }).notNull(),
         senha: varchar('senha', { length: 255 }).notNull(),
-        perfil: mysqlEnum('perfil', ['ADMIN', 'PROFISSIONAL']).notNull(),
+        perfil: mysqlEnum('perfil', ['ADMIN', 'PROFISSIONAL', 'ESPECTADOR']).notNull(),
         ativo: dbBoolean('ativo').default(true),
         cor: varchar('cor', { length: 20 }),
         telefone: varchar('telefone', { length: 20 }),

@@ -104,6 +104,8 @@ export const usuariosRouter = createTRPCRouter({
                 nome: z.string().min(2),
                 email: z.string().email(),
                 senha: z.string().min(6),
+                /** Espectador: só vê a agenda compartilhada e os serviços. */
+                perfil: z.enum(['PROFISSIONAL', 'ESPECTADOR']).optional().default('PROFISSIONAL'),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -124,9 +126,11 @@ export const usuariosRouter = createTRPCRouter({
                     nome: input.nome,
                     email: input.email,
                     senha: senhaHash,
-                    perfil: 'PROFISSIONAL',
+                    perfil: input.perfil,
                     id_unidade: ctx.session.unidadeId,
                     ativo: true,
+                    // O espectador não atende: fica fora do grupo que divide horários
+                    ...(input.perfil === 'ESPECTADOR' ? { agenda_compartilhada: false } : {}),
                 })
                 .$returningId();
 
@@ -139,7 +143,7 @@ export const usuariosRouter = createTRPCRouter({
                 id: z.number().int().positive(),
                 nome: z.string().min(2).optional(),
                 email: z.string().email().optional(),
-                perfil: z.enum(['ADMIN', 'PROFISSIONAL']).optional(),
+                perfil: z.enum(['ADMIN', 'PROFISSIONAL', 'ESPECTADOR']).optional(),
                 ativo: z.boolean().optional(),
             }),
         )

@@ -213,7 +213,7 @@ async function carregarCompartilhados(db: DbOuTx, unidadeId: number): Promise<nu
     const rows = await db
         .select({ id: usuarios.id })
         .from(usuarios)
-        .where(and(eq(usuarios.id_unidade, unidadeId), eq(usuarios.ativo, true), eq(usuarios.agenda_compartilhada, true)));
+        .where(and(eq(usuarios.id_unidade, unidadeId), eq(usuarios.ativo, true), eq(usuarios.agenda_compartilhada, true), ne(usuarios.perfil, 'ESPECTADOR')));
     return rows.map((r) => r.id);
 }
 
@@ -559,7 +559,15 @@ const profissionaisRouter = createTRPCRouter({
                 falta_regra: usuarios.falta_regra,
             })
             .from(usuarios)
-            .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true)))
+            // O espectador não atende: não vira coluna da agenda. Ele vê só o grupo compartilhado.
+            .where(
+                and(
+                    eq(usuarios.id_unidade, ctx.session.unidadeId),
+                    eq(usuarios.ativo, true),
+                    ne(usuarios.perfil, 'ESPECTADOR'),
+                    ...(ctx.session.perfil === 'ESPECTADOR' ? [eq(usuarios.agenda_compartilhada, true)] : []),
+                ),
+            )
             .orderBy(asc(usuarios.nome)),
     ),
 
@@ -780,10 +788,15 @@ export const agendaRouter = createTRPCRouter({
             }),
         )
         .query(async ({ ctx, input }) => {
+            // Espectador: só a agenda compartilhada, só para ver
+            const espectador = ctx.session.perfil === 'ESPECTADOR';
+            const grupo = espectador ? await carregarCompartilhados(ctx.db, ctx.session.unidadeId) : [];
+            const idsGrupo = grupo.length ? grupo : [0];
             const parts = [
                 eq(atendimentos.id_unidade, ctx.session.unidadeId),
                 sql`${atendimentos.data} BETWEEN ${input.de} AND ${input.ate}`,
             ];
+            if (espectador) parts.push(inArray(atendimentos.id_profissional, idsGrupo));
             if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
             if (input.salas?.length) parts.push(inArray(atendimentos.id_sala, input.salas));
             if (!input.incluirCancelados) parts.push(ne(atendimentos.status, 'CANCELADO'));
@@ -840,9 +853,12 @@ export const agendaRouter = createTRPCRouter({
 
             const veTudo = ctx.session.veTudo;
             const atends = rows.map((r) => {
-                const restrito = !veTudo && r.id_profissional !== ctx.session.id;
+                const restrito = !espectador && !veTudo && r.id_profissional !== ctx.session.id;
                 return {
                     ...r,
+                    ...(espectador
+                        ? { pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, id_venda_extra: null }
+                        : {}),
                     hora_inicio: r.hora_inicio.slice(0, 5),
                     hora_fim: r.hora_fim.slice(0, 5),
                     restrito,
@@ -868,6 +884,7 @@ export const agendaRouter = createTRPCRouter({
                         eq(agendaBloqueios.id_unidade, ctx.session.unidadeId),
                         lte(agendaBloqueios.inicio, `${input.ate} 23:59:59`),
                         gte(agendaBloqueios.fim, `${input.de} 00:00:00`),
+                        ...(espectador ? [or(isNull(agendaBloqueios.id_profissional), inArray(agendaBloqueios.id_profissional, idsGrupo))] : []),
                     ),
                 );
 
@@ -880,7 +897,13 @@ export const agendaRouter = createTRPCRouter({
                 })
                 .from(profissionalHorarios)
                 .innerJoin(usuarios, eq(usuarios.id, profissionalHorarios.id_profissional))
-                .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true)));
+                .where(
+                    and(
+                        eq(usuarios.id_unidade, ctx.session.unidadeId),
+                        eq(usuarios.ativo, true),
+                        ...(espectador ? [inArray(profissionalHorarios.id_profissional, idsGrupo)] : []),
+                    ),
+                );
 
             const cadastrados = await ctx.db
                 .select({ dia: feriados.dia, mes: feriados.mes, ano: feriados.ano, nome: feriados.nome })

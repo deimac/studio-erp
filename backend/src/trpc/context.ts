@@ -12,7 +12,7 @@ export type AuthUsuario = {
 
 export type Session = {
     id: number;
-    perfil: 'ADMIN' | 'PROFISSIONAL';
+    perfil: 'ADMIN' | 'PROFISSIONAL' | 'ESPECTADOR';
     unidadeId: number;
     /** Usa os serviços/técnicas da clínica (admin: sempre). */
     veServicosClinica: boolean;
@@ -58,7 +58,7 @@ export async function createContext({ req, res }: CreateExpressContextOptions) {
                 id: usuarioDb.id,
                 perfil: usuarioDb.perfil,
                 unidadeId: usuarioDb.id_unidade,
-                veServicosClinica: usuarioDb.perfil === 'ADMIN' || Boolean(usuarioDb.ve_servicos_clinica),
+                veServicosClinica: usuarioDb.perfil !== 'PROFISSIONAL' || Boolean(usuarioDb.ve_servicos_clinica),
                 veTudo: usuarioDb.perfil === 'ADMIN' && usuarioDb.modo_trabalho !== 'INDIVIDUAL',
             };
         }

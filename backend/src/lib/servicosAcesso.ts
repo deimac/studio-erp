@@ -5,7 +5,7 @@
  * - Serviço próprio de um profissional: só ele (e o admin no modo Clínica) vê, usa e edita.
  *   No modo "cada um cuida do seu" (veTudo = false), o admin não vê os serviços dos colegas.
  */
-export type Sessao = { id: number; perfil: 'ADMIN' | 'PROFISSIONAL'; veTudo: boolean; veServicosClinica?: boolean };
+export type Sessao = { id: number; perfil: 'ADMIN' | 'PROFISSIONAL' | 'ESPECTADOR'; veTudo: boolean; veServicosClinica?: boolean };
 
 /** O usuário logado enxerga o serviço (listas, vendas)? */
 export function podeVerServico(dono: number | null, s: Sessao): boolean {

@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, eq, gte, inArray, lte, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
     agendaConfiguracao,
@@ -189,7 +189,7 @@ export const atendimentosRouter = createTRPCRouter({
                 const grupo = (await tx
                     .select({ id: usuarios.id })
                     .from(usuarios)
-                    .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true), eq(usuarios.agenda_compartilhada, true))))
+                    .where(and(eq(usuarios.id_unidade, ctx.session.unidadeId), eq(usuarios.ativo, true), eq(usuarios.agenda_compartilhada, true), ne(usuarios.perfil, 'ESPECTADOR'))))
                     .map((u) => u.id);
                 const alvo = grupo.includes(profId) ? grupo : [profId];
                 const existentes = await tx
