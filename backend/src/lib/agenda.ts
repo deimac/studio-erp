@@ -163,6 +163,11 @@ export function conflitosImpeditivos(conflitos: Conflito[], opts: { isAdmin: boo
     return conflitos.filter((c) => !(c.tipo === 'FORA_DO_EXPEDIENTE' && opts.isAdmin && opts.forcar));
 }
 
+/** Data de hoje (AAAA-MM-DD) no fuso da clínica. */
+export function hojeLocal(agora: Date = new Date(), fuso = 'America/Sao_Paulo'): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: fuso, year: 'numeric', month: '2-digit', day: '2-digit' }).format(agora);
+}
+
 /* ----------------------------- cálculo ----------------------------- */
 
 export function calcularFim(inicio: number, duracoes: number[]): number {

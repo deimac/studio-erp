@@ -28,6 +28,11 @@ export function dataISO(d: Date) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** Hoje (AAAA-MM-DD); não se agenda antes disso. */
+export function hojeISO() {
+    return dataISO(new Date());
+}
+
 export function horaHHMM(d: Date) {
     return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }

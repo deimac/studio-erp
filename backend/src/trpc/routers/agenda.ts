@@ -41,6 +41,7 @@ import {
     type HorarioTrabalho,
     type Ocupacao,
     type StatusAtendimento,
+    hojeLocal,
 } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 import { assertAcessoPessoa, servicoQueNaoServe, vincularPessoa } from '../acesso';
@@ -556,13 +557,12 @@ const profissionaisRouter = createTRPCRouter({
                 falta_regra: usuarios.falta_regra,
             })
             .from(usuarios)
-            // O espectador não atende: não vira coluna da agenda. Ele vê só o grupo compartilhado.
+            // O espectador não atende: não vira coluna da agenda.
             .where(
                 and(
                     eq(usuarios.id_unidade, ctx.session.unidadeId),
                     eq(usuarios.ativo, true),
                     ne(usuarios.perfil, 'ESPECTADOR'),
-                    ...(ctx.session.perfil === 'ESPECTADOR' ? [eq(usuarios.agenda_compartilhada, true)] : []),
                 ),
             )
             .orderBy(asc(usuarios.nome));
@@ -764,20 +764,13 @@ export const agendaRouter = createTRPCRouter({
             }),
         )
         .query(async ({ ctx, input }) => {
-            // Espectador: só a agenda compartilhada, só para ver
+            // Espectador: vê a agenda de todos, só para olhar (cliente só pelo primeiro nome)
             const espectador = ctx.session.perfil === 'ESPECTADOR';
-            // Profissional que não vê tudo: só a própria agenda; os colegas do espaço compartilhado aparecem como "Ocupado"
-            const soMinha = !espectador && !ctx.session.veTudo;
-            const grupo = espectador || soMinha ? await carregarCompartilhados(ctx.db, ctx.session.unidadeId) : [];
-            const idsGrupo = grupo.length ? grupo : [0];
-            const idsMinha = soMinha ? [...new Set([ctx.session.id, ...(grupo.includes(ctx.session.id) ? grupo : [])])] : [];
             const parts = [
                 eq(atendimentos.id_unidade, ctx.session.unidadeId),
                 sql`${atendimentos.data} BETWEEN ${input.de} AND ${input.ate}`,
             ];
-            if (espectador) parts.push(inArray(atendimentos.id_profissional, idsGrupo));
-            if (soMinha) parts.push(inArray(atendimentos.id_profissional, idsMinha));
-            else if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
+            if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
             if (input.salas?.length) parts.push(inArray(atendimentos.id_sala, input.salas));
             if (!input.incluirCancelados) parts.push(ne(atendimentos.status, 'CANCELADO'));
 
@@ -837,14 +830,14 @@ export const agendaRouter = createTRPCRouter({
                 return {
                     ...r,
                     ...(espectador
-                        ? { pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, id_venda_extra: null }
+                        ? { pessoa_nome: r.pessoa_nome.trim().split(/\s+/)[0] ?? '', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, id_venda_extra: null }
                         : {}),
                     hora_inicio: r.hora_inicio.slice(0, 5),
                     hora_fim: r.hora_fim.slice(0, 5),
                     restrito,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
-                        ? { pessoa_nome: 'Ocupado', profissional_nome: '', sala_nome: null, pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }
+                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }
                         : {}),
                 };
             });
@@ -864,8 +857,6 @@ export const agendaRouter = createTRPCRouter({
                         eq(agendaBloqueios.id_unidade, ctx.session.unidadeId),
                         lte(agendaBloqueios.inicio, `${input.ate} 23:59:59`),
                         gte(agendaBloqueios.fim, `${input.de} 00:00:00`),
-                        ...(espectador ? [or(isNull(agendaBloqueios.id_profissional), inArray(agendaBloqueios.id_profissional, idsGrupo))] : []),
-                        ...(soMinha ? [or(isNull(agendaBloqueios.id_profissional), eq(agendaBloqueios.id_profissional, ctx.session.id))] : []),
                     ),
                 );
 
@@ -882,8 +873,6 @@ export const agendaRouter = createTRPCRouter({
                     and(
                         eq(usuarios.id_unidade, ctx.session.unidadeId),
                         eq(usuarios.ativo, true),
-                        ...(espectador ? [inArray(profissionalHorarios.id_profissional, idsGrupo)] : []),
-                        ...(soMinha ? [eq(profissionalHorarios.id_profissional, ctx.session.id)] : []),
                     ),
                 );
 
@@ -1043,6 +1032,7 @@ export const agendaRouter = createTRPCRouter({
                 ? gerarOcorrencias(input.data, input.recorrencia.quantidade, input.recorrencia.intervalo_semanas)
                 : [input.data];
             const idSala = input.id_sala ?? null;
+            if (input.data < hojeLocal()) erro('BAD_REQUEST', 'Não é possível agendar em uma data que já passou');
 
             return ctx.db.transaction(async (tx) => {
                 const c = await carregarContexto(tx, { unidadeId: s.unidadeId, datas, idProfissional: idProf, idSala, travar: true });
@@ -1169,6 +1159,7 @@ export const agendaRouter = createTRPCRouter({
                 if (fim <= inicio) erro('BAD_REQUEST', 'O horário final deve ser depois do inicial');
 
                 const novaData = input.data ?? atual.data;
+                if (novaData !== atual.data && novaData < hojeLocal()) erro('BAD_REQUEST', 'Não é possível mudar para uma data que já passou');
                 const deltaDias = Math.round((Date.parse(`${novaData}T00:00:00Z`) - Date.parse(`${atual.data}T00:00:00Z`)) / 86_400_000);
 
                 // alvos: este atendimento (+ próximos da série, se pedido)

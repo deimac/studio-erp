@@ -24,7 +24,7 @@ import { useEscopo } from '@/hooks/useEscopo';
 import { FaixaSemana } from '@/components/agenda/FaixaSemana';
 import { layoutIgual } from '@/lib/layoutAgenda';
 import { SeletorData } from '@/components/agenda/SeletorData';
-import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
+import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataISO, hojeISO, horaHHMM, minutos, paraDate, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 
 const localizer = dateFnsLocalizer({
@@ -97,9 +97,7 @@ export default function Agenda() {
     // Admin em "Só meu": mostra só a agenda dele (a chave fica no cabeçalho)
     const { escopo } = useEscopo();
     const soMeu = escopo === 'MEU' && !!user?.id;
-    // Profissional comum: só a própria agenda; o horário dos colegas (espaço compartilhado) aparece como "Ocupado"
-    const soMinha = !veTudo && !soVer && !!user?.id;
-    const selProfs = soMeu || soMinha ? [user!.id] : selProfsEscolhidos;
+    const selProfs = soMeu ? [user!.id] : selProfsEscolhidos;
 
     const [form, setForm] = useState<{ open: boolean; inicial: AgendamentoInicial }>({ open: false, inicial: {} });
     const [detalhe, setDetalhe] = useState<EventoAgenda | null>(null);
@@ -116,17 +114,17 @@ export default function Agenda() {
     const eventosQ = trpc.agenda.eventos.useQuery({
         de: dataISO(de),
         ate: dataISO(ate),
-        profissionais: selProfs.length && !soMinha ? selProfs : undefined,
+        profissionais: selProfs.length ? selProfs : undefined,
     });
 
-    const todosProfs = (profsQ.data ?? []) as { id: number; nome: string; cor: string | null; telefone: string | null; intervalo_agenda_min: number }[];
-    const profissionais = soMinha ? todosProfs.filter((p) => p.id === user?.id) : todosProfs;
+    const profissionais = (profsQ.data ?? []) as { id: number; nome: string; cor: string | null; telefone: string | null; intervalo_agenda_min: number }[];
     const salas = (salasQ.data ?? []) as { id: number; nome: string; cor: string | null }[];
     const corProf = useCallback((id: number) => corPadrao(id, profissionais.find((p) => p.id === id)?.cor), [profissionais]);
     const eu = profissionais.find((p) => p.id === user?.id);
 
     const profsVisiveis = selProfs.length ? profissionais.filter((p) => selProfs.includes(p.id)) : profissionais;
-    const usarRecursos = view === 'day' && profsVisiveis.length > 1;
+    // Colunas por profissional/sala no Dia: só para quem vê tudo; os demais veem uma agenda só (espaço compartilhado)
+    const usarRecursos = view === 'day' && profsVisiveis.length > 1 && veTudo;
     const recursos: Recurso[] | undefined = !usarRecursos
         ? undefined
         : colunas === 'profissional'
@@ -168,16 +166,16 @@ export default function Agenda() {
                 const m = movendo[a.id];
                 return {
                     id: `a${a.id}`,
-                    title: a.restrito ? 'Ocupado' : a.pessoa_nome,
+                    title: a.restrito ? `Ocupado · ${a.profissional_nome.split(' ')[0]}` : a.pessoa_nome,
                     start: m?.start ?? paraDate(a.data, a.hora_inicio),
                     end: m?.end ?? paraDate(a.data, a.hora_fim),
-                    resourceId: m?.resourceId ?? (colunas === 'profissional' ? (a.restrito && soMinha ? user!.id : a.id_profissional) : a.id_sala ?? 0),
+                    resourceId: m?.resourceId ?? (colunas === 'profissional' ? a.id_profissional : a.id_sala ?? 0),
                     tipo: 'atendimento',
                     atendimento: a,
                     cor: corProf(a.id_profissional),
                 };
             }),
-        [dados, movendo, colunas, corProf, soMinha, user],
+        [dados, movendo, colunas, corProf],
     );
 
     // Bloqueios viram eventos de fundo, quebrados por dia e replicados nas colunas a que se aplicam
@@ -262,10 +260,12 @@ export default function Agenda() {
         (d: Date, resourceId?: number | string) => {
             let aberto: boolean;
             if (usarRecursos && colunas === 'profissional' && resourceId != null) aberto = trabalhando(Number(resourceId), d);
+            // Quem não vê tudo agenda para si: o fundo segue o próprio expediente
+            else if (!veTudo && !soVer && user) aberto = trabalhando(user.id, d);
             else aberto = profsVisiveis.some((p) => trabalhando(p.id, d));
             return aberto ? {} : { className: 'rbc-fora-expediente' };
         },
-        [usarRecursos, colunas, trabalhando, profsVisiveis],
+        [usarRecursos, colunas, trabalhando, profsVisiveis, veTudo, soVer, user],
     );
 
     const atualizarMut = trpc.agenda.atualizar.useMutation();
@@ -279,6 +279,7 @@ export default function Agenda() {
         const s = new Date(start);
         const e = new Date(end);
         if (dataISO(s) !== dataISO(new Date(e.getTime() - 1))) return toast({ title: 'O atendimento precisa terminar no mesmo dia', variant: 'error' });
+        if (dataISO(s) !== a.data && dataISO(s) < hojeISO()) return toast({ title: 'Não é possível mudar para uma data que já passou', variant: 'error' });
         const rid = resourceId != null ? Number(resourceId) : undefined;
         setMovendo((m) => ({ ...m, [a.id]: { start: s, end: e, resourceId: rid ?? event.resourceId } }));
         try {
@@ -317,8 +318,9 @@ export default function Agenda() {
         const e = slot.end as Date;
         const rid = (slot as any).resourceId as number | undefined;
         const diaInteiro = view === 'month' || (e.getTime() - s.getTime()) % 86_400_000 === 0 && s.getHours() === 0;
-        const idProf = usarRecursos && colunas === 'profissional' && rid ? rid : selProfs.length === 1 ? selProfs[0] : user?.id;
-        if (!veTudo && idProf !== user?.id) return toast({ title: 'Você só pode agendar na sua própria agenda' });
+        if (dataISO(s) < hojeISO()) return toast({ title: 'Não é possível agendar em uma data que já passou' });
+        // Quem não vê tudo agenda sempre para si
+        const idProf = !veTudo ? user?.id : usarRecursos && colunas === 'profissional' && rid ? rid : selProfs.length === 1 ? selProfs[0] : user?.id;
         // Horário bloqueado: não abre o agendamento
         if (!diaInteiro) {
             const fimSlot = e.getTime() > s.getTime() ? e : new Date(s.getTime() + 15 * 60_000);
@@ -696,7 +698,7 @@ export default function Agenda() {
 
                 {view === 'day' ? (
                     <div className="space-y-2">
-                        <FaixaSemana data={data} onData={setData} atendimentos={(dados?.atendimentos ?? []).filter((x) => !x.restrito)} feriados={feriadosPorDia} />
+                        <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} feriados={feriadosPorDia} />
                         {avisoDia}
                         <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')} {...toqueNoDia}>
                             {calendario}
@@ -793,7 +795,7 @@ export default function Agenda() {
 
             {/* Filtros e ações secundárias */}
             <div className="flex flex-wrap items-center gap-2 text-sm">
-                {!soMeu && !soMinha && chipsProfissionais}
+                {!soMeu && chipsProfissionais}
 
                 {view === 'day' && salas.length > 0 && (
                     <div className="ml-2 flex items-center gap-1 rounded-xl bg-[hsl(var(--muted))] p-1 text-xs">

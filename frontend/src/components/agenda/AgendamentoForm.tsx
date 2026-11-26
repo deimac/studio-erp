@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertTriangle, Check, CircleDollarSign, Package, PenLine, Plus, Repeat, Search, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { minutos, somarMinutos } from '@/lib/agenda';
+import { hojeISO, minutos, somarMinutos } from '@/lib/agenda';
 import { maskMoney } from '@/lib/masks';
 import { BuscaPessoa } from '@/components/BuscaPessoa';
 import { HoraInput } from '@/components/HoraInput';
@@ -115,7 +115,8 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         setPessoaNome(inicial.pessoa_nome ?? '');
         setIdProf(inicial.id_profissional ?? user?.id ?? 0);
         setIdSala(inicial.id_sala ?? null);
-        setData(inicial.data ?? '');
+        // Novo agendamento não vai para uma data que já passou
+        setData(!inicial.id && inicial.data && inicial.data < hojeISO() ? hojeISO() : inicial.data ?? '');
         setHoraInicio(inicial.hora_inicio ?? '');
         setHoraFim(inicial.hora_fim ?? '');
         const durInicial = inicial.hora_inicio && inicial.hora_fim ? minutos(inicial.hora_fim) - minutos(inicial.hora_inicio) : 0;
@@ -288,6 +289,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
         if (!servicosSessao.length && !usarItens.length && !novos.length && !livreSalvo)
             return toast({ title: 'Marque uma sessão já comprada ou adicione um serviço', variant: 'error' });
         if (!data || !horaInicio) return toast({ title: 'Informe data e horário', variant: 'error' });
+        if (data < hojeISO() && (!editando || data !== inicial.data)) return toast({ title: 'Não é possível agendar em uma data que já passou', variant: 'error' });
         if (novos.some((n) => n.tipo !== 'livre' && paraCentavos(n.valor) <= 0)) return toast({ title: 'Informe o valor dos serviços adicionados', variant: 'error' });
         const cobrados = novos.filter((n) => paraCentavos(n.valor) > 0);
         if (pagarAgora && cobrados.length) {
@@ -506,7 +508,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                         <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
                             <div className="col-span-2 min-w-0 space-y-1.5 sm:col-span-1">
                                 <Label>Data *</Label>
-                                <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
+                                <Input type="date" value={data} min={editando && inicial.data && inicial.data < hojeISO() ? inicial.data : hojeISO()} onChange={(e) => setData(e.target.value)} />
                             </div>
                             <div className="col-span-2 grid min-w-0 grid-cols-2 gap-3 sm:col-span-1 sm:gap-4">
                                 <div className="min-w-0 space-y-1.5">

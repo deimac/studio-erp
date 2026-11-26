@@ -3,6 +3,7 @@ import {
     bloqueioNoDia,
     calcularFim,
     conflitosImpeditivos,
+    hojeLocal,
     diaSemana,
     gerarOcorrencias,
     hhmmParaMin,
@@ -164,5 +165,10 @@ describe('WhatsApp', () => {
         const m = mensagemWhatsApp('LEMBRETE', { cliente: 'Maria Silva', servicos: 'Drenagem', data: SEG, hora: '09:00', profissional: 'Ana' });
         expect(m).toContain('Olá, Maria!');
         expect(m).toContain('23/11/2026 às 09:00');
+    });
+
+    it('hoje no fuso de Brasília', () => {
+        expect(hojeLocal(new Date('2026-11-27T02:30:00Z'))).toBe('2026-11-26');
+        expect(hojeLocal(new Date('2026-11-27T03:30:00Z'))).toBe('2026-11-27');
     });
 });
