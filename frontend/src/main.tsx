@@ -7,6 +7,7 @@ import { AuthProvider } from '@/hooks/useAuth';
 import { ToastProvider } from '@/hooks/useToast';
 import { ConfirmProvider } from '@/components/ui/confirm-delete-dialog';
 import App from '@/App';
+import '@fontsource-variable/manrope';
 import '@/styles/globals.css';
 
 const TOKEN_KEY = 'studio_erp_token';

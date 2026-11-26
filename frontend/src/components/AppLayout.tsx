@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { TELAS_ESPECTADOR, useAuth } from '@/hooks/useAuth';
 import { useMenuLateralAberto } from '@/hooks/useMenuLateral';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
@@ -9,11 +9,14 @@ import { AcoesRapidasProvider } from '@/components/acoes/AcoesRapidas';
 import { cn } from '@/lib/utils';
 
 export function AppLayout() {
-    const { token } = useAuth();
+    const { token, isEspectador } = useAuth();
+    const { pathname } = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const menuAberto = useMenuLateralAberto();
 
     if (!token) return <Navigate to="/login" replace />;
+    // Espectador: só a agenda e os serviços
+    if (isEspectador && !TELAS_ESPECTADOR.some((t) => pathname.startsWith(t))) return <Navigate to="/agenda" replace />;
 
     return (
         <AcoesRapidasProvider>

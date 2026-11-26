@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { TELAS_ESPECTADOR, useAuth } from '@/hooks/useAuth';
 import {
     LayoutDashboard,
     Users,
@@ -59,13 +59,17 @@ type Props = {
 const ilhaCls = 'rounded-[1.75rem] border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel';
 
 export function Sidebar({ onNavigate, contraido = false }: Props) {
-    const { isAdmin } = useAuth();
+    const { isAdmin, isEspectador } = useAuth();
     const { instalado } = usePWA();
     const isMobile = useIsMobile();
     const navigate = useNavigate();
     const { pathname } = useLocation();
     const [qrAberto, setQrAberto] = useState(false);
-    const atrasadas = useAtrasadas(true);
+    const atrasadas = useAtrasadas(!isEspectador);
+    // Espectador: só os itens que ele pode ver
+    const grupos = isEspectador
+        ? GRUPOS.map((g) => ({ ...g, links: g.links.filter((l) => TELAS_ESPECTADOR.includes(l.to)) })).filter((g) => g.links.length)
+        : GRUPOS;
 
     // Celular: abre a página com o passo a passo. Computador: QR code para abrir no celular.
     const instalarNoCelular = () => {
@@ -133,7 +137,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
 
     return (
         <nav aria-label="Menu" className={cn('flex h-full flex-col gap-3', contraido ? 'items-center' : '')}>
-            {GRUPOS.map((g) => {
+            {grupos.map((g) => {
                 const grupoAtivo = g.links.some((l) => pathname.startsWith(l.to) || (l.to === '/dashboard' && pathname === '/'));
                 return (
                     <div key={g.titulo} className={cn(ilhaCls, 'flex flex-col gap-1', contraido ? 'items-center' : 'w-full')}>

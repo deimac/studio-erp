@@ -13,10 +13,12 @@ const isoLocal = (d: Date) =>
 
 /** Celular e tablet: atalhos no rodapé (escolhidos pelo usuário) com o + no meio. */
 export function BarraInferior() {
-    const { isAdmin } = useAuth();
-    const ids = useBarra(isAdmin);
+    const { isAdmin, isEspectador } = useAuth();
+    const salvos = useBarra(isAdmin);
+    // Espectador: atalhos fixos, sem o + (ele não cria nada)
+    const ids: AtalhoId[] = isEspectador ? ['agenda', 'servicos'] : salvos;
     const { abrirPainel } = useAcoesRapidas();
-    const atrasadas = useAtrasadas(ids.includes('inicio'));
+    const atrasadas = useAtrasadas(!isEspectador && ids.includes('inicio'));
 
     const item = (id: AtalhoId) => {
         const a = ATALHOS.find((x) => x.id === id)!;
@@ -44,6 +46,9 @@ export function BarraInferior() {
     return (
         <nav aria-label="Atalhos"
             className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto max-w-lg rounded-full border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] shadow-flutuante lg:hidden">
+            {isEspectador ? (
+                <div className="grid h-16 grid-cols-2 px-1">{ids.map(item)}</div>
+            ) : (
             <div className="grid h-16 grid-cols-5 px-1">
                 {ids.slice(0, 2).map(item)}
                 <div className="flex items-center justify-center">
@@ -55,6 +60,7 @@ export function BarraInferior() {
                 </div>
                 {ids.slice(2, 4).map(item)}
             </div>
+            )}
         </nav>
     );
 }

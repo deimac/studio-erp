@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "./temas.css";
 
+/* Fonte do admin: Manrope (a mesma do site da Tayna). Para voltar: trocar por "Inter" e tirar o import em main.tsx */
+@theme {
+    --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
     --radius: 0.5rem;
     --sidebar-width: 260px;
@@ -14,7 +19,7 @@
 }
 
 body {
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    font-family: "Manrope Variable", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
         "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background: hsl(var(--background));
     color: hsl(var(--foreground));

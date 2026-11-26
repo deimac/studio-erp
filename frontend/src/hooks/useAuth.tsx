@@ -5,15 +5,27 @@ export type AuthUser = {
     id: number;
     nome?: string;
     email: string;
-    perfil: 'ADMIN' | 'PROFISSIONAL';
+    perfil: 'ADMIN' | 'PROFISSIONAL' | 'ESPECTADOR';
     id_unidade: number;
 };
+
+/** Nome do perfil para mostrar na tela. */
+export const ROTULO_PERFIL: Record<AuthUser['perfil'], string> = {
+    ADMIN: 'Admin',
+    PROFISSIONAL: 'Profissional',
+    ESPECTADOR: 'Espectador',
+};
+
+/** Telas que o espectador enxerga (só ver). */
+export const TELAS_ESPECTADOR = ['/agenda', '/servicos'];
 
 type AuthContextValue = {
     token: string | null;
     user: AuthUser | null;
     isAdmin: boolean;
     isProfissional: boolean;
+    /** Só vê a agenda compartilhada e os serviços, sem alterar nada. */
+    isEspectador: boolean;
     /**
      * Vê e mexe nos dados dos outros profissionais: só o admin no modo "Clínica".
      * No modo "cada um cuida do seu", o admin continua administrando, mas vê só o dele.
@@ -70,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 user,
                 isAdmin: ehAdmin,
                 isProfissional: user?.perfil === 'PROFISSIONAL',
+                isEspectador: user?.perfil === 'ESPECTADOR',
                 veTudo,
                 login,
                 logout,

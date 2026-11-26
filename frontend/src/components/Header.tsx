@@ -63,7 +63,7 @@ function Aparencia() {
 const itemCls = 'flex cursor-pointer items-center gap-2.5 rounded-full px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-[hsl(var(--accent))]';
 
 export function Header({ onMenuToggle }: Props) {
-    const { user, isAdmin, logout } = useAuth();
+    const { user, isAdmin, isEspectador, logout } = useAuth();
     const { valor: escopo, podeEscolher } = useEscopo();
     const navigate = useNavigate();
     const [barraAberta, setBarraAberta] = useState(false);
@@ -124,7 +124,7 @@ export function Header({ onMenuToggle }: Props) {
                                 </span>
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-semibold">{user?.nome || user?.email}</p>
-                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{user?.perfil}</p>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{user ? ROTULO_PERFIL[user.perfil] : ''}</p>
                                 </div>
                             </div>
                             {podeEscolher && (
@@ -142,9 +142,11 @@ export function Header({ onMenuToggle }: Props) {
                                     <Settings className="h-4 w-4" /> Configurações
                                 </Menu.Item>
                             )}
-                            <Menu.Item className={cn(itemCls, 'lg:hidden')} onSelect={() => setBarraAberta(true)}>
-                                <LayoutGrid className="h-4 w-4" /> Barra do celular
-                            </Menu.Item>
+                            {!isEspectador && (
+                                <Menu.Item className={cn(itemCls, 'lg:hidden')} onSelect={() => setBarraAberta(true)}>
+                                    <LayoutGrid className="h-4 w-4" /> Barra do celular
+                                </Menu.Item>
+                            )}
                             <Menu.Item className={cn(itemCls, 'text-red-600 data-[highlighted]:bg-red-50')} onSelect={logout}>
                                 <LogOut className="h-4 w-4" /> Sair
                             </Menu.Item>
