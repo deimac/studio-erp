@@ -30,6 +30,9 @@ export default function Dashboard() {
     const atendimentosQ = trpc.atendimentos.list.useQuery({ de: hojeISO, escopo }, { refetchInterval: 30_000 });
     const proximos = atendimentosQ.data?.filter((a: any) => a.status === 'AGENDADO' || a.status === 'CONFIRMADO');
     const deHoje = proximos?.filter((a: any) => diaISO(a.data) === hojeISO).length ?? 0;
+    // Lista do painel: só hoje e amanhã, para não ficar comprida
+    const amanhaISO = isoLocal(new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1));
+    const hojeEAmanha = proximos?.filter((a: any) => (diaISO(a.data) ?? '') <= amanhaISO);
 
     const pessoasList = trpc.pessoas.list.useQuery({ escopo });
     const vendasList = trpc.vendas.list.useQuery({ status: 'ATIVA', escopo });
@@ -79,12 +82,12 @@ export default function Dashboard() {
                             <Link to="/atendimentos"><span className="hidden sm:inline">Ver todos</span><span className="sm:hidden">Todos</span> <ChevronRight className="h-4 w-4" /></Link>
                         </Button>
                     }>
-                        <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" /> <span className="truncate">Próximos atendimentos</span></CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 shrink-0 text-[hsl(var(--primary))]" /> <span className="truncate">Hoje e amanhã</span></CardTitle>
                     </CardHeader>
                     <ListaAtendimentos
-                        atendimentos={proximos?.slice(0, 10)}
+                        atendimentos={hojeEAmanha}
                         carregando={atendimentosQ.isLoading}
-                        vazio="Nenhum atendimento agendado."
+                        vazio="Nenhum atendimento para hoje ou amanhã."
                     />
                 </Card>
 
