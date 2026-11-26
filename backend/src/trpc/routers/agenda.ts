@@ -766,14 +766,18 @@ export const agendaRouter = createTRPCRouter({
         .query(async ({ ctx, input }) => {
             // Espectador: só a agenda compartilhada, só para ver
             const espectador = ctx.session.perfil === 'ESPECTADOR';
-            const grupo = espectador ? await carregarCompartilhados(ctx.db, ctx.session.unidadeId) : [];
+            // Profissional que não vê tudo: só a própria agenda; os colegas do espaço compartilhado aparecem como "Ocupado"
+            const soMinha = !espectador && !ctx.session.veTudo;
+            const grupo = espectador || soMinha ? await carregarCompartilhados(ctx.db, ctx.session.unidadeId) : [];
             const idsGrupo = grupo.length ? grupo : [0];
+            const idsMinha = soMinha ? [...new Set([ctx.session.id, ...(grupo.includes(ctx.session.id) ? grupo : [])])] : [];
             const parts = [
                 eq(atendimentos.id_unidade, ctx.session.unidadeId),
                 sql`${atendimentos.data} BETWEEN ${input.de} AND ${input.ate}`,
             ];
             if (espectador) parts.push(inArray(atendimentos.id_profissional, idsGrupo));
-            if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
+            if (soMinha) parts.push(inArray(atendimentos.id_profissional, idsMinha));
+            else if (input.profissionais?.length) parts.push(inArray(atendimentos.id_profissional, input.profissionais));
             if (input.salas?.length) parts.push(inArray(atendimentos.id_sala, input.salas));
             if (!input.incluirCancelados) parts.push(ne(atendimentos.status, 'CANCELADO'));
 
@@ -840,7 +844,7 @@ export const agendaRouter = createTRPCRouter({
                     restrito,
                     servicos: restrito ? [] : porAtendimento.get(r.id) ?? [],
                     ...(restrito
-                        ? { pessoa_nome: 'Ocupado', pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }
+                        ? { pessoa_nome: 'Ocupado', profissional_nome: '', sala_nome: null, pessoa_telefone: null, id_pessoa: 0, observacoes: null, id_venda: null, id_venda_item: null, venda_rotulo: null, itens_ids: null, titulo_extra: null, id_venda_extra: null }
                         : {}),
                 };
             });
@@ -861,6 +865,7 @@ export const agendaRouter = createTRPCRouter({
                         lte(agendaBloqueios.inicio, `${input.ate} 23:59:59`),
                         gte(agendaBloqueios.fim, `${input.de} 00:00:00`),
                         ...(espectador ? [or(isNull(agendaBloqueios.id_profissional), inArray(agendaBloqueios.id_profissional, idsGrupo))] : []),
+                        ...(soMinha ? [or(isNull(agendaBloqueios.id_profissional), eq(agendaBloqueios.id_profissional, ctx.session.id))] : []),
                     ),
                 );
 
@@ -878,6 +883,7 @@ export const agendaRouter = createTRPCRouter({
                         eq(usuarios.id_unidade, ctx.session.unidadeId),
                         eq(usuarios.ativo, true),
                         ...(espectador ? [inArray(profissionalHorarios.id_profissional, idsGrupo)] : []),
+                        ...(soMinha ? [eq(profissionalHorarios.id_profissional, ctx.session.id)] : []),
                     ),
                 );
 
