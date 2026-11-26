@@ -129,9 +129,12 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
         ...(contagem.inativos ? [{ id: 'inativos' as Filtro, rotulo: 'Inativos' }] : []),
     ];
 
+    // Nenhum serviço cadastrado ainda: só o convite no centro, sem busca nem botão em cima
+    const semNenhum = !carregando && todos.length === 0;
+
     return (
         <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {!semNenhum && <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1 sm:max-w-sm">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     <Input placeholder="Buscar serviço…" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
@@ -139,12 +142,12 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                 {podeCadastrarServicos && (
                     <div className="sm:ml-auto">
                         <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
-                        <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />
                     </div>
                 )}
-            </div>
+            </div>}
+            {podeCadastrarServicos && <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />}
 
-            {isAdmin && (
+            {isAdmin && !semNenhum && (
                 <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
                     {filtros.map((f) => (
                         <button key={f.id} type="button" onClick={() => setFiltro(f.id)}
@@ -164,15 +167,30 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
 
             {carregando ? (
                 <p className="py-8 text-center text-gray-400">Carregando…</p>
+            ) : semNenhum ? (
+                <Card>
+                    <div className="mx-auto flex max-w-md flex-col items-center px-6 py-14 text-center">
+                        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[hsl(var(--muted))] text-[hsl(var(--primary))]">
+                            <Scissors className="h-7 w-7" />
+                        </span>
+                        <h3 className="mt-4 text-lg font-semibold">Nenhum serviço cadastrado</h3>
+                        <p className="mt-1.5 text-sm text-[hsl(var(--muted-foreground))]">
+                            {podeCadastrarServicos
+                                ? 'Cadastre o que você vende e agenda, com a duração, o preço da sessão e os pacotes.'
+                                : 'Quando houver serviços cadastrados, eles aparecem aqui.'}
+                        </p>
+                        {podeCadastrarServicos && (
+                            <div className="mt-6">
+                                <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Cadastrar primeiro serviço</>} variant="default" />
+                            </div>
+                        )}
+                    </div>
+                </Card>
             ) : lista.length === 0 ? (
-                <Card className="border-dashed">
-                    <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <p className="font-medium">{termo ? 'Nenhum serviço com esse nome' : 'Nenhum serviço aqui ainda'}</p>
-                            {podeCadastrarServicos && <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>}
-                        </div>
-                        {!termo && podeCadastrarServicos && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
-                    </CardContent>
+                <Card>
+                    <p className="px-6 py-10 text-center text-sm text-[hsl(var(--muted-foreground))]">
+                        {termo ? 'Nenhum serviço com esse nome.' : 'Nenhum serviço neste filtro.'}
+                    </p>
                 </Card>
             ) : (
                 <Card className="overflow-hidden">
