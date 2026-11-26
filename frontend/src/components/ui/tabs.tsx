@@ -11,7 +11,7 @@ const TabsList = React.forwardRef<
     <TabsPrimitive.List
         ref={ref}
         className={cn(
-            'inline-flex h-11 items-center justify-center gap-1 rounded-full bg-[hsl(var(--muted))] p-1 text-[hsl(var(--muted-foreground))]',
+            'inline-flex h-11 items-center justify-center gap-1 rounded-xl bg-[hsl(var(--muted))] p-1 text-[hsl(var(--muted-foreground))]',
             className,
         )}
         {...props}
@@ -26,7 +26,7 @@ const TabsTrigger = React.forwardRef<
     <TabsPrimitive.Trigger
         ref={ref}
         className={cn(
-            'inline-flex items-center justify-center whitespace-nowrap h-full rounded-full px-4 text-sm font-medium transition-all hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[hsl(var(--card))] data-[state=active]:text-[hsl(var(--foreground))] data-[state=active]:shadow-painel',
+            'inline-flex items-center justify-center whitespace-nowrap h-full rounded-lg px-4 text-sm font-medium transition-all hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--ring))] disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-[hsl(var(--card))] data-[state=active]:text-[hsl(var(--foreground))] data-[state=active]:shadow-painel',
             className,
         )}
         {...props}

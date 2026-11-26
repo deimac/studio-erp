@@ -445,7 +445,7 @@ export default function Agenda() {
     const chipsProfissionais = (
         <>
             <button type="button" onClick={() => setSelProfs([])}
-                className={cn('shrink-0 rounded-full border px-4 py-1.5 font-medium', !selProfs.length ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'hover:bg-[hsl(var(--accent))]')}>
+                className={cn('shrink-0 rounded-xl border px-4 py-1.5 font-medium', !selProfs.length ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'hover:bg-[hsl(var(--accent))]')}>
                 Todos
             </button>
             {profissionais.map((p) => {
@@ -454,7 +454,7 @@ export default function Agenda() {
                 return (
                     <button key={p.id} type="button"
                         onClick={() => setSelProfs((s) => (ativo ? s.filter((x) => x !== p.id) : [...s, p.id]))}
-                        className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 font-medium transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
+                        className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-4 py-1.5 font-medium transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
                         style={ativo ? { background: cor, borderColor: cor } : undefined}>
                         <span className="h-2.5 w-2.5 rounded-full" style={{ background: ativo ? '#fff' : cor }} />
                         {p.nome.split(' ')[0]}
@@ -669,10 +669,10 @@ export default function Agenda() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div role="group" aria-label="Como ver a agenda" className="flex rounded-full bg-[hsl(var(--muted))] p-1">
+                    <div role="group" aria-label="Como ver a agenda" className="flex rounded-xl bg-[hsl(var(--muted))] p-1">
                         {([['day', 'Dia'], ['week', 'Sem.'], ['month', 'Mês'], ['agenda', 'Lista']] as [View, string][]).map(([v, rotulo]) => (
                             <button key={v} type="button" onClick={() => setView(v)} aria-label={v === 'week' ? 'Semana' : undefined}
-                                className={cn('rounded-full px-3 py-1.5 text-sm font-medium transition-colors', view === v ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
+                                className={cn('rounded-lg px-3 py-1.5 text-sm font-medium transition-colors', view === v ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
                                 {rotulo}
                             </button>
                         ))}
@@ -772,10 +772,10 @@ export default function Agenda() {
                 <SeletorData data={data} onData={setData} titulo={tituloPeriodo(view, data)} soMes={view === 'month'} />
                 <div className="flex-1" />
 
-                <div role="group" aria-label="Como ver a agenda" className="flex rounded-full bg-[hsl(var(--muted))] p-1">
+                <div role="group" aria-label="Como ver a agenda" className="flex rounded-xl bg-[hsl(var(--muted))] p-1">
                     {VIEWS.map((v) => (
                         <button key={v.id} type="button" onClick={() => setView(v.id)}
-                            className={cn('rounded-full px-4 py-1.5 text-sm font-medium transition-colors', view === v.id ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
+                            className={cn('rounded-lg px-4 py-1.5 text-sm font-medium transition-colors', view === v.id ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
                             {v.label}
                         </button>
                     ))}
@@ -792,11 +792,11 @@ export default function Agenda() {
                 {!soMeu && chipsProfissionais}
 
                 {view === 'day' && salas.length > 0 && (
-                    <div className="ml-2 flex items-center gap-1 rounded-full bg-[hsl(var(--muted))] p-1 text-xs">
+                    <div className="ml-2 flex items-center gap-1 rounded-xl bg-[hsl(var(--muted))] p-1 text-xs">
                         <span className="px-1.5 text-[hsl(var(--muted-foreground))]">Colunas:</span>
                         {(['profissional', 'sala'] as const).map((c) => (
                             <button key={c} type="button" onClick={() => setColunas(c)}
-                                className={cn('rounded-full px-2.5 py-1 capitalize', colunas === c ? 'bg-[hsl(var(--card))] font-medium shadow-painel' : 'text-[hsl(var(--muted-foreground))]')}>
+                                className={cn('rounded-lg px-2.5 py-1 capitalize', colunas === c ? 'bg-[hsl(var(--card))] font-medium shadow-painel' : 'text-[hsl(var(--muted-foreground))]')}>
                                 {c === 'profissional' ? 'Profissionais' : 'Salas'}
                             </button>
                         ))}

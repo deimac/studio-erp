@@ -26,7 +26,7 @@ export default function Configuracoes() {
             <PageHeader title="Configurações" description="Ajustes do estúdio: pagamentos, unidades, equipe, agenda e site." />
             <Tabs defaultValue="formas">
                 {/* Celular: as abas quebram em linhas em vez de passar da tela */}
-                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-3xl sm:inline-flex sm:w-auto sm:flex-wrap sm:rounded-full [&>button]:h-9">
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-xl sm:inline-flex sm:w-auto sm:flex-wrap [&>button]:h-9">
                     <TabsTrigger value="formas">Formas de Pagamento</TabsTrigger>
                     <TabsTrigger value="unidades">Unidades</TabsTrigger>
                     <TabsTrigger value="categorias">Categorias</TabsTrigger>

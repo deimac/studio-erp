@@ -25,7 +25,7 @@ const ESTILOS: { v: Estilo; label: string; cores: [string, string] }[] = [
     { v: 'rose', label: 'Rosé', cores: ['#8a5359', '#efe6dc'] },
 ];
 const segCls = (ativo: boolean) =>
-    cn('flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors',
+    cn('flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
         ativo ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-sm ring-1 ring-[hsl(var(--border))]'
             : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]');
 
@@ -35,7 +35,7 @@ function Aparencia() {
     return (
         <div className="space-y-2 px-3 py-3">
             <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Aparência</p>
-            <div className="flex gap-1 rounded-full bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Cores">
+            <div className="flex gap-1 rounded-xl bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Cores">
                 {ESTILOS.map((e) => (
                     <button key={e.v} type="button" role="radio" aria-checked={tema.estilo === e.v}
                         className={segCls(tema.estilo === e.v)} onClick={() => definirTema({ estilo: e.v })}>
@@ -47,7 +47,7 @@ function Aparencia() {
                     </button>
                 ))}
             </div>
-            <div className="flex gap-1 rounded-full bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Claro ou escuro">
+            <div className="flex gap-1 rounded-xl bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Claro ou escuro">
                 {MODOS.map(({ v, label, Icone }) => (
                     <button key={v} type="button" role="radio" aria-checked={tema.modo === v}
                         title={v === 'auto' ? 'Segue o tema do celular/computador' : undefined} aria-label={label}
@@ -60,7 +60,7 @@ function Aparencia() {
     );
 }
 
-const itemCls = 'flex cursor-pointer items-center gap-2.5 rounded-full px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-[hsl(var(--accent))]';
+const itemCls = 'flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-[hsl(var(--accent))]';
 
 export function Header({ onMenuToggle }: Props) {
     const { user, isAdmin, isEspectador, logout } = useAuth();
@@ -91,13 +91,13 @@ export function Header({ onMenuToggle }: Props) {
                 )}
 
                 {/* Claro/escuro sempre à mão (as cores Clássico/Rosé ficam no menu da conta) */}
-                <div role="radiogroup" aria-label="Claro ou escuro" className="hidden items-center gap-0.5 rounded-full bg-[hsl(var(--muted))] p-1 sm:flex">
+                <div role="radiogroup" aria-label="Claro ou escuro" className="hidden items-center gap-0.5 rounded-xl bg-[hsl(var(--muted))] p-1 sm:flex">
                     {([['claro', Sun, 'Tema claro'], ['escuro', Moon, 'Tema escuro']] as const).map(([m, Icone, nome]) => {
                         const ativo = (m === 'escuro') === escuroAgora;
                         return (
                             <button key={m} type="button" role="radio" aria-checked={ativo} aria-label={nome} title={nome}
                                 onClick={() => definirTema({ modo: m })}
-                                className={cn('flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)]',
+                                className={cn('flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)]',
                                     ativo ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] shadow-painel' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
                                 <Icone className="h-4 w-4" />
                             </button>
