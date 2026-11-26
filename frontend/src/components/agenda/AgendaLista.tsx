@@ -83,7 +83,7 @@ export function AgendaLista(p: Props) {
                             const faixa = di === g.iso && df === g.iso ? `${hi.slice(0, 5)}–${hf.slice(0, 5)}` : di === g.iso ? `a partir de ${hi.slice(0, 5)}` : df === g.iso ? `até ${hf.slice(0, 5)}` : 'dia todo';
                             return (
                                 <button key={`b${b.id}`} type="button" onClick={() => p.onBloqueio(b)}
-                                    className="agenda-legenda-bloqueio flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-red-900">
+                                    className="agenda-legenda-bloqueio flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm">
                                     <Ban className="h-4 w-4 shrink-0" />
                                     <span className="min-w-0 flex-1 truncate">{b.motivo || 'Bloqueado'} · {nome}</span>
                                     <span className="shrink-0 text-xs tabular-nums">{faixa}</span>

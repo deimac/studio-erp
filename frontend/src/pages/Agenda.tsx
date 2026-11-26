@@ -312,6 +312,12 @@ export default function Agenda() {
         toast({ title: 'Horário bloqueado', description: 'Para liberar, abra o dia e toque em "Liberar" no aviso vermelho acima da agenda.' });
     }
 
+    function avisarForaExpediente() {
+        if (Date.now() - ultimoAviso.current < 1000) return;
+        ultimoAviso.current = Date.now();
+        toast({ title: 'Fora do expediente', description: 'Para atender neste horário, ajuste o horário de atendimento em "Meu expediente".' });
+    }
+
     function novoNoSlot(slot: SlotInfo) {
         if (soVer) return;
         const s = slot.start as Date;
@@ -341,6 +347,10 @@ export default function Agenda() {
             });
             const bloqueado = naTela || doProfissional;
             if (bloqueado) return avisarBloqueado();
+            // Fora do expediente: o que aparece cinza na tela, ou fora do horário de quem vai atender
+            const foraNaTela = (slotPropGetter(s, rid) as { className?: string }).className === 'rbc-fora-expediente';
+            const foraDoProfissional = idProf != null && expedientes.has(idProf) && !trabalhando(idProf, s);
+            if (foraNaTela || foraDoProfissional) return avisarForaExpediente();
         }
         const duracao = (e.getTime() - s.getTime()) / 60_000;
         setForm({
@@ -514,7 +524,7 @@ export default function Agenda() {
                 )}
                 {doDia.map((b) => (
                     <button key={b.id} type="button" onClick={() => perguntarRemoverBloqueio(b)}
-                        className="flex w-full items-center gap-1.5 rounded-md bg-red-50 px-2 py-1 text-left font-medium text-red-800">
+                        className="flex w-full items-center gap-1.5 rounded-lg bg-[hsl(var(--agenda-bloqueio-faixa))] px-2.5 py-1.5 text-left font-medium text-[hsl(var(--background))]">
                         <Lock className="h-4 w-4 shrink-0" />
                         <span className="min-w-0 flex-1 truncate">Bloqueado{b.motivo ? `: ${b.motivo}` : ''} · {b.inicio.slice(0, 10) === b.fim.slice(0, 10) ? `${b.inicio.slice(11, 16)}–${b.fim.slice(11, 16)}` : `até ${b.fim.slice(8, 10)}/${b.fim.slice(5, 7)}`}</span>
                         <span className="shrink-0 text-xs font-semibold underline underline-offset-2">Liberar</span>

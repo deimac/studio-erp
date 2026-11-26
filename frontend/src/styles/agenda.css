@@ -196,6 +196,9 @@
     /* cinza liso: listra é só para bloqueio */
     background: hsl(var(--agenda-fora));
 }
+.agenda-studio .rbc-fora-expediente {
+    cursor: not-allowed;
+}
 
 .agenda-studio .rbc-slot-selection {
     background: hsl(var(--primary) / 0.15);
@@ -259,15 +262,31 @@
     padding: 2px 6px;
     cursor: not-allowed;
     font-weight: 600;
-    text-shadow: 0 0 6px hsl(var(--agenda-bloqueio-bg)), 0 0 2px hsl(var(--agenda-bloqueio-bg));
+}
+/* Texto do bloqueio numa etiqueta sólida: legível sobre as listras */
+.agenda-studio .rbc-background-event.evt-bloqueio .rbc-event-label {
+    display: none;
+}
+.agenda-studio .rbc-background-event.evt-bloqueio .rbc-event-content {
+    flex: none;
+    height: auto;
+    align-self: flex-start;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border-radius: 6px;
+    background: hsl(var(--agenda-bloqueio-faixa));
+    color: hsl(var(--background));
+    padding: 2px 8px;
 }
 
-/* Bloqueio na visão Mês: chip vermelho */
+/* Bloqueio na visão Mês: etiqueta grafite */
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio,
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio-mes {
-    background: hsl(var(--agenda-bloqueio-bg2));
-    color: hsl(var(--agenda-bloqueio));
-    border: 1px solid hsl(var(--agenda-bloqueio-faixa) / 0.55);
+    background: hsl(var(--agenda-bloqueio-faixa));
+    color: hsl(var(--background));
+    border: 0;
     border-radius: 8px;
     padding: 1px 4px;
     font-size: 0.6875rem;

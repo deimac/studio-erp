@@ -57,14 +57,15 @@
     --overlay: 222 47% 11%;
 
     /* Agenda */
-    --agenda-fora: 210 40% 96%;
+    --agenda-fora: 218 20% 89%;
     --agenda-feriado: 32 95% 30%;
     --agenda-feriado-bg: 48 96% 89%;
     --agenda-feriado-dia: 48 100% 96%;
-    --agenda-bloqueio: 0 70% 28%;
-    --agenda-bloqueio-bg: 0 88% 91%;
-    --agenda-bloqueio-bg2: 0 82% 80%;
-    --agenda-bloqueio-faixa: 0 72% 51%;
+    /* Bloqueio: listrado grafite, neutro, para não se confundir com a cor de nenhum profissional */
+    --agenda-bloqueio: 220 25% 14%;
+    --agenda-bloqueio-bg: 220 13% 87%;
+    --agenda-bloqueio-bg2: 220 11% 74%;
+    --agenda-bloqueio-faixa: 220 18% 28%;
     --agenda-agora: 0 84% 60%;
 
     /* Textos claros da paleta subiram de tom para passar no contraste */
@@ -130,7 +131,7 @@
     --ring: 354 26% 42%;
     --overlay: 28 20% 12%;
 
-    --agenda-fora: 33 26% 92%;
+    --agenda-fora: 30 16% 85%;
     --agenda-feriado-dia: 40 70% 95%;
 
     /* Cinzas viram taupe quente; azul vira rosé-malva (tom sobre tom) */
@@ -194,14 +195,14 @@
    50–100 viram tintas escuras de fundo, 200–300 viram bordas,
    500–950 viram tons claros, próprios para texto sobre fundo escuro. */
 .dark {
-    --agenda-fora: 221 28% 13%;
+    --agenda-fora: 222 22% 16.5%;
     --agenda-feriado: 40 90% 70%;
     --agenda-feriado-bg: 36 50% 18%;
     --agenda-feriado-dia: 36 40% 12%;
-    --agenda-bloqueio: 0 95% 88%;
-    --agenda-bloqueio-bg: 0 50% 22%;
-    --agenda-bloqueio-bg2: 0 58% 33%;
-    --agenda-bloqueio-faixa: 0 80% 62%;
+    --agenda-bloqueio: 0 0% 97%;
+    --agenda-bloqueio-bg: 220 9% 22%;
+    --agenda-bloqueio-bg2: 220 9% 34%;
+    --agenda-bloqueio-faixa: 220 14% 74%;
     --agenda-agora: 0 85% 65%;
 
     --color-gray-50: oklch(0.2 0.018 262);
@@ -328,7 +329,7 @@
 
 /* Rosé escuro: cinzas quentes e o "azul" vira rosé claro */
 [data-estilo='rose'].dark {
-    --agenda-fora: 24 11% 12.5%;
+    --agenda-fora: 24 9% 17%;
 
     --color-gray-50: oklch(0.2 0.009 55);
     --color-gray-100: oklch(0.235 0.01 55);
