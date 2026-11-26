@@ -201,7 +201,7 @@
     background: hsl(var(--primary) / 0.15);
     color: hsl(var(--primary));
     border: 1px dashed hsl(var(--primary));
-    border-radius: 4px;
+    border-radius: 8px;
 }
 
 /* Atendimentos: fundo claro na cor do profissional, faixa lateral forte */
@@ -210,8 +210,8 @@
     background: color-mix(in srgb, var(--evt-cor) 14%, hsl(var(--card)));
     color: hsl(var(--foreground));
     border: 1px solid color-mix(in srgb, var(--evt-cor) 45%, hsl(var(--card)));
-    border-radius: 6px;
-    padding: 2px 6px;
+    border-radius: 12px;
+    padding: 3px 8px;
     box-shadow: 0 1px 2px hsl(var(--overlay) / 0.08);
 }
 
@@ -254,8 +254,7 @@
     background: repeating-linear-gradient(45deg, hsl(var(--agenda-bloqueio-bg)), hsl(var(--agenda-bloqueio-bg)) 6px, hsl(var(--agenda-bloqueio-bg2)) 6px, hsl(var(--agenda-bloqueio-bg2)) 12px);
     color: hsl(var(--agenda-bloqueio));
     border: 0;
-    border-left: 3px solid hsl(var(--agenda-bloqueio-faixa));
-    border-radius: 4px;
+    border-radius: 8px;
     opacity: 0.95;
     padding: 2px 6px;
 }
@@ -266,8 +265,7 @@
     background: hsl(var(--agenda-bloqueio-bg));
     color: hsl(var(--agenda-bloqueio));
     border: 0;
-    border-left: 3px solid hsl(var(--agenda-bloqueio-faixa));
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 1px 4px;
     font-size: 0.6875rem;
     font-weight: 600;
@@ -311,7 +309,7 @@
 .agenda-compacta .rbc-event.evt-atendimento {
     padding: 1px 2px;
     font-size: 0.625rem;
-    border-radius: 4px;
+    border-radius: 8px;
 }
 .agenda-compacta .rbc-event .rbc-event-label {
     display: none;
@@ -323,8 +321,7 @@
     background: hsl(var(--agenda-feriado-bg));
     color: hsl(var(--agenda-feriado));
     border: 0;
-    border-left: 3px solid hsl(var(--warning));
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 1px 4px;
     font-size: 0.6875rem;
     font-weight: 600;

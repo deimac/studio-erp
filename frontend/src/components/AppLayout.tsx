@@ -1,48 +1,66 @@
 import { useState } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useMenuLateralAberto } from '@/hooks/useMenuLateral';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { BarraInferior } from '@/components/BarraInferior';
 import { AcoesRapidasProvider } from '@/components/acoes/AcoesRapidas';
+import { cn } from '@/lib/utils';
 
 export function AppLayout() {
     const { token } = useAuth();
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const menuAberto = useMenuLateralAberto();
 
     if (!token) return <Navigate to="/login" replace />;
 
     return (
         <AcoesRapidasProvider>
-            <div className="flex h-screen flex-col overflow-hidden">
-                <Header onMenuToggle={() => setSidebarOpen((v) => !v)} />
-
-                <div className="flex flex-1 overflow-hidden">
-                    {/* Desktop sidebar */}
-                    <aside className="hidden w-[var(--sidebar-width)] shrink-0 border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] lg:block">
-                        <Sidebar onNavigate={() => { }} />
-                    </aside>
-
-                    {/* Mobile overlay */}
-                    {sidebarOpen && (
-                        <div className="fixed inset-0 z-40 lg:hidden">
-                            <div
-                                className="absolute inset-0 bg-black/40"
-                                onClick={() => setSidebarOpen(false)}
-                            />
-                            <aside className="relative z-50 h-full w-[var(--sidebar-width)] border-r border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-xl">
-                                <Sidebar onNavigate={() => setSidebarOpen(false)} />
-                            </aside>
-                        </div>
+            <div className="flex h-dvh overflow-hidden bg-[hsl(var(--background))] lg:gap-4 lg:p-4">
+                {/* Computador: menu em ilhas, contraído (só ícones) ou aberto */}
+                <aside
+                    className={cn(
+                        'hidden shrink-0 flex-col gap-3 transition-[width] duration-200 ease-out lg:flex',
+                        menuAberto ? 'w-60' : 'w-[4.5rem]',
                     )}
+                >
+                    <Marca contraida={!menuAberto} />
+                    <Sidebar onNavigate={() => { }} contraido={!menuAberto} />
+                </aside>
 
+                {/* Celular: menu por cima, com os nomes */}
+                {sidebarOpen && (
+                    <div className="fixed inset-0 z-40 lg:hidden">
+                        <div className="fundo-folha absolute inset-0 bg-[hsl(var(--overlay)/0.45)]" onClick={() => setSidebarOpen(false)} />
+                        <aside className="relative z-50 flex h-full w-72 max-w-[85vw] flex-col gap-3 overflow-y-auto bg-[hsl(var(--background))] p-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-flutuante">
+                            <Marca />
+                            <Sidebar onNavigate={() => setSidebarOpen(false)} />
+                        </aside>
+                    </div>
+                )}
+
+                <div className="flex min-w-0 flex-1 flex-col lg:gap-4">
+                    <Header onMenuToggle={() => setSidebarOpen((v) => !v)} />
                     {/* Embaixo, espaço para a barra de atalhos do celular */}
-                    <main className="flex-1 overflow-y-auto bg-[hsl(var(--background))] p-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] scrollbar-thin lg:p-6">
-                        <Outlet />
+                    <main className="flex-1 overflow-y-auto px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-4 scrollbar-thin lg:px-1 lg:pb-6 lg:pt-0">
+                        <div className="mx-auto w-full max-w-[1400px]">
+                            <Outlet />
+                        </div>
                     </main>
                 </div>
                 <BarraInferior />
             </div>
         </AcoesRapidasProvider>
+    );
+}
+
+/** Marca do estúdio no topo do menu. */
+function Marca({ contraida = false }: { contraida?: boolean }) {
+    return (
+        <div className={cn('flex h-14 shrink-0 items-center gap-3', contraida ? 'justify-center' : 'px-2')}>
+            <img src="/icons/icon-96.png" alt="" className="h-11 w-11 rounded-2xl shadow-painel" />
+            {!contraida && <span className="truncate text-lg font-bold tracking-tight text-[hsl(var(--primary))]">Studio ERP</span>}
+        </div>
     );
 }

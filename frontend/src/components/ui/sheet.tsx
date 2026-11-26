@@ -34,14 +34,14 @@ const SheetContent = React.forwardRef<
                 }}
                 className={cn(
                     'painel-lateral fixed inset-0 z-[60] flex w-full flex-col gap-5 overflow-y-auto overflow-x-hidden bg-[hsl(var(--background))] px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-xl',
-                    'sm:left-auto sm:max-w-xl sm:border-l sm:border-[hsl(var(--border))]',
+                    'sm:inset-y-3 sm:left-auto sm:right-3 sm:max-w-xl sm:rounded-3xl sm:border sm:border-[hsl(var(--border))] sm:shadow-flutuante',
                     className
                 )}
                 {...props}
             >
                 {children}
-                <DialogPrimitive.Close className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full opacity-70 hover:opacity-100 sm:right-4 sm:top-4 sm:h-auto sm:w-auto">
-                    <X className="h-5 w-5 sm:h-4 sm:w-4" />
+                <DialogPrimitive.Close className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)] sm:right-4 sm:top-4 sm:h-9 sm:w-9">
+                    <X className="h-4 w-4" />
                     <span className="sr-only">Fechar</span>
                 </DialogPrimitive.Close>
             </DialogPrimitive.Content>
@@ -63,7 +63,7 @@ const SheetTitle = React.forwardRef<
 SheetTitle.displayName = 'SheetTitle';
 
 const SheetFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn('flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2', className)} {...props} />
+    <div className={cn('flex flex-col-reverse gap-2 border-t border-[hsl(var(--border))] pt-4 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2', className)} {...props} />
 );
 
 export { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter };

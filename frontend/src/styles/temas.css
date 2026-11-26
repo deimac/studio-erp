@@ -16,10 +16,22 @@
    bg-red-50 + text-red-700 continuam legíveis no escuro sem mexer no componente.
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
+/* ── Forma: cantos generosos e sombras macias (iguais em todos os temas) ── */
+@theme {
+    --radius-sm: 0.5rem;
+    --radius-md: 0.75rem;
+    --radius-lg: 1rem;
+    --radius-xl: 1.25rem;
+    --radius-2xl: 1.5rem;
+    --radius-3xl: 2rem;
+    --shadow-painel: 0 1px 2px hsl(var(--overlay) / 0.04), 0 10px 30px -18px hsl(var(--overlay) / 0.18);
+    --shadow-flutuante: 0 2px 6px hsl(var(--overlay) / 0.06), 0 18px 40px -16px hsl(var(--overlay) / 0.28);
+}
+
 /* ── Clássico · claro (o visual atual, com o texto secundário um pouco mais firme) ── */
 :root {
     color-scheme: light;
-    --background: 210 33% 98%;
+    --background: 216 33% 96%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -93,7 +105,7 @@
 
 /* ── Rosé & linho · claro (mesmo DNA do site da Tayna) ── */
 [data-estilo='rose'] {
-    --background: 36 30% 95.5%;
+    --background: 36 30% 94%;
     --foreground: 28 12% 14%;
     --card: 36 60% 99.4%;
     --card-foreground: 28 12% 14%;

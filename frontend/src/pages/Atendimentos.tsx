@@ -78,11 +78,11 @@ export default function Atendimentos() {
 
     return (
         <div className="space-y-4">
-            <section className="overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-gradient-to-br from-[hsl(var(--primary)/0.10)] via-[hsl(var(--card))] to-[hsl(var(--card))] shadow-sm">
+            <section className="overflow-hidden rounded-3xl border border-[hsl(var(--border))]/70 bg-gradient-to-br from-[hsl(var(--primary)/0.10)] via-[hsl(var(--card))] to-[hsl(var(--card))] shadow-painel">
                 <div className="space-y-4 p-4 sm:p-6">
                     {/* Título + ação */}
                     <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md shadow-[hsl(var(--primary)/0.3)] sm:h-12 sm:w-12">
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md shadow-[hsl(var(--primary)/0.3)] sm:h-12 sm:w-12">
                             <CalendarCheck className="h-5 w-5 sm:h-6 sm:w-6" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -103,7 +103,7 @@ export default function Atendimentos() {
                         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
                         <Input
                             placeholder="Buscar cliente, profissional ou serviço…"
-                            className="h-11 rounded-xl bg-[hsl(var(--card))] pl-9 sm:max-w-md"
+                            className="pl-9 sm:max-w-md"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -121,11 +121,11 @@ export default function Atendimentos() {
                                     onClick={() => setFiltro(f.chave)}
                                     aria-pressed={sel}
                                     className={cn(
-                                        'flex min-w-0 items-center gap-3 rounded-xl border bg-[hsl(var(--card))] p-3 text-left transition-all',
+                                        'flex min-w-0 items-center gap-3 rounded-2xl border bg-[hsl(var(--card))] p-3 text-left transition-all',
                                         sel ? cn('ring-2', f.ativo) : 'border-[hsl(var(--border))] hover:border-gray-300 hover:shadow-sm',
                                     )}
                                 >
-                                    <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', f.fundo, f.cor)}>
+                                    <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full', f.fundo, f.cor)}>
                                         <Icon className="h-5 w-5" />
                                     </span>
                                     <span className="min-w-0">

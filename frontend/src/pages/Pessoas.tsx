@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
+import { PillGroup } from '@/components/ui/pill-group';
 import { useEscopo } from '@/hooks/useEscopo';
 import { trpc } from '@/services/trpc';
 import { PessoaForm } from '@/components/PessoaForm';
@@ -82,15 +84,8 @@ export default function Pessoas() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xl font-bold tracking-tight">Pessoas</h2>
-                <PessoaForm
-                    onSuccess={() => {
-                        utils.pessoas.list.invalidate();
-                        toast({ title: 'Pessoa criada!', variant: 'success' });
-                    }}
-                />
-            </div>
+            <PageHeader title="Pessoas" description="Clientes e fornecedores do estúdio."
+                actions={<PessoaForm onSuccess={() => { utils.pessoas.list.invalidate(); toast({ title: 'Pessoa criada!', variant: 'success' }); }} />} />
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative max-w-sm flex-1">
@@ -103,19 +98,9 @@ export default function Pessoas() {
                     />
                 </div>
                 {/* Celular: os 4 filtros dividem a largura em vez de passar da tela */}
-                <div className="grid grid-cols-4 gap-1.5 sm:flex sm:gap-2">
-                    {['', 'CLIENTE', 'FORNECEDOR', 'AMBOS'].map((t) => (
-                        <Button
-                            key={t}
-                            variant={tipoFilter === t ? 'default' : 'outline'}
-                            size="sm"
-                            className="min-w-0 px-1 text-xs sm:px-3 sm:text-sm"
-                            onClick={() => setTipoFilter(t)}
-                        >
-                            {FILTRO_LABEL[t]}
-                        </Button>
-                    ))}
-                </div>
+                <PillGroup label="Tipo de pessoa" value={tipoFilter} onChange={setTipoFilter}
+                    className="w-full sm:w-auto [&>button]:flex-1 [&>button]:px-2 sm:[&>button]:px-4"
+                    options={['', 'CLIENTE', 'FORNECEDOR', 'AMBOS'].map((t) => ({ value: t, label: FILTRO_LABEL[t] }))} />
             </div>
 
             {/* Celular: cartões */}

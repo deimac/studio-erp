@@ -6,6 +6,9 @@ import { VendaDetail } from '@/components/VendaDetail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Stat } from '@/components/ui/stat';
+import { PillGroup } from '@/components/ui/pill-group';
 import { Card, CardContent } from '@/components/ui/card';
 import {
     Table,
@@ -103,74 +106,16 @@ export default function Vendas() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h2 className="text-xl font-bold tracking-tight">Vendas</h2>
-                <VendaForm
-                    onSuccess={() => {
-                        utils.vendas.list.invalidate();
-                        toast({ title: 'Venda lançada!', variant: 'success' });
-                    }}
-                />
-            </div>
+            <PageHeader title="Vendas" description="Pacotes e sessões vendidos, com o que já foi usado."
+                actions={<VendaForm onSuccess={() => { utils.vendas.list.invalidate(); toast({ title: 'Venda lançada!', variant: 'success' }); }} />} />
 
-            {/* Cards informativos */}
-            <div className="grid gap-2 grid-cols-3 sm:gap-4 sm:grid-cols-2 max-sm:[&>*>div]:p-2.5 max-sm:[&>*>div>div:first-child]:hidden max-sm:[&_p]:text-[11px] max-sm:[&_p+p]:text-sm sm:grid-cols-3 lg:grid-cols-5">
-                <Card>
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                            <ShoppingCart className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400">Total</p>
-                            <p className="text-lg font-bold text-blue-600">{stats.total}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-green-200 bg-green-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                            <CheckCircle className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-green-500">Ativas</p>
-                            <p className="text-lg font-bold text-green-600">{stats.ativas}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-gray-200 bg-gray-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100 text-gray-600">
-                            <Lock className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-500">Encerradas</p>
-                            <p className="text-lg font-bold text-gray-600">{stats.encerradas}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-purple-200 bg-purple-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-100 text-purple-600">
-                            <TrendingUp className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-purple-500">Valor Total</p>
-                            <p className="text-lg font-bold text-purple-600">{fmt(stats.valorTotal)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-amber-200 bg-amber-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-                            <Calendar className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-amber-500">Sessões</p>
-                            <p className="text-lg font-bold text-amber-600">{stats.sessoesTotal}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+            {/* Resumo */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*:last-child]:col-span-1">
+                <Stat label="Total" value={stats.total} icon={<ShoppingCart />} tom="bg-blue-100 text-blue-700" />
+                <Stat label="Ativas" value={stats.ativas} icon={<CheckCircle />} tom="bg-green-100 text-green-700" />
+                <Stat label="Encerradas" value={stats.encerradas} icon={<Lock />} tom="bg-gray-100 text-gray-700" />
+                <Stat label="Valor total" value={fmt(stats.valorTotal)} icon={<TrendingUp />} tom="bg-purple-100 text-purple-700" />
+                <Stat label="Sessões" value={stats.sessoesTotal} icon={<Calendar />} tom="bg-amber-100 text-amber-700" />
             </div>
 
             {/* Filtros */}
@@ -184,18 +129,8 @@ export default function Vendas() {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-                <div className="flex gap-2">
-                    {(['', 'ATIVA', 'ENCERRADA'] as const).map((s) => (
-                        <Button
-                            key={s}
-                            variant={statusFilter === s ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setStatusFilter(s)}
-                        >
-                            {s || 'Todas'}
-                        </Button>
-                    ))}
-                </div>
+                <PillGroup<'' | 'ATIVA' | 'ENCERRADA'> label="Situação da venda" value={statusFilter} onChange={setStatusFilter}
+                    options={[{ value: '', label: 'Todas' }, { value: 'ATIVA', label: 'Ativas' }, { value: 'ENCERRADA', label: 'Encerradas' }]} />
             </div>
 
             {/* Celular: cartões; toque abre parcelas e atendimentos */}

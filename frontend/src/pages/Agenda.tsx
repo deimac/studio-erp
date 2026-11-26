@@ -420,7 +420,7 @@ export default function Agenda() {
     const chipsProfissionais = (
         <>
             <button type="button" onClick={() => setSelProfs([])}
-                className={cn('shrink-0 rounded-full border px-3 py-1.5', !selProfs.length ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'hover:bg-[hsl(var(--accent))]')}>
+                className={cn('shrink-0 rounded-full border px-4 py-1.5 font-medium', !selProfs.length ? 'border-[hsl(var(--foreground))] bg-[hsl(var(--foreground))] text-[hsl(var(--background))]' : 'hover:bg-[hsl(var(--accent))]')}>
                 Todos
             </button>
             {profissionais.map((p) => {
@@ -429,7 +429,7 @@ export default function Agenda() {
                 return (
                     <button key={p.id} type="button"
                         onClick={() => setSelProfs((s) => (ativo ? s.filter((x) => x !== p.id) : [...s, p.id]))}
-                        className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
+                        className={cn('inline-flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-1.5 font-medium transition-colors', ativo ? 'text-white' : 'hover:bg-[hsl(var(--accent))]')}
                         style={ativo ? { background: cor, borderColor: cor } : undefined}>
                         <span className="h-2.5 w-2.5 rounded-full" style={{ background: ativo ? '#fff' : cor }} />
                         {p.nome.split(' ')[0]}
@@ -639,10 +639,10 @@ export default function Agenda() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div role="group" aria-label="Como ver a agenda" className="flex rounded-lg border p-0.5">
+                    <div role="group" aria-label="Como ver a agenda" className="flex rounded-full bg-[hsl(var(--muted))] p-1">
                         {([['day', 'Dia'], ['week', 'Sem.'], ['month', 'Mês'], ['agenda', 'Lista']] as [View, string][]).map(([v, rotulo]) => (
                             <button key={v} type="button" onClick={() => setView(v)} aria-label={v === 'week' ? 'Semana' : undefined}
-                                className={cn('rounded-md px-2.5 py-1.5 text-sm', view === v ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'text-[hsl(var(--muted-foreground))]')}>
+                                className={cn('rounded-full px-3 py-1.5 text-sm font-medium transition-colors', view === v ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
                                 {rotulo}
                             </button>
                         ))}
@@ -662,14 +662,14 @@ export default function Agenda() {
                     <div className="space-y-2">
                         <FaixaSemana data={data} onData={setData} atendimentos={dados?.atendimentos ?? []} feriados={feriadosPorDia} />
                         {avisoDia}
-                        <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-lg border bg-[hsl(var(--card))]', eventosQ.isFetching && 'opacity-90')} {...toqueNoDia}>
+                        <div className={cn('agenda-studio agenda-dia-movel h-[68vh] min-h-[420px] rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')} {...toqueNoDia}>
                             {calendario}
                         </div>
                         {legendaFundo}
                     </div>
                 ) : view === 'week' ? (
                     <div className="space-y-2">
-                        <div className={cn('agenda-studio agenda-compacta h-[72vh] min-h-[440px] rounded-lg border bg-[hsl(var(--card))]', eventosQ.isFetching && 'opacity-90')}>
+                        <div className={cn('agenda-studio agenda-compacta h-[72vh] min-h-[440px] rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')}>
                             {calendario}
                         </div>
                         {legendaFundo}
@@ -689,7 +689,7 @@ export default function Agenda() {
                         onBloqueio={perguntarRemoverBloqueio}
                     />
                 ) : (
-                    <div className="agenda-studio h-[70vh] rounded-lg border bg-[hsl(var(--card))]">
+                    <div className="agenda-studio h-[70vh] rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel">
                         <DnDCalendar
                             localizer={localizer}
                             culture="pt-BR"
@@ -740,10 +740,10 @@ export default function Agenda() {
                 <SeletorData data={data} onData={setData} titulo={tituloPeriodo(view, data)} soMes={view === 'month'} />
                 <div className="flex-1" />
 
-                <div role="group" aria-label="Como ver a agenda" className="flex rounded-md border p-0.5">
+                <div role="group" aria-label="Como ver a agenda" className="flex rounded-full bg-[hsl(var(--muted))] p-1">
                     {VIEWS.map((v) => (
                         <button key={v.id} type="button" onClick={() => setView(v.id)}
-                            className={cn('rounded px-3 py-1 text-sm', view === v.id ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]')}>
+                            className={cn('rounded-full px-4 py-1.5 text-sm font-medium transition-colors', view === v.id ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_4px_12px_-6px_hsl(var(--primary)/0.6)]' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
                             {v.label}
                         </button>
                     ))}
@@ -758,11 +758,11 @@ export default function Agenda() {
                 {!soMeu && chipsProfissionais}
 
                 {view === 'day' && salas.length > 0 && (
-                    <div className="ml-2 flex items-center gap-1 rounded-md border p-0.5 text-xs">
+                    <div className="ml-2 flex items-center gap-1 rounded-full bg-[hsl(var(--muted))] p-1 text-xs">
                         <span className="px-1.5 text-[hsl(var(--muted-foreground))]">Colunas:</span>
                         {(['profissional', 'sala'] as const).map((c) => (
                             <button key={c} type="button" onClick={() => setColunas(c)}
-                                className={cn('rounded px-2 py-0.5 capitalize', colunas === c ? 'bg-[hsl(var(--secondary))] font-medium' : 'text-[hsl(var(--muted-foreground))]')}>
+                                className={cn('rounded-full px-2.5 py-1 capitalize', colunas === c ? 'bg-[hsl(var(--card))] font-medium shadow-painel' : 'text-[hsl(var(--muted-foreground))]')}>
                                 {c === 'profissional' ? 'Profissionais' : 'Salas'}
                             </button>
                         ))}
@@ -779,7 +779,7 @@ export default function Agenda() {
             {avisoDia}
 
             {/* Calendário */}
-            <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-lg border bg-[hsl(var(--card))]', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
+            <div className={cn('agenda-studio min-h-[560px] flex-1 rounded-3xl border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] p-2 shadow-painel', eventosQ.isFetching && 'opacity-90')} {...(view === 'day' ? toqueNoDia : {})}>
                 {calendario}
             </div>
 

@@ -71,15 +71,15 @@ const DialogContent = React.forwardRef<
             }}
             className={cn(
                 // Celular: folha que sobe do rodapé; a partir de 640px: janela centralizada
-                'fixed inset-x-0 bottom-0 z-50 mx-auto grid max-h-[92dvh] w-full gap-5 overflow-y-auto overflow-x-hidden rounded-t-2xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-lg',
-                'sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[90vh] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:p-6',
+                'fixed inset-x-0 bottom-0 z-50 mx-auto grid max-h-[92dvh] w-full gap-5 overflow-y-auto overflow-x-hidden rounded-t-3xl border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-5 pt-7 shadow-flutuante before:absolute before:left-1/2 before:top-2.5 before:h-1 before:w-10 before:-translate-x-1/2 before:rounded-full before:bg-[hsl(var(--border))] sm:before:hidden pb-[max(1.5rem,env(safe-area-inset-bottom))] ',
+                'sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:max-h-[90vh] sm:max-w-lg sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-3xl sm:p-7',
                 className
             )}
             {...props}
         >
             {children}
-            <DialogPrimitive.Close className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full opacity-70 hover:opacity-100 sm:right-4 sm:top-4 sm:h-auto sm:w-auto">
-                <X className="h-5 w-5 sm:h-4 sm:w-4" />
+            <DialogPrimitive.Close className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] transition-colors hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)] sm:right-4 sm:top-4 sm:h-9 sm:w-9">
+                <X className="h-4 w-4" />
             </DialogPrimitive.Close>
         </DialogPrimitive.Content>
     </DialogPortal>
@@ -88,7 +88,7 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn('flex flex-col space-y-1.5 text-center sm:text-left', className)} {...props} />
+    <div className={cn('flex flex-col space-y-1.5 pr-10 text-left', className)} {...props} />
 );
 DialogHeader.displayName = 'DialogHeader';
 

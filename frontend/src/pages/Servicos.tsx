@@ -1,4 +1,6 @@
 import { useState, useRef, useSyncExternalStore } from 'react';
+import { PageHeader } from '@/components/ui/page-header';
+import { PillGroup } from '@/components/ui/pill-group';
 import { trpc } from '@/services/trpc';
 import { ServicoForm } from '@/components/ServicoForm';
 import { ProtocoloForm, type Protocolo } from '@/components/ProtocoloForm';
@@ -59,24 +61,13 @@ export default function Servicos() {
 
     return (
         <div className="space-y-5">
-            <div>
-                <h2 className="text-xl font-bold tracking-tight">Serviços</h2>
-                <p className="text-sm text-gray-500">
-                    {aba === 'servicos' && 'O que você vende e agenda, com preço da sessão e pacotes.'}
-                    {aba === 'paginas' && 'As páginas que aparecem no site. Os preços vêm dos serviços ligados a cada página.'}
-                    {aba === 'tecnicas' && 'Escolhidos em cada serviço. No site aparecem em "Técnicas aplicadas" e "Benefícios".'}
-                </p>
-            </div>
+            <PageHeader title="Serviços" description={
+                aba === 'servicos' ? 'O que você vende e agenda, com preço da sessão e pacotes.'
+                    : aba === 'paginas' ? 'As páginas que aparecem no site. Os preços vêm dos serviços ligados a cada página.'
+                        : 'Escolhidos em cada serviço. No site aparecem em "Técnicas aplicadas" e "Benefícios".'} />
 
-            <div role="tablist" className="flex gap-1 border-b">
-                {abas.map((a) => (
-                    <button key={a.id} type="button" role="tab" aria-selected={aba === a.id} onClick={() => gravarAba(a.id)}
-                        className={cn('-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors',
-                            aba === a.id ? 'border-[hsl(var(--primary))] text-[hsl(var(--primary))]' : 'border-transparent text-gray-500 hover:text-gray-800')}>
-                        {a.rotulo}
-                    </button>
-                ))}
-            </div>
+            <PillGroup label="Seções de serviços" value={aba} onChange={gravarAba}
+                options={abas.map((a) => ({ value: a.id, label: a.rotulo }))} />
 
             {aba === 'servicos' && <AbaServicos todos={todos} protocolos={protocolos} carregando={servicosQ.isLoading || protocolosQ.isLoading} />}
             {aba === 'paginas' && <AbaPaginas todos={todos} protocolos={protocolos} carregando={protocolosQ.isLoading} />}

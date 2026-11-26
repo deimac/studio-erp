@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { LayoutGrid, LogOut, Menu as MenuIcon, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { definirTema, useTema, type Estilo, type Modo } from '@/hooks/useTema';
 import { Button } from '@/components/ui/button';
+import { PillGroup } from '@/components/ui/pill-group';
 import { PersonalizarBarraDialog } from '@/components/acoes/PersonalizarBarra';
 
 type Props = { onMenuToggle: () => void };
@@ -24,7 +25,7 @@ const ESTILOS: { v: Estilo; label: string; cores: [string, string] }[] = [
     { v: 'rose', label: 'Rosé', cores: ['#8a5359', '#efe6dc'] },
 ];
 const segCls = (ativo: boolean) =>
-    cn('flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+    cn('flex flex-1 items-center justify-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-medium transition-colors',
         ativo ? 'bg-[hsl(var(--card))] text-[hsl(var(--foreground))] shadow-sm ring-1 ring-[hsl(var(--border))]'
             : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]');
 
@@ -32,9 +33,9 @@ const segCls = (ativo: boolean) =>
 function Aparencia() {
     const tema = useTema();
     return (
-        <div className="space-y-2 px-3 py-2">
+        <div className="space-y-2 px-3 py-3">
             <p className="text-xs font-semibold text-[hsl(var(--muted-foreground))]">Aparência</p>
-            <div className="flex gap-1 rounded-lg bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Cores">
+            <div className="flex gap-1 rounded-full bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Cores">
                 {ESTILOS.map((e) => (
                     <button key={e.v} type="button" role="radio" aria-checked={tema.estilo === e.v}
                         className={segCls(tema.estilo === e.v)} onClick={() => definirTema({ estilo: e.v })}>
@@ -46,7 +47,7 @@ function Aparencia() {
                     </button>
                 ))}
             </div>
-            <div className="flex gap-1 rounded-lg bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Claro ou escuro">
+            <div className="flex gap-1 rounded-full bg-[hsl(var(--muted))] p-1" role="radiogroup" aria-label="Claro ou escuro">
                 {MODOS.map(({ v, label, Icone }) => (
                     <button key={v} type="button" role="radio" aria-checked={tema.modo === v}
                         title={v === 'auto' ? 'Segue o tema do celular/computador' : undefined} aria-label={label}
@@ -59,7 +60,7 @@ function Aparencia() {
     );
 }
 
-const itemCls = 'flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-[hsl(var(--accent))]';
+const itemCls = 'flex cursor-pointer items-center gap-2.5 rounded-full px-3 py-2.5 text-sm outline-none data-[highlighted]:bg-[hsl(var(--accent))]';
 
 export function Header({ onMenuToggle }: Props) {
     const { user, isAdmin, logout } = useAuth();
@@ -67,49 +68,75 @@ export function Header({ onMenuToggle }: Props) {
     const navigate = useNavigate();
     const [barraAberta, setBarraAberta] = useState(false);
 
+    const tema = useTema();
+    const escuroAgora = tema.modo === 'escuro' || (tema.modo === 'auto' && document.documentElement.classList.contains('dark'));
+
     return (
-        <header className="sticky top-0 z-30 flex h-[var(--header-height)] items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--card))] px-4 lg:px-6">
-            <div className="flex items-center gap-3">
+        <header className="relative z-30 mx-3 mt-[max(0.75rem,env(safe-area-inset-top))] flex h-14 shrink-0 items-center justify-between gap-3 rounded-full border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] pl-2 pr-2 shadow-painel lg:mx-0 lg:mt-0 lg:h-16 lg:pl-3">
+            <div className="flex min-w-0 items-center gap-2">
                 <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle} aria-label="Abrir menu">
                     <MenuIcon className="h-5 w-5" />
                 </Button>
-                <h1 className="text-lg font-bold tracking-tight text-[hsl(var(--primary))]">
-                    Studio ERP
-                </h1>
+                <h1 className="truncate text-lg font-bold tracking-tight text-[hsl(var(--primary))] lg:hidden">Studio ERP</h1>
+                <p className="hidden truncate pl-3 text-sm font-medium text-[hsl(var(--muted-foreground))] first-letter:uppercase lg:block">
+                    {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
                 {podeEscolher && (
-                    <div className="flex rounded-md border p-0.5 text-xs" title="O que as listas mostram">
-                        {(['GERAL', 'MEU'] as const).map((e) => (
-                            <button key={e} type="button" onClick={() => definirEscopo(e)}
-                                className={cn('rounded px-2.5 py-1', escopo === e ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))]')}>
-                                {e === 'GERAL' ? 'Geral' : 'Só meu'}
-                            </button>
-                        ))}
-                    </div>
+                    <PillGroup label="O que as listas mostram" size="sm" className="hidden sm:inline-flex"
+                        value={escopo} onChange={definirEscopo}
+                        options={[{ value: 'GERAL', label: 'Geral' }, { value: 'MEU', label: 'Só meu' }]} />
                 )}
+
+                {/* Claro/escuro sempre à mão (as cores Clássico/Rosé ficam no menu da conta) */}
+                <div role="radiogroup" aria-label="Claro ou escuro" className="hidden items-center gap-0.5 rounded-full bg-[hsl(var(--muted))] p-1 sm:flex">
+                    {([['claro', Sun, 'Tema claro'], ['escuro', Moon, 'Tema escuro']] as const).map(([m, Icone, nome]) => {
+                        const ativo = (m === 'escuro') === escuroAgora;
+                        return (
+                            <button key={m} type="button" role="radio" aria-checked={ativo} aria-label={nome} title={nome}
+                                onClick={() => definirTema({ modo: m })}
+                                className={cn('flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)]',
+                                    ativo ? 'bg-[hsl(var(--foreground))] text-[hsl(var(--background))] shadow-painel' : 'text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]')}>
+                                <Icone className="h-4 w-4" />
+                            </button>
+                        );
+                    })}
+                </div>
 
                 <Menu.Root>
                     <Menu.Trigger asChild>
                         <button type="button" aria-label="Minha conta"
-                            className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]">
-                            <span className="hidden text-sm text-[hsl(var(--muted-foreground))] sm:inline">{user?.nome || user?.email}</span>
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-sm font-semibold text-[hsl(var(--primary-foreground))]">
+                            className="flex items-center gap-2 rounded-full p-0.5 outline-none transition-colors hover:bg-[hsl(var(--accent))] focus-visible:ring-4 focus-visible:ring-[hsl(var(--ring)/0.25)] sm:pl-3">
+                            <span className="hidden max-w-40 truncate text-sm font-medium sm:inline">{user?.nome || user?.email}</span>
+                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-sm font-semibold text-[hsl(var(--primary-foreground))]">
                                 {iniciais(user?.nome || user?.email)}
                             </span>
                         </button>
                     </Menu.Trigger>
                     <Menu.Portal>
-                        <Menu.Content align="end" sideOffset={8}
-                            className="z-50 w-64 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-1.5 shadow-lg">
-                            <div className="px-3 py-2">
-                                <p className="truncate text-sm font-semibold">{user?.nome || user?.email}</p>
-                                <span className="mt-1 inline-block rounded-full bg-[hsl(var(--primary))] px-2 py-0.5 text-[10px] font-semibold uppercase text-[hsl(var(--primary-foreground))]">{user?.perfil}</span>
+                        <Menu.Content align="end" sideOffset={10}
+                            className="z-50 w-72 rounded-3xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-2 shadow-flutuante">
+                            <div className="flex items-center gap-3 rounded-2xl bg-[hsl(var(--muted))] px-3 py-3">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-sm font-semibold text-[hsl(var(--primary-foreground))]">
+                                    {iniciais(user?.nome || user?.email)}
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="truncate text-sm font-semibold">{user?.nome || user?.email}</p>
+                                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">{user?.perfil}</p>
+                                </div>
                             </div>
-                            <Menu.Separator className="my-1 h-px bg-[hsl(var(--border))]" />
+                            {podeEscolher && (
+                                <div className="px-3 pt-3 sm:hidden">
+                                    <p className="mb-2 text-xs font-semibold text-[hsl(var(--muted-foreground))]">As listas mostram</p>
+                                    <PillGroup label="O que as listas mostram" size="sm" className="w-full [&>button]:flex-1"
+                                        value={escopo} onChange={definirEscopo}
+                                        options={[{ value: 'GERAL', label: 'Geral' }, { value: 'MEU', label: 'Só meu' }]} />
+                                </div>
+                            )}
                             <Aparencia />
-                            <Menu.Separator className="my-1 h-px bg-[hsl(var(--border))]" />
+                            <Menu.Separator className="mx-2 my-1 h-px bg-[hsl(var(--border))]" />
                             {isAdmin && (
                                 <Menu.Item className={itemCls} onSelect={() => navigate('/configuracoes')}>
                                     <Settings className="h-4 w-4" /> Configurações
@@ -118,8 +145,7 @@ export function Header({ onMenuToggle }: Props) {
                             <Menu.Item className={cn(itemCls, 'lg:hidden')} onSelect={() => setBarraAberta(true)}>
                                 <LayoutGrid className="h-4 w-4" /> Barra do celular
                             </Menu.Item>
-                            <Menu.Separator className="my-1 h-px bg-[hsl(var(--border))]" />
-                            <Menu.Item className={cn(itemCls, 'text-red-600')} onSelect={logout}>
+                            <Menu.Item className={cn(itemCls, 'text-red-600 data-[highlighted]:bg-red-50')} onSelect={logout}>
                                 <LogOut className="h-4 w-4" /> Sair
                             </Menu.Item>
                         </Menu.Content>

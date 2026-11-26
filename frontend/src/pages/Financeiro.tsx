@@ -4,6 +4,9 @@ import { trpc } from '@/services/trpc';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/ui/page-header';
+import { Stat } from '@/components/ui/stat';
+import { PillGroup } from '@/components/ui/pill-group';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
@@ -314,94 +317,25 @@ export default function Financeiro() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold tracking-tight">Financeiro</h2>
-                <ReceitaDespesaForm onSuccess={() => finQ.refetch()} />
-            </div>
+            <PageHeader title="Financeiro" description="O que entra e o que sai, com vencimentos e pagamentos."
+                actions={<ReceitaDespesaForm onSuccess={() => finQ.refetch()} />} />
 
             {finQ.isLoading && (
-                <Card className="bg-blue-50 border-blue-200">
-                    <CardContent className="p-4 text-sm text-blue-600">
-                        ⏳ Carregando dados...
-                    </CardContent>
-                </Card>
+                <p className="rounded-2xl bg-[hsl(var(--muted))] px-4 py-3 text-sm text-[hsl(var(--muted-foreground))]">Carregando dados…</p>
             )}
 
-            {/* Summary cards */}
-            <div className="grid gap-2 grid-cols-3 sm:gap-4 sm:grid-cols-2 max-sm:[&>*>div]:p-2.5 max-sm:[&>*>div>div:first-child]:hidden max-sm:[&_p]:text-[11px] max-sm:[&_p+p]:text-sm lg:grid-cols-3">
-                <Card>
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                            <DollarSign className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400">Total</p>
-                            <p className="text-lg font-bold text-blue-600">{fmt(totalGeral)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600">
-                            <TrendingUp className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400">{tipo === 'RECEITA' ? 'Recebido' : 'Pago'}</p>
-                            <p className="text-lg font-bold text-green-600">{fmt(totalPago)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
-                            <CreditCard className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-400">{tipo === 'RECEITA' ? 'A Receber' : 'A Pagar'}</p>
-                            <p className="text-lg font-bold text-amber-600">{fmt(totalPendente)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                {/* Status de vencimento (apenas pendentes) */}
-                <Card className="border-red-200 bg-red-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                            <AlertCircle className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-red-500">Atrasados</p>
-                            <p className="text-lg font-bold text-red-600">{situacaoStats.atrasados}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-yellow-200 bg-yellow-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-100 text-yellow-600">
-                            <Clock className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-yellow-600">Vence hoje</p>
-                            <p className="text-lg font-bold text-yellow-600">{situacaoStats.venceHoje}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="border-green-200 bg-green-50/50">
-                    <CardContent className="flex items-center gap-3 p-4">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                            <CheckCircle className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-xs text-green-500">Em dia</p>
-                            <p className="text-lg font-bold text-green-600">{situacaoStats.emDia}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            {/* Receitas ou despesas */}
+            <PillGroup label="Receitas ou despesas" value={tipo} onChange={(t) => { setTipo(t); setIdPessoa(undefined); }}
+                options={[{ value: 'RECEITA', label: 'Receitas' }, { value: 'DESPESA', label: 'Despesas' }]} />
 
-            {/* Tipo selector */}
-            <div className="flex gap-2">
-                <Button variant={tipo === 'RECEITA' ? 'default' : 'outline'} onClick={() => { setTipo('RECEITA'); setIdPessoa(undefined); }}>Receitas</Button>
-                <Button variant={tipo === 'DESPESA' ? 'default' : 'outline'} onClick={() => { setTipo('DESPESA'); setIdPessoa(undefined); }}>Despesas</Button>
+            {/* Resumo */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <Stat label="Total" value={fmt(totalGeral)} icon={<DollarSign />} tom="bg-blue-100 text-blue-700" />
+                <Stat label={tipo === 'RECEITA' ? 'Recebido' : 'Pago'} value={fmt(totalPago)} icon={<TrendingUp />} tom="bg-green-100 text-green-700" />
+                <Stat label={tipo === 'RECEITA' ? 'A receber' : 'A pagar'} value={fmt(totalPendente)} icon={<CreditCard />} tom="bg-amber-100 text-amber-700" />
+                <Stat label="Atrasados" value={situacaoStats.atrasados} icon={<AlertCircle />} tom="bg-red-100 text-red-700" />
+                <Stat label="Vence hoje" value={situacaoStats.venceHoje} icon={<Clock />} tom="bg-yellow-100 text-yellow-800" />
+                <Stat label="Em dia" value={situacaoStats.emDia} icon={<CheckCircle />} tom="bg-green-100 text-green-700" />
             </div>
 
             {/* Filtros compactos */}

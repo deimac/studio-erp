@@ -24,14 +24,14 @@ export function BarraInferior() {
         return (
             <NavLink key={id} to={a.to} end={a.to === '/'}
                 className={({ isActive }) => cn(
-                    'flex min-w-0 flex-col items-center justify-center gap-0.5 pt-1.5 text-[11px] font-medium',
-                    isActive ? 'text-[hsl(var(--primary))]' : 'text-[hsl(var(--muted-foreground))]',
+                    'group flex min-w-0 flex-col items-center justify-center gap-0.5 text-[11px] font-medium',
+                    isActive ? 'text-[hsl(var(--foreground))]' : 'text-[hsl(var(--muted-foreground))]',
                 )}>
-                <span className="relative">
-                    <Icone className="h-[22px] w-[22px]" />
+                <span className="relative flex h-8 w-12 items-center justify-center rounded-full transition-colors group-aria-[current=page]:bg-[hsl(var(--primary))] group-aria-[current=page]:text-[hsl(var(--primary-foreground))]">
+                    <Icone className="h-5 w-5" />
                     {id === 'inicio' && atrasadas > 0 && (
                         <span aria-label={`${atrasadas} a receber atrasada${atrasadas > 1 ? 's' : ''}`}
-                            className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[10px] font-bold leading-none text-[hsl(var(--destructive-foreground))]">
+                            className="absolute -right-0.5 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[hsl(var(--destructive))] px-1 text-[10px] font-bold leading-none text-[hsl(var(--destructive-foreground))]">
                             {atrasadas > 9 ? '9+' : atrasadas}
                         </span>
                     )}
@@ -43,14 +43,14 @@ export function BarraInferior() {
 
     return (
         <nav aria-label="Atalhos"
-            className="fixed inset-x-0 bottom-0 z-30 border-t border-[hsl(var(--border))] bg-[hsl(var(--card))] pb-[env(safe-area-inset-bottom)] lg:hidden">
-            <div className="mx-auto grid h-16 max-w-lg grid-cols-5 px-1">
+            className="fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto max-w-lg rounded-full border border-[hsl(var(--border))]/70 bg-[hsl(var(--card))] shadow-flutuante lg:hidden">
+            <div className="grid h-16 grid-cols-5 px-1">
                 {ids.slice(0, 2).map(item)}
-                <div className="flex items-start justify-center">
+                <div className="flex items-center justify-center">
                     <button type="button" aria-label="Ações rápidas"
                         onClick={() => { navigator.vibrate?.(10); abrirPainel(); }}
-                        className="-mt-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-[hsl(var(--card))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_6px_16px_-4px_hsl(var(--primary)/0.5)] active:scale-95">
-                        <Plus className="h-7 w-7" />
+                        className="flex h-12 w-12 items-center justify-center rounded-full bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-[0_6px_16px_-4px_hsl(var(--primary)/0.5)] active:scale-95">
+                        <Plus className="h-6 w-6" />
                     </button>
                 </div>
                 {ids.slice(2, 4).map(item)}
@@ -60,7 +60,7 @@ export function BarraInferior() {
 }
 
 /** Contas a receber vencidas antes de hoje (mesma consulta do Início, divide o cache). */
-function useAtrasadas(ativo: boolean) {
+export function useAtrasadas(ativo: boolean) {
     const { escopo } = useEscopo();
     const hojeISO = isoLocal(new Date());
     const q = trpc.financeiro.listWithDetails.useQuery(
