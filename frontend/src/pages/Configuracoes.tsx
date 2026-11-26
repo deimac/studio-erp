@@ -73,13 +73,13 @@ export default function Configuracoes() {
 const OPCOES_MODO = [
     {
         id: 'CLINICA',
-        titulo: 'Clínica',
-        texto: 'O administrador acompanha as vendas, os clientes, os serviços e o financeiro de todos os profissionais.',
+        titulo: 'Admin',
+        texto: 'O administrador cadastra os serviços e indica quem atende cada um. Ele acompanha vendas, clientes e financeiro de todos.',
     },
     {
         id: 'INDIVIDUAL',
         titulo: 'Cada profissional cuida do seu',
-        texto: 'A agenda é dividida: os horários das outras aparecem só como "Ocupado". Vendas, clientes, serviços e financeiro ficam separados, inclusive para o administrador.',
+        texto: 'Cada um cadastra os próprios serviços e técnicas. A agenda é dividida: os horários das outras aparecem só como "Ocupado". Vendas, clientes, serviços e financeiro ficam separados, inclusive para o administrador.',
     },
 ] as const;
 

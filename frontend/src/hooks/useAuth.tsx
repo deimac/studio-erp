@@ -31,6 +31,8 @@ type AuthContextValue = {
      * No modo "cada um cuida do seu", o admin continua administrando, mas vê só o dele.
      */
     veTudo: boolean;
+    /** Cadastra serviços e técnicas? No modo Admin, só o administrador. */
+    podeCadastrarServicos: boolean;
     login: (token: string, user: AuthUser) => void;
     logout: () => void;
 };
@@ -63,8 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // O modo de trabalho pode mudar em Configurações: vem sempre do servidor
     const ehAdmin = user?.perfil === 'ADMIN';
-    const meQ = trpc.usuarios.me.useQuery(undefined, { enabled: !!token && ehAdmin, staleTime: 5 * 60_000 });
-    const veTudo = ehAdmin && Boolean((meQ.data as { ve_tudo?: boolean } | undefined)?.ve_tudo);
+    const meQ = trpc.usuarios.me.useQuery(undefined, { enabled: !!token, staleTime: 5 * 60_000 });
+    const me = meQ.data as { ve_tudo?: boolean; pode_cadastrar_servicos?: boolean } | undefined;
+    const veTudo = ehAdmin && Boolean(me?.ve_tudo);
+    const podeCadastrarServicos = ehAdmin || Boolean(me?.pode_cadastrar_servicos);
 
     // Auto-logout if token disappears from another tab
     useEffect(() => {
@@ -84,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isProfissional: user?.perfil === 'PROFISSIONAL',
                 isEspectador: user?.perfil === 'ESPECTADOR',
                 veTudo,
+                podeCadastrarServicos,
                 login,
                 logout,
             }}

@@ -35,4 +35,11 @@ describe('acesso a serviços', () => {
         expect(servicoServeParaProfissional(2, 2, false)).toBe(true);
         expect(servicoServeParaProfissional(3, 2, true)).toBe(false);
     });
+    it('quem atende: ninguém indicado = todos; indicado = só ele', () => {
+        expect(servicoServeParaProfissional(null, 2, true, [])).toBe(true);
+        expect(servicoServeParaProfissional(null, 2, true, [2, 3])).toBe(true);
+        expect(servicoServeParaProfissional(null, 2, true, [3])).toBe(false);
+        expect(servicoServeParaProfissional(null, 2, false, [2])).toBe(false);
+        expect(servicoServeParaProfissional(2, 2, true, [3])).toBe(true);
+    });
 });

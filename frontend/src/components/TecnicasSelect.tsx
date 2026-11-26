@@ -3,6 +3,7 @@ import { Check, Plus, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { trpc } from '@/services/trpc';
 import { useToast } from '@/hooks/useToast';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -160,6 +161,7 @@ function NovaTecnica({ nome, voltar, criado, tipo }: { nome: string; voltar: () 
  * `value` traz os dois tipos juntos; aqui só se mexe nos do tipo informado.
  */
 export function TecnicasSelect({ tecnicas, value, onChange, tipo = 'TECNICA' }: { tecnicas: (Item & { tipo?: string })[]; value: number[]; onChange: (ids: number[]) => void; tipo?: Tipo }) {
+    const { podeCadastrarServicos } = useAuth();
     const doTipo = tecnicas.filter((t) => (t.tipo ?? 'TECNICA') === tipo);
     const ids = new Set(doTipo.map((t) => t.id));
     const beneficio = tipo === 'BENEFICIO';
@@ -169,6 +171,6 @@ export function TecnicasSelect({ tecnicas, value, onChange, tipo = 'TECNICA' }: 
             rotuloEscolher={beneficio ? 'Escolher benefícios' : 'Escolher técnicas'}
             placeholder={beneficio ? 'Buscar benefício…' : 'Buscar técnica…'}
             vazio={beneficio ? 'Nenhum benefício com esse nome.' : 'Nenhuma técnica com esse nome.'}
-            formNovo={(p) => <NovaTecnica {...p} tipo={tipo} />} />
+            formNovo={podeCadastrarServicos ? (p) => <NovaTecnica {...p} tipo={tipo} /> : undefined} />
     );
 }

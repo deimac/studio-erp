@@ -107,6 +107,7 @@ export function ServicoForm({
     const [geraCredito, setGeraCredito] = useState(true);
     const [ativo, setAtivo] = useState(true);
     const [tecnicaIds, setTecnicaIds] = useState<number[]>([]);
+    const [quemAtende, setQuemAtende] = useState<number[]>([]);
     const [noSite, setNoSite] = useState(false);
     const [idProtocolo, setIdProtocolo] = useState('');
     const [regioes, setRegioes] = useState<string[]>([]);
@@ -116,6 +117,10 @@ export function ServicoForm({
 
     const tecnicasQ = trpc.tecnicas.list.useQuery(undefined, { enabled: open });
     const protocolosQ = trpc.protocolos.list.useQuery(undefined, { enabled: open && isAdmin });
+    // Modo Admin: o admin indica quem atende cada serviço da clínica
+    const modoQ = trpc.unidades.modoTrabalho.useQuery(undefined, { enabled: open && isAdmin });
+    const profsQ = trpc.agenda.profissionais.list.useQuery(undefined, { enabled: open && isAdmin });
+    const indicaQuemAtende = isAdmin && modoQ.data === 'CLINICA' && (!servico || (servico as any).id_profissional == null);
     const [novaPagina, setNovaPagina] = useState(false);
     const semPaginas = protocolosQ.isSuccess && (protocolosQ.data as any[]).length === 0;
     const pacotesQ = trpc.pacotes.list.useQuery({ apenasAtivos: false }, { enabled: false });
@@ -141,6 +146,7 @@ export function ServicoForm({
             setGeraCredito(servico.gera_credito);
             setAtivo(servico.ativo);
             setTecnicaIds(servico.tecnicas?.map((t) => t.id) ?? []);
+            setQuemAtende((servico as any).profissional_ids ?? []);
             setNoSite(!!servico.id_protocolo);
             setIdProtocolo(servico.id_protocolo ? String(servico.id_protocolo) : '');
             setRegioes(servico.regioes ?? []);
@@ -169,6 +175,7 @@ export function ServicoForm({
             setGeraCredito(true);
             setAtivo(true);
             setTecnicaIds([]);
+            setQuemAtende([]);
             setNoSite(!!idProtocoloPadrao);
             setIdProtocolo(idProtocoloPadrao ? String(idProtocoloPadrao) : '');
             setRegioes([]);
@@ -218,6 +225,7 @@ export function ServicoForm({
             gera_credito: geraCredito,
             ativo,
             tecnica_ids: tecnicaIds,
+            ...(indicaQuemAtende ? { profissional_ids: quemAtende } : {}),
             // Campos do site só são enviados pelo admin
             ...(isAdmin
                 ? {
@@ -439,6 +447,24 @@ export function ServicoForm({
                                 Gera crédito
                             </label>
                         </div>
+
+                        {indicaQuemAtende && (
+                            <div className="space-y-1.5">
+                                <Label>Quem atende <span className="font-normal text-[hsl(var(--muted-foreground))]">(ninguém marcado: todos atendem)</span></Label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {((profsQ.data ?? []) as any[]).map((p) => {
+                                        const marcado = quemAtende.includes(p.id);
+                                        return (
+                                            <button key={p.id} type="button" aria-pressed={marcado}
+                                                onClick={() => setQuemAtende((l) => (marcado ? l.filter((x) => x !== p.id) : [...l, p.id]))}
+                                                className={cn('rounded-xl border px-3 py-1.5 text-sm', marcado ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:bg-[hsl(var(--accent))]')}>
+                                                {p.nome}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {tecnicasQ.data && (
                             <div>

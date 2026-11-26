@@ -27,16 +27,12 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
     const id = profissional?.id ?? 0;
 
     const horariosQ = trpc.agenda.horarios.get.useQuery({ id_profissional: id }, { enabled: open && !!id });
-    const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open && !!admin });
-    const servProfQ = trpc.agenda.profissionais.servicos.useQuery({ id_profissional: id }, { enabled: open && !!id && !!admin });
 
     const [periodos, setPeriodos] = useState<Periodo[]>([]);
     const [intervalo, setIntervalo] = useState(30);
     const [cor, setCor] = useState<string>('');
     const [telefone, setTelefone] = useState('');
-    const [servicosSel, setServicosSel] = useState<number[]>([]);
     const [compartilhada, setCompartilhada] = useState(true);
-    const [usaClinica, setUsaClinica] = useState(false);
     const [faltaRegra, setFaltaRegra] = useState<string>('');
     const regraQ = trpc.agenda.profissionais.regraFalta.useQuery({ id_profissional: id }, { enabled: open && !!id });
     const porProfissional = !!(regraQ.data as any)?.porProfissional;
@@ -53,23 +49,17 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
         setCor(profissional?.cor ?? '');
         setTelefone(profissional?.telefone ?? '');
         setCompartilhada(profissional?.agenda_compartilhada ?? true);
-        setUsaClinica(profissional?.ve_servicos_clinica ?? false);
         setFaltaRegra(profissional?.falta_regra ?? '');
     }, [open, profissional]);
-    useEffect(() => {
-        if (open && servProfQ.data) setServicosSel(servProfQ.data as number[]);
-    }, [open, servProfQ.data]);
 
     const setHorarios = trpc.agenda.horarios.set.useMutation();
     const setPerfil = trpc.agenda.profissionais.update.useMutation();
-    const setServicos = trpc.agenda.profissionais.setServicos.useMutation();
-    const salvando = setHorarios.isPending || setPerfil.isPending || setServicos.isPending;
+    const salvando = setHorarios.isPending || setPerfil.isPending;
 
     async function salvar() {
         try {
             await setHorarios.mutateAsync({ id_profissional: id, intervalo_agenda_min: intervalo, periodos });
-            await setPerfil.mutateAsync({ id, cor: cor || null, telefone: telefone.trim() || null, ...(porProfissional ? { falta_regra: (faltaRegra || null) as any } : {}), ...(admin ? { agenda_compartilhada: compartilhada, ...(ehAdmin ? {} : { ve_servicos_clinica: usaClinica }) } : {}) });
-            if (admin) await setServicos.mutateAsync({ id_profissional: id, servicos: usaClinica || ehAdmin ? servicosSel : [] });
+            await setPerfil.mutateAsync({ id, cor: cor || null, telefone: telefone.trim() || null, ...(porProfissional ? { falta_regra: (faltaRegra || null) as any } : {}), ...(admin ? { agenda_compartilhada: compartilhada } : {}) });
             utils.agenda.invalidate();
             toast({ title: 'Agenda do profissional salva', variant: 'success' });
             onOpenChange(false);
@@ -174,36 +164,6 @@ export function ExpedienteDialog({ open, onOpenChange, profissional, admin }: Pr
                             <option value="DESCONTAR">Descontar a sessão do pacote</option>
                             <option value="DEVOLVER">Devolver a sessão para o cliente</option>
                         </select>
-                    </div>
-                )}
-
-                {admin && !ehAdmin && (
-                    <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm">
-                        <input type="checkbox" className="mt-0.5" checked={usaClinica} onChange={(e) => setUsaClinica(e.target.checked)} />
-                        <span>
-                            <span className="font-medium">Usa os serviços e técnicas da clínica</span>
-                            <span className="block text-xs text-[hsl(var(--muted-foreground))]">
-                                Desmarcado, o profissional vê, vende e agenda só os serviços e técnicas que ele mesmo cadastrar.
-                            </span>
-                        </span>
-                    </label>
-                )}
-
-                {admin && (usaClinica || ehAdmin) && (
-                    <div className="space-y-1.5">
-                        <Label>Serviços da clínica que executa <span className="font-normal text-[hsl(var(--muted-foreground))]">(nenhum marcado = todos)</span></Label>
-                        <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-md border p-2">
-                            {((servicosQ.data ?? []) as any[]).filter((s) => s.id_profissional == null).map((s) => {
-                                const ativo = servicosSel.includes(s.id);
-                                return (
-                                    <button key={s.id} type="button"
-                                        onClick={() => setServicosSel((sel) => (ativo ? sel.filter((x) => x !== s.id) : [...sel, s.id]))}
-                                        className={cn('rounded-full border px-2.5 py-1 text-xs', ativo ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'hover:bg-[hsl(var(--accent))]')}>
-                                        {s.nome}{s.nome_modalidade && !s.nome.includes(s.nome_modalidade) ? ` · ${s.nome_modalidade}` : ''}
-                                    </button>
-                                );
-                            })}
-                        </div>
                     </div>
                 )}
 

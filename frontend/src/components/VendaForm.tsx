@@ -126,11 +126,13 @@ export function VendaForm({ onSuccess, idVenda, open: openProp, onOpenChange }: 
     // Serviço próprio de um profissional só pode ser vendido por ele
     const profVendedor = ((profsQ.data ?? []) as any[]).find((p) => p.id === vendedor);
     const vendedorUsaClinica = !escolheVendedor || !profVendedor || profVendedor.perfil === 'ADMIN' || profVendedor.ve_servicos_clinica;
-    const servicoDoVendedor = (dono: number | null | undefined) => (dono == null && vendedorUsaClinica) || dono === vendedor;
-    const servicos = ((servicosQ.data ?? []) as any[]).filter((s) => s.ativo !== false && servicoDoVendedor(s.id_profissional));
-    const donoServico = new Map(((servicosQ.data ?? []) as any[]).map((s) => [s.id, s.id_profissional]));
+    // Da clínica: só se ninguém foi indicado em "Quem atende" ou se o vendedor foi
+    const servicoDoVendedor = (s: any) =>
+        !!s && ((s.id_profissional == null && vendedorUsaClinica && (!s.profissional_ids?.length || s.profissional_ids.includes(vendedor))) || s.id_profissional === vendedor);
+    const servicos = ((servicosQ.data ?? []) as any[]).filter((s) => s.ativo !== false && servicoDoVendedor(s));
+    const servicoPorId = new Map(((servicosQ.data ?? []) as any[]).map((s) => [s.id, s]));
     const pacotes = ((pacotesQ.data ?? []) as any[]).filter(
-        (p) => String(p.status).toLowerCase() === 'ativo' && servicoDoVendedor(donoServico.get(p.id_servico) ?? null),
+        (p) => String(p.status).toLowerCase() === 'ativo' && servicoDoVendedor(servicoPorId.get(p.id_servico)),
     );
 
     /** Catálogo para a busca: serviços (sessão avulsa) e pacotes. */

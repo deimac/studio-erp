@@ -79,7 +79,10 @@ export const usuariosRouter = createTRPCRouter({
         }
 
         // veTudo: vê os dados dos outros profissionais (admin no modo Clínica)
-        return { ...usuarioDb, ve_tudo: ctx.session.veTudo };
+        const s = ctx.session;
+        // Modo Admin: o profissional não cadastra serviços/técnicas (o admin cadastra e indica quem atende)
+        const podeCadastrarServicos = s.perfil === 'ADMIN' || (s.perfil === 'PROFISSIONAL' && !s.veServicosClinica);
+        return { ...usuarioDb, ve_tudo: s.veTudo, pode_cadastrar_servicos: podeCadastrarServicos };
     }),
 
     list: adminProcedure.query(async ({ ctx }) => {

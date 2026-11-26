@@ -1,28 +1,72 @@
 /** Acesso a dados por profissional que depende do banco (clientes e vendas). */
 import { TRPCError } from '@trpc/server';
-import { and, eq, isNull, sql, type SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql, type SQL } from 'drizzle-orm';
 import type { db as Db } from '../config/db';
-import { pessoaProfissionais, pessoas, servicos, tecnicas, usuarios, vendas } from '../drizzle/schema';
+import { pessoaProfissionais, pessoas, profissionalServicos, servicos, tecnicas, unidades, usuarios, vendas } from '../drizzle/schema';
+import { servicoServeParaProfissional } from '../lib/servicosAcesso';
 import { filtroDono, incluiSemDono, podeGerenciar, type Escopo, type Sessao } from '../lib/escopo';
 
 export type DbOuTx = typeof Db | Parameters<Parameters<typeof Db.transaction>[0]>[0];
 
-/** O profissional usa os serviços da clínica? (admin: sempre) */
+/**
+ * O profissional usa os serviços da clínica? Admin: sempre.
+ * Profissional: só no modo Admin (CLINICA); no "cada um cuida do seu", só os dele.
+ */
 export async function usaServicosClinica(db: DbOuTx, idProfissional: number): Promise<boolean> {
     const [u] = await db
-        .select({ perfil: usuarios.perfil, ve: usuarios.ve_servicos_clinica })
+        .select({ perfil: usuarios.perfil, modo: unidades.modo_trabalho })
         .from(usuarios)
+        .leftJoin(unidades, eq(unidades.id, usuarios.id_unidade))
         .where(eq(usuarios.id, idProfissional))
         .limit(1);
-    return !!u && (u.perfil === 'ADMIN' || Boolean(u.ve));
+    return !!u && (u.perfil === 'ADMIN' || u.modo !== 'INDIVIDUAL');
 }
 
-/** Condição SQL: serviços que o usuário logado enxerga (próprios + da clínica se liberado). */
+/**
+ * Modo Admin: só o administrador cadastra serviços e técnicas.
+ * (Profissional que usa os serviços da clínica = unidade no modo Admin.)
+ */
+export function assertPodeCadastrar(session: { perfil: string; veServicosClinica?: boolean }, oque = 'serviços') {
+    if (session.perfil === 'PROFISSIONAL' && session.veServicosClinica)
+        throw new TRPCError({ code: 'FORBIDDEN', message: `No modo Admin, só o administrador cadastra ${oque}` });
+}
+
+/** Quem atende cada serviço (id do serviço → profissionais indicados; vazio = todos). */
+export async function quemAtendeServicos(db: DbOuTx, idsServico: number[]): Promise<Map<number, number[]>> {
+    const mapa = new Map<number, number[]>();
+    if (!idsServico.length) return mapa;
+    const rows = await db
+        .select({ s: profissionalServicos.id_servico, p: profissionalServicos.id_profissional })
+        .from(profissionalServicos)
+        .where(inArray(profissionalServicos.id_servico, idsServico));
+    for (const r of rows) mapa.set(r.s, [...(mapa.get(r.s) ?? []), r.p]);
+    return mapa;
+}
+
+/**
+ * Primeiro serviço da lista que o profissional NÃO pode fazer/vender
+ * (próprio de outro, ou da clínica sem ele em "quem atende"). undefined = todos servem.
+ */
+export async function servicoQueNaoServe<T extends { id: number | null; dono: number | null }>(db: DbOuTx, idProfissional: number, itens: T[]): Promise<T | undefined> {
+    if (!itens.length) return undefined;
+    const usaClinica = await usaServicosClinica(db, idProfissional);
+    const quem = await quemAtendeServicos(db, itens.filter((i) => i.dono == null && i.id != null).map((i) => i.id as number));
+    return itens.find((i) => !servicoServeParaProfissional(i.dono, idProfissional, usaClinica, i.id != null ? quem.get(i.id) ?? [] : []));
+}
+
+/** Condição SQL: o serviço da clínica é atendido pelo profissional (ninguém indicado = todos). */
+function atendidoPor(idProfissional: number): SQL {
+    return sql`(NOT EXISTS (SELECT 1 FROM profissional_servicos qa WHERE qa.id_servico = ${servicos.id})
+        OR EXISTS (SELECT 1 FROM profissional_servicos qa WHERE qa.id_servico = ${servicos.id} AND qa.id_profissional = ${idProfissional}))`;
+}
+
+/** Condição SQL: serviços que o usuário logado enxerga (próprios + da clínica que atende). */
 export function servicosVisiveis(s: Sessao & { veServicosClinica?: boolean }): SQL | undefined {
     if (s.veTudo) return undefined;
-    return s.veServicosClinica
-        ? sql`(${servicos.id_profissional} IS NULL OR ${servicos.id_profissional} = ${s.id})`
-        : sql`${servicos.id_profissional} = ${s.id}`;
+    if (!s.veServicosClinica) return sql`${servicos.id_profissional} = ${s.id}`;
+    // Admin vê todos os da clínica; profissional, só os que atende
+    const daClinica = s.perfil === 'ADMIN' ? sql`${servicos.id_profissional} IS NULL` : sql`(${servicos.id_profissional} IS NULL AND ${atendidoPor(s.id)})`;
+    return sql`(${daClinica} OR ${servicos.id_profissional} = ${s.id})`;
 }
 
 /** Condição SQL: técnicas que o usuário logado enxerga. */

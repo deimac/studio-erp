@@ -15,9 +15,9 @@ import {
     atendimentoServicos,
 } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { podeVerServico, servicoServeParaProfissional } from '../../lib/servicosAcesso';
+import { podeVerServico } from '../../lib/servicosAcesso';
 import { condDono, zEscopo } from '../../lib/escopo';
-import { assertAcessoPessoa, usaServicosClinica, vendaGerenciavel, vincularPessoa, type DbOuTx } from '../acesso';
+import { assertAcessoPessoa, servicoQueNaoServe, vendaGerenciavel, vincularPessoa, type DbOuTx } from '../acesso';
 import type { Sessao } from '../../lib/escopo';
 import { gravarVenda } from '../vendaGravar';
 import { atendimentosDaVenda, dividirParcelas, formasDaVenda, rotuloItem, rotuloVenda, usadasDoItem, vendaTemPacote } from '../vendaItens';
@@ -147,7 +147,6 @@ async function validarFormas(ctx: Ctx, pagamentos: { id_forma_pagamento: number 
 /** Serviços e pacotes novos: ativos e que o vendedor pode vender. */
 async function validarCatalogo(ctx: Ctx, vendedor: number, itens: { id_servico?: number; id_pacote?: number }[]) {
     if (!itens.length) return;
-    const usaClinica = await usaServicosClinica(ctx.db, vendedor);
     for (const it of itens) {
         if (it.id_servico) {
             const [srv] = await ctx.db
@@ -156,18 +155,18 @@ async function validarCatalogo(ctx: Ctx, vendedor: number, itens: { id_servico?:
                 .where(and(eq(servicos.id, it.id_servico), eq(servicos.ativo, true)))
                 .limit(1);
             if (!srv || !podeVerServico(srv.dono, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Serviço não encontrado' });
-            if (!servicoServeParaProfissional(srv.dono, vendedor, usaClinica))
-                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço próprio de outro profissional' });
+            if (await servicoQueNaoServe(ctx.db, vendedor, [srv]))
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Serviço não atendido por este profissional' });
         } else {
             const [pkt] = await ctx.db
-                .select({ id: pacotes.id, dono: servicos.id_profissional })
+                .select({ id: pacotes.id, id_servico: pacotes.id_servico, dono: servicos.id_profissional })
                 .from(pacotes)
                 .leftJoin(servicos, eq(servicos.id, pacotes.id_servico))
                 .where(and(eq(pacotes.id, it.id_pacote!), eq(pacotes.status, 'ativo')))
                 .limit(1);
             if (!pkt || !podeVerServico(pkt.dono ?? null, ctx.session)) throw new TRPCError({ code: 'NOT_FOUND', message: 'Pacote não encontrado' });
-            if (!servicoServeParaProfissional(pkt.dono ?? null, vendedor, usaClinica))
-                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço próprio de outro profissional' });
+            if (await servicoQueNaoServe(ctx.db, vendedor, [{ id: pkt.id_servico ?? null, dono: pkt.dono ?? null }]))
+                throw new TRPCError({ code: 'BAD_REQUEST', message: 'Pacote de serviço não atendido por este profissional' });
         }
     }
 }

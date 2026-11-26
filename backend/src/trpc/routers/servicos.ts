@@ -1,11 +1,11 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, isNull, like, or } from 'drizzle-orm';
 import { z } from 'zod';
-import { servicoTecnica, servicos, tecnicas, usuarios } from '../../drizzle/schema';
+import { profissionalServicos, servicoTecnica, servicos, tecnicas, usuarios } from '../../drizzle/schema';
 import { parseLista } from '../../lib/protocolos';
 import { podeEditarServico, podeVerServico } from '../../lib/servicosAcesso';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { servicosVisiveis, tecnicasVisiveis } from '../acesso';
+import { assertPodeCadastrar, quemAtendeServicos, servicosVisiveis, tecnicasVisiveis, type DbOuTx } from '../acesso';
 import { inArray } from 'drizzle-orm';
 
 /** Campos do site (protocolo/modalidade): só o admin define. */
@@ -19,6 +19,13 @@ async function assertTecnicasVisiveis(ctx: any, ids: number[] | undefined) {
     if (!cond) return;
     const ok = await ctx.db.select({ id: tecnicas.id }).from(tecnicas).where(and(inArray(tecnicas.id, ids), cond));
     if (ok.length !== new Set(ids).size) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Técnica não disponível para você' });
+}
+
+/** Grava quem atende o serviço da clínica (vazio = todos). */
+async function salvarQuemAtende(db: DbOuTx, idServico: number, ids: number[]) {
+    await db.delete(profissionalServicos).where(eq(profissionalServicos.id_servico, idServico));
+    const unicos = [...new Set(ids)];
+    if (unicos.length) await db.insert(profissionalServicos).values(unicos.map((id_profissional) => ({ id_profissional, id_servico: idServico })));
 }
 
 export const servicosRouter = createTRPCRouter({
@@ -94,6 +101,8 @@ export const servicosRouter = createTRPCRouter({
                     map.get(r.servicoId)!.tecnicas.push({ id: r.tecnicaId, nome: r.tecnicaNome, tipo: r.tecnicaTipo ?? 'TECNICA' });
                 }
             }
+            const quem = await quemAtendeServicos(ctx.db, [...map.keys()]);
+            for (const [id, sv] of map) sv.profissional_ids = quem.get(id) ?? [];
             return Array.from(map.values());
         }),
 
@@ -153,6 +162,7 @@ export const servicosRouter = createTRPCRouter({
                 tecnicas: rows
                     .filter((r) => r.tecnicaId && r.tecnicaNome)
                     .map((r) => ({ id: r.tecnicaId as number, nome: r.tecnicaNome as string, tipo: (r.tecnicaTipo as string) ?? 'TECNICA' })),
+                profissional_ids: (await quemAtendeServicos(ctx.db, [base.servicoId])).get(base.servicoId) ?? [],
             };
         }),
 
@@ -171,9 +181,11 @@ export const servicosRouter = createTRPCRouter({
                 nome_modalidade: z.string().nullable().optional(),
                 regioes: z.array(z.string()).optional(),
                 ordem_modalidade: z.number().int().optional(),
+                profissional_ids: z.array(z.number().int().positive()).optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
+            assertPodeCadastrar(ctx.session);
             const admin = ctx.session.perfil === 'ADMIN';
             // Profissional cadastra só serviços próprios, sem protocolo (fora do site)
             if (!admin) for (const c of CAMPOS_SITE) delete (input as any)[c];
@@ -202,6 +214,7 @@ export const servicosRouter = createTRPCRouter({
                     input.tecnica_ids.map((tid) => ({ servico_id: servicoId, tecnica_id: tid })),
                 );
             }
+            if (servicoId && admin && input.profissional_ids?.length) await salvarQuemAtende(ctx.db, servicoId, input.profissional_ids);
             return { id: servicoId };
         }),
 
@@ -221,6 +234,7 @@ export const servicosRouter = createTRPCRouter({
                 nome_modalidade: z.string().nullable().optional(),
                 regioes: z.array(z.string()).optional(),
                 ordem_modalidade: z.number().int().optional(),
+                profissional_ids: z.array(z.number().int().positive()).optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
@@ -258,6 +272,8 @@ export const servicosRouter = createTRPCRouter({
                     );
                 }
             }
+            if (input.profissional_ids !== undefined && ctx.session.perfil === 'ADMIN' && row.dono == null)
+                await salvarQuemAtende(ctx.db, input.id, input.profissional_ids);
             return { ok: true };
         }),
 });

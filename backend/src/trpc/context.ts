@@ -45,7 +45,6 @@ export async function createContext({ req, res }: CreateExpressContextOptions) {
                 perfil: usuarios.perfil,
                 id_unidade: usuarios.id_unidade,
                 ativo: usuarios.ativo,
-                ve_servicos_clinica: usuarios.ve_servicos_clinica,
                 modo_trabalho: unidades.modo_trabalho,
             })
             .from(usuarios)
@@ -58,7 +57,8 @@ export async function createContext({ req, res }: CreateExpressContextOptions) {
                 id: usuarioDb.id,
                 perfil: usuarioDb.perfil,
                 unidadeId: usuarioDb.id_unidade,
-                veServicosClinica: usuarioDb.perfil !== 'PROFISSIONAL' || Boolean(usuarioDb.ve_servicos_clinica),
+                // Modo Admin (CLINICA): todos usam os serviços da clínica. Cada um cuida do seu: só o admin.
+                veServicosClinica: usuarioDb.perfil !== 'PROFISSIONAL' || usuarioDb.modo_trabalho !== 'INDIVIDUAL',
                 veTudo: usuarioDb.perfil === 'ADMIN' && usuarioDb.modo_trabalho !== 'INDIVIDUAL',
             };
         }

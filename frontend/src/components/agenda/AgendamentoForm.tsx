@@ -146,7 +146,6 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const servicosQ = trpc.servicos.list.useQuery(undefined, { enabled: open });
     const pacotesQ = trpc.pacotes.list.useQuery(undefined, { enabled: open });
     const formasQ = trpc.formasPagamento.list.useQuery(undefined, { enabled: open });
-    const servProfQ = trpc.agenda.profissionais.servicos.useQuery({ id_profissional: idProf }, { enabled: open && !!idProf });
     const itensQ = trpc.agenda.vendasDoCliente.useQuery(
         { id_pessoa: idPessoa ?? 0, id_profissional: idProf, id_atendimento: inicial.id },
         { enabled: open && !!idPessoa },
@@ -161,9 +160,10 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
     const catalogo = useMemo(() => {
         const prof = ((profsQ.data ?? []) as any[]).find((p) => p.id === idProf);
         const usaClinica = !prof || prof.perfil === 'ADMIN' || prof.ve_servicos_clinica;
-        const permitidos = (servProfQ.data ?? []) as number[];
+        // Da clínica: só se ninguém foi indicado em "Quem atende" ou se ele foi
+        const atende = (s: any) => !s.profissional_ids?.length || s.profissional_ids.includes(idProf);
         const serve = (s: any) =>
-            s && s.ativo !== false && ((s.id_profissional == null && usaClinica && (!permitidos.length || permitidos.includes(s.id))) || s.id_profissional === idProf);
+            s && s.ativo !== false && ((s.id_profissional == null && usaClinica && atende(s)) || s.id_profissional === idProf);
         const termo = buscaServico.trim().toLowerCase();
         const lista = [
             ...((pacotesQ.data ?? []) as any[])
@@ -177,7 +177,7 @@ export function AgendamentoForm({ open, onOpenChange, inicial, onSalvo }: Props)
                 .map((s) => ({ chave: `s${s.id}`, tipo: 'servico' as const, id_servico: s.id as number | undefined, id_pacote: undefined as number | undefined, id_servico_sessao: s.id as number, nome: s.nome as string, sessoes: 1, duracao: Number(s.duracao_minutos), centavos: Math.round(Number(s.valor) * 100) })),
         ];
         return lista.filter((x) => !termo || x.nome.toLowerCase().includes(termo)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-    }, [buscaServico, servicosQ.data, pacotesQ.data, profsQ.data, servProfQ.data, idProf, servicoPorId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [buscaServico, servicosQ.data, pacotesQ.data, profsQ.data, idProf, servicoPorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Cliente com um só item com saldo: já vem marcado (pode desmarcar)
     useEffect(() => {

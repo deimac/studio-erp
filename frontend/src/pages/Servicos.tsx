@@ -81,7 +81,7 @@ export default function Servicos() {
 
 function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; protocolos: Protocolo[]; carregando: boolean }) {
     const { toast } = useToast();
-    const { user, veTudo, isEspectador } = useAuth();
+    const { user, veTudo, isEspectador, podeCadastrarServicos } = useAuth();
     const isAdmin = user?.perfil === 'ADMIN';
     const [busca, setBusca] = useState('');
     const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -120,7 +120,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
     const salvo = () => toast({ title: 'Serviço salvo', variant: 'success' });
     // Botão + do rodapé (celular)
     const [novoSinal, setNovoSinal] = useState(0);
-    useAcoesDaTela(isEspectador ? [] : [{ id: 'servico', label: 'Novo serviço', icone: Scissors, onSelect: () => setNovoSinal((n) => n + 1) }]);
+    useAcoesDaTela(!podeCadastrarServicos ? [] : [{ id: 'servico', label: 'Novo serviço', icone: Scissors, onSelect: () => setNovoSinal((n) => n + 1) }]);
 
     const filtros: { id: Filtro; rotulo: string }[] = [
         { id: 'todos', rotulo: 'Todos' },
@@ -136,7 +136,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     <Input placeholder="Buscar serviço…" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
                 </div>
-                {!isEspectador && (
+                {podeCadastrarServicos && (
                     <div className="sm:ml-auto">
                         <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
                         <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />
@@ -169,9 +169,9 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p className="font-medium">{termo ? 'Nenhum serviço com esse nome' : 'Nenhum serviço aqui ainda'}</p>
-                            {!isEspectador && <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>}
+                            {podeCadastrarServicos && <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>}
                         </div>
-                        {!termo && !isEspectador && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
+                        {!termo && podeCadastrarServicos && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
                     </CardContent>
                 </Card>
             ) : (
@@ -313,7 +313,7 @@ function AbaPaginas({ todos, protocolos, carregando }: { todos: ServicoItem[]; p
 }
 
 function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
-    const { user, veTudo } = useAuth();
+    const { user, veTudo, podeCadastrarServicos } = useAuth();
     const podeEditarTecnica = (t: any) => veTudo || (t.id_profissional == null ? user?.perfil === 'ADMIN' : t.id_profissional === user?.id);
     const utils = trpc.useUtils();
     const { toast } = useToast();
@@ -378,7 +378,7 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
         <Card>
             {aberto && (
                 <CardContent className="space-y-4 p-4 sm:p-5">
-                    <form
+                    {podeCadastrarServicos && <form
                         onSubmit={(e) => {
                             e.preventDefault();
                             const n = nome.trim();
@@ -401,12 +401,12 @@ function TecnicasPanel({ servicos }: { servicos: ServicoItem[] }) {
                             <Plus className="mr-1 h-4 w-4" />
                             {createMut.isPending ? 'Adicionando…' : 'Adicionar'}
                         </Button>
-                    </form>
+                    </form>}
 
                     {tecnicasQ.isLoading && <p className="text-sm text-gray-400">Carregando…</p>}
                     {!tecnicasQ.isLoading && lista.length === 0 && (
                         <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-gray-500">
-                            Nada cadastrado ainda. Adicione o primeiro acima.
+                            {podeCadastrarServicos ? 'Nada cadastrado ainda. Adicione o primeiro acima.' : 'Nada cadastrado ainda.'}
                         </p>
                     )}
 

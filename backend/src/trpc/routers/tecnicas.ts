@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { servicoTecnica, tecnicas } from '../../drizzle/schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
-import { tecnicasVisiveis } from '../acesso';
+import { assertPodeCadastrar, tecnicasVisiveis } from '../acesso';
 import { podeEditarServico } from '../../lib/servicosAcesso';
 
 /** Admin cria técnicas da clínica; profissional cria as próprias. */
@@ -32,6 +32,7 @@ export const tecnicasRouter = createTRPCRouter({
     create: protectedProcedure
         .input(z.object({ nome: z.string().trim().min(2), tipo: tipoInput.default('TECNICA') }))
         .mutation(async ({ ctx, input }) => {
+            assertPodeCadastrar(ctx.session, 'técnicas e benefícios');
             const dono = ctx.session.perfil === 'ADMIN' ? null : ctx.session.id;
             await assertNomeLivre(ctx, input.nome, dono);
             const ids = await ctx.db.insert(tecnicas).values({ nome: input.nome, tipo: input.tipo, id_profissional: dono }).$returningId();

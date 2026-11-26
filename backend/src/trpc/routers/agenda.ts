@@ -9,7 +9,6 @@ import {
     pacotes,
     pessoas,
     profissionalHorarios,
-    profissionalServicos,
     salas,
     servicos,
     usuarios,
@@ -44,8 +43,7 @@ import {
     type StatusAtendimento,
 } from '../../lib/agenda';
 import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
-import { servicoServeParaProfissional } from '../../lib/servicosAcesso';
-import { assertAcessoPessoa, usaServicosClinica, vincularPessoa } from '../acesso';
+import { assertAcessoPessoa, servicoQueNaoServe, vincularPessoa } from '../acesso';
 import { CONSOME_SESSAO, rotuloItensAtendimento, rotuloVenda } from '../vendaItens';
 import { gravarVenda } from '../vendaGravar';
 import { feriadosNoPeriodo } from '../../lib/feriados';
@@ -126,10 +124,9 @@ async function carregarServicos(db: DbOuTx, ids: number[], idProfissional: numbe
         .from(servicos)
         .where(inArray(servicos.id, unicos));
     if (rows.length !== unicos.length) erro('BAD_REQUEST', 'Serviço não encontrado');
-    const usaClinica = await usaServicosClinica(db, idProfissional);
-    const deOutro = rows.find((r) => !servicoServeParaProfissional(r.dono, idProfissional, usaClinica));
+    const deOutro = await servicoQueNaoServe(db, idProfissional, rows);
     if (deOutro)
-        erro('BAD_REQUEST', deOutro.dono == null ? `"${deOutro.nome}" é um serviço da clínica, não liberado para este profissional` : `"${deOutro.nome}" é um serviço próprio de outro profissional`);
+        erro('BAD_REQUEST', deOutro.dono == null ? `"${deOutro.nome}" não é atendido por este profissional` : `"${deOutro.nome}" é um serviço próprio de outro profissional`);
     // mantém a ordem escolhida
     return unicos.map((id) => rows.find((r) => r.id === id)!);
 }
@@ -545,8 +542,9 @@ const bloqueiosRouter = createTRPCRouter({
 
 const profissionaisRouter = createTRPCRouter({
     /** Lista para a agenda (todos os perfis enxergam os colegas). */
-    list: protectedProcedure.query(({ ctx }) =>
-        ctx.db
+    list: protectedProcedure.query(async ({ ctx }) => {
+        const [u] = await ctx.db.select({ modo: unidades.modo_trabalho }).from(unidades).where(eq(unidades.id, ctx.session.unidadeId)).limit(1);
+        const rows = await ctx.db
             .select({
                 id: usuarios.id,
                 nome: usuarios.nome,
@@ -555,7 +553,6 @@ const profissionaisRouter = createTRPCRouter({
                 telefone: usuarios.telefone,
                 intervalo_agenda_min: usuarios.intervalo_agenda_min,
                 agenda_compartilhada: usuarios.agenda_compartilhada,
-                ve_servicos_clinica: usuarios.ve_servicos_clinica,
                 falta_regra: usuarios.falta_regra,
             })
             .from(usuarios)
@@ -568,8 +565,10 @@ const profissionaisRouter = createTRPCRouter({
                     ...(ctx.session.perfil === 'ESPECTADOR' ? [eq(usuarios.agenda_compartilhada, true)] : []),
                 ),
             )
-            .orderBy(asc(usuarios.nome)),
-    ),
+            .orderBy(asc(usuarios.nome));
+        // Usa os serviços da clínica: admin sempre; profissional só no modo Admin
+        return rows.map((r) => ({ ...r, ve_servicos_clinica: r.perfil === 'ADMIN' || u?.modo !== 'INDIVIDUAL' }));
+    }),
 
     update: protectedProcedure
         .input(
@@ -578,14 +577,13 @@ const profissionaisRouter = createTRPCRouter({
                 cor: z.string().max(20).nullable().optional(),
                 telefone: z.string().max(25).nullable().optional(),
                 agenda_compartilhada: z.boolean().optional(),
-                ve_servicos_clinica: z.boolean().optional(),
                 /** Regra de falta própria (null = segue a da clínica). */
                 falta_regra: z.enum(['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']).nullable().optional(),
             }),
         )
         .mutation(async ({ ctx, input }) => {
             assertPodeConfigurar(ctx.session, input.id);
-            if ((input.agenda_compartilhada !== undefined || input.ve_servicos_clinica !== undefined) && !isAdmin(ctx.session))
+            if (input.agenda_compartilhada !== undefined && !isAdmin(ctx.session))
                 erro('FORBIDDEN', 'Só o administrador altera essas configurações');
             const { id, ...campos } = input;
             if (campos.telefone !== undefined) campos.telefone = telefoneValido(campos.telefone);
@@ -616,27 +614,6 @@ const profissionaisRouter = createTRPCRouter({
         .input(z.object({ falta_regra: z.enum(['DESCONTAR', 'DEVOLVER', 'PERGUNTAR']), falta_por_profissional: z.boolean() }))
         .mutation(async ({ ctx, input }) => {
             await ctx.db.update(unidades).set({ ...input, updated_at: new Date() }).where(eq(unidades.id, ctx.session.unidadeId));
-            return { ok: true };
-        }),
-
-    servicos: protectedProcedure.input(z.object({ id_profissional: zId })).query(async ({ ctx, input }) => {
-        const rows = await ctx.db
-            .select({ id: profissionalServicos.id_servico })
-            .from(profissionalServicos)
-            .where(eq(profissionalServicos.id_profissional, input.id_profissional));
-        return rows.map((r) => r.id);
-    }),
-
-    setServicos: adminProcedure
-        .input(z.object({ id_profissional: zId, servicos: z.array(zId) }))
-        .mutation(async ({ ctx, input }) => {
-            await assertProfissional(ctx.db, ctx.session.unidadeId, input.id_profissional);
-            await ctx.db.transaction(async (tx) => {
-                await tx.delete(profissionalServicos).where(eq(profissionalServicos.id_profissional, input.id_profissional));
-                const ids = [...new Set(input.servicos)];
-                if (ids.length)
-                    await tx.insert(profissionalServicos).values(ids.map((id_servico) => ({ id_profissional: input.id_profissional, id_servico })));
-            });
             return { ok: true };
         }),
 });
@@ -679,7 +656,6 @@ type VendaAgenda = z.infer<typeof zVendaAgenda>;
  * (avulso/sem cadastro: uma sessão por data; pacote: até acabar as sessões).
  */
 async function venderNoAgendamento(tx: DbOuTx, s: Session, venda: VendaAgenda, idPessoa: number, idProf: number, datas: string[]) {
-    const usaClinica = await usaServicosClinica(tx, idProf);
     const tipos: NovoItemAgenda[] = [];
     const base: { id_servico?: number; id_pacote?: number; descricao?: string; id_servico_sessao: number | null }[] = [];
     for (const it of venda.itens) {
@@ -688,7 +664,7 @@ async function venderNoAgendamento(tx: DbOuTx, s: Session, venda: VendaAgenda, i
         if (it.id_servico) {
             const [sv] = await tx.select({ dono: servicos.id_profissional, ativo: servicos.ativo, nome: servicos.nome }).from(servicos).where(eq(servicos.id, it.id_servico)).limit(1);
             if (!sv || !sv.ativo) erro('NOT_FOUND', 'Serviço não encontrado');
-            if (!servicoServeParaProfissional(sv.dono, idProf, usaClinica)) erro('BAD_REQUEST', `"${sv.nome}" não é deste profissional`);
+            if (await servicoQueNaoServe(tx, idProf, [{ id: it.id_servico, dono: sv.dono }])) erro('BAD_REQUEST', `"${sv.nome}" não é atendido por este profissional`);
             tipos.push({ tipo: 'servico', sessoes: 1, valor: it.valor });
             base.push({ id_servico: it.id_servico, id_servico_sessao: it.id_servico });
         } else if (it.id_pacote) {
@@ -699,7 +675,7 @@ async function venderNoAgendamento(tx: DbOuTx, s: Session, venda: VendaAgenda, i
                 .where(eq(pacotes.id, it.id_pacote))
                 .limit(1);
             if (!pk || String(pk.status).toLowerCase() !== 'ativo') erro('NOT_FOUND', 'Pacote não encontrado');
-            if (!servicoServeParaProfissional(pk.dono ?? null, idProf, usaClinica)) erro('BAD_REQUEST', `"${pk.nome}" não é deste profissional`);
+            if (await servicoQueNaoServe(tx, idProf, [{ id: pk.id_servico ?? null, dono: pk.dono ?? null }])) erro('BAD_REQUEST', `"${pk.nome}" não é atendido por este profissional`);
             tipos.push({ tipo: 'pacote', sessoes: it.sessoes ?? pk.sessoes, valor: it.valor });
             base.push({ id_pacote: it.id_pacote, id_servico_sessao: pk.id_servico ?? null });
         } else {
@@ -1169,13 +1145,12 @@ export const agendaRouter = createTRPCRouter({
                 if (!servs && idProf !== atual.id_profissional) {
                     // trocando de profissional: os serviços atuais precisam servir para o novo
                     const atuais = await tx
-                        .select({ nome: servicos.nome, dono: servicos.id_profissional })
+                        .select({ id: servicos.id, nome: servicos.nome, dono: servicos.id_profissional })
                         .from(atendimentoServicos)
                         .innerJoin(servicos, eq(servicos.id, atendimentoServicos.id_servico))
                         .where(eq(atendimentoServicos.id_atendimento, atual.id));
-                    const usaClinica = await usaServicosClinica(tx, idProf);
-                    const deOutro = atuais.find((x) => !servicoServeParaProfissional(x.dono, idProf, usaClinica));
-                    if (deOutro) erro('BAD_REQUEST', `"${deOutro.nome}" é um serviço próprio de outro profissional`);
+                    const deOutro = await servicoQueNaoServe(tx, idProf, atuais);
+                    if (deOutro) erro('BAD_REQUEST', `"${deOutro.nome}" não é atendido por este profissional`);
                 }
                 const inicioAtual = hhmmParaMin(atual.hora_inicio);
                 const duracaoAtual = hhmmParaMin(atual.hora_fim) - inicioAtual;

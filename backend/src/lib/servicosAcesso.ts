@@ -16,10 +16,11 @@ export function podeVerServico(dono: number | null, s: Sessao): boolean {
 /**
  * O serviço pode ser feito/vendido pelo profissional?
  * `usaClinica`: o profissional usa os serviços da clínica (admin: sempre).
+ * `quemAtende`: profissionais indicados no serviço da clínica (vazio = todos).
  */
-export function servicoServeParaProfissional(dono: number | null, idProfissional: number, usaClinica = true): boolean {
+export function servicoServeParaProfissional(dono: number | null, idProfissional: number, usaClinica = true, quemAtende: number[] = []): boolean {
     if (dono != null) return dono === idProfissional;
-    return usaClinica;
+    return usaClinica && (quemAtende.length === 0 || quemAtende.includes(idProfissional));
 }
 
 /** O usuário logado pode editar o serviço? */
