@@ -62,7 +62,7 @@ export function AppLayout() {
 function Marca({ contraida = false }: { contraida?: boolean }) {
     return (
         <div className={cn('flex h-14 shrink-0 items-center gap-3', contraida ? 'justify-center' : 'px-2')}>
-            <img src="/icons/icon-96.png" alt="" className="h-11 w-11 rounded-2xl shadow-painel" />
+            <img src="/logo-ts.png" alt="" className="h-11 w-8 object-contain" />
             {!contraida && <span className="truncate text-lg font-bold tracking-tight text-[hsl(var(--primary))]">Studio ERP</span>}
         </div>
     );
