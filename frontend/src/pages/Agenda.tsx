@@ -300,6 +300,14 @@ export default function Agenda() {
         }
     }
 
+    // Um clique num bloqueio dispara o evento e a seleção do horário: avisa uma vez só
+    const ultimoAviso = useRef(0);
+    function avisarBloqueado() {
+        if (Date.now() - ultimoAviso.current < 1000) return;
+        ultimoAviso.current = Date.now();
+        toast({ title: 'Horário bloqueado', description: 'Para liberar, abra o dia e toque em "Liberar" no aviso vermelho acima da agenda.' });
+    }
+
     function novoNoSlot(slot: SlotInfo) {
         if (soVer) return;
         const s = slot.start as Date;
@@ -308,6 +316,19 @@ export default function Agenda() {
         const diaInteiro = view === 'month' || (e.getTime() - s.getTime()) % 86_400_000 === 0 && s.getHours() === 0;
         const idProf = usarRecursos && colunas === 'profissional' && rid ? rid : selProfs.length === 1 ? selProfs[0] : user?.id;
         if (!veTudo && idProf !== user?.id) return toast({ title: 'Você só pode agendar na sua própria agenda' });
+        // Horário bloqueado: não abre o agendamento
+        if (!diaInteiro) {
+            const fimSlot = e.getTime() > s.getTime() ? e : new Date(s.getTime() + 15 * 60_000);
+            const bloqueado = (dados?.bloqueios ?? []).some((b) => {
+                const bi = new Date(String(b.inicio).replace(' ', 'T'));
+                const bf = new Date(String(b.fim).replace(' ', 'T'));
+                if (!(bi < fimSlot && bf > s)) return false;
+                if (b.id_profissional == null && b.id_sala == null) return true;
+                if (usarRecursos && colunas === 'sala') return b.id_sala != null && b.id_sala === rid;
+                return b.id_profissional != null && b.id_profissional === idProf;
+            });
+            if (bloqueado) return avisarBloqueado();
+        }
         const duracao = (e.getTime() - s.getTime()) / 60_000;
         setForm({
             open: true,
@@ -373,7 +394,8 @@ export default function Agenda() {
     async function selecionar(e: Evento) {
         if (e.tipo === 'atendimento') return setDetalhe(e.atendimento!);
         if (e.tipo === 'feriado') { setData(e.start); return setView('day'); }
-        return perguntarRemoverBloqueio(e.bloqueio!);
+        // Bloqueio no calendário não abre nada; para liberar, usa o aviso vermelho acima da agenda (visão Dia)
+        return avisarBloqueado();
     }
 
     async function perguntarRemoverBloqueio(b: { id: number; motivo: string | null; id_profissional: number | null }) {
@@ -480,7 +502,8 @@ export default function Agenda() {
                     <button key={b.id} type="button" onClick={() => perguntarRemoverBloqueio(b)}
                         className="flex w-full items-center gap-1.5 rounded-md bg-red-50 px-2 py-1 text-left font-medium text-red-800">
                         <Lock className="h-4 w-4 shrink-0" />
-                        Bloqueado{b.motivo ? `: ${b.motivo}` : ''} · {b.inicio.slice(0, 10) === b.fim.slice(0, 10) ? `${b.inicio.slice(11, 16)}–${b.fim.slice(11, 16)}` : `até ${b.fim.slice(8, 10)}/${b.fim.slice(5, 7)}`}
+                        <span className="min-w-0 flex-1 truncate">Bloqueado{b.motivo ? `: ${b.motivo}` : ''} · {b.inicio.slice(0, 10) === b.fim.slice(0, 10) ? `${b.inicio.slice(11, 16)}–${b.fim.slice(11, 16)}` : `até ${b.fim.slice(8, 10)}/${b.fim.slice(5, 7)}`}</span>
+                        <span className="shrink-0 text-xs font-semibold underline underline-offset-2">Liberar</span>
                     </button>
                 ))}
             </div>

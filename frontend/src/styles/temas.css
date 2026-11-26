@@ -62,8 +62,8 @@
     --agenda-feriado-bg: 48 96% 89%;
     --agenda-feriado-dia: 48 100% 96%;
     --agenda-bloqueio: 0 63% 31%;
-    --agenda-bloqueio-bg: 0 93% 94%;
-    --agenda-bloqueio-bg2: 0 96% 89%;
+    --agenda-bloqueio-bg: 0 90% 92%;
+    --agenda-bloqueio-bg2: 0 85% 84%;
     --agenda-bloqueio-faixa: 0 72% 51%;
     --agenda-agora: 0 84% 60%;
 
@@ -199,8 +199,8 @@
     --agenda-feriado-bg: 36 50% 18%;
     --agenda-feriado-dia: 36 40% 12%;
     --agenda-bloqueio: 0 90% 82%;
-    --agenda-bloqueio-bg: 0 40% 18%;
-    --agenda-bloqueio-bg2: 0 40% 22%;
+    --agenda-bloqueio-bg: 0 45% 20%;
+    --agenda-bloqueio-bg2: 0 48% 27%;
     --agenda-bloqueio-faixa: 0 80% 62%;
     --agenda-agora: 0 85% 65%;
 

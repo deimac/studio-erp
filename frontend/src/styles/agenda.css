@@ -253,18 +253,19 @@
 .agenda-legenda-bloqueio {
     background: repeating-linear-gradient(45deg, hsl(var(--agenda-bloqueio-bg)), hsl(var(--agenda-bloqueio-bg)) 6px, hsl(var(--agenda-bloqueio-bg2)) 6px, hsl(var(--agenda-bloqueio-bg2)) 12px);
     color: hsl(var(--agenda-bloqueio));
-    border: 0;
+    border: 1px solid hsl(var(--agenda-bloqueio-faixa) / 0.55);
     border-radius: 8px;
-    opacity: 0.95;
+    opacity: 1;
     padding: 2px 6px;
+    cursor: not-allowed;
 }
 
 /* Bloqueio na visão Mês: chip vermelho */
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio,
 .agenda-studio .rbc-month-view .rbc-event.evt-bloqueio-mes {
-    background: hsl(var(--agenda-bloqueio-bg));
+    background: hsl(var(--agenda-bloqueio-bg2));
     color: hsl(var(--agenda-bloqueio));
-    border: 0;
+    border: 1px solid hsl(var(--agenda-bloqueio-faixa) / 0.55);
     border-radius: 8px;
     padding: 1px 4px;
     font-size: 0.6875rem;
