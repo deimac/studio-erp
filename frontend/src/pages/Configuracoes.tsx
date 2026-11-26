@@ -17,6 +17,8 @@ import { ExpedienteDialog } from '@/components/agenda/ExpedienteDialog';
 import { PALETA, corPadrao } from '@/lib/agenda';
 import { CalendarDays } from 'lucide-react';
 import { PersonalizarBarra } from '@/components/acoes/PersonalizarBarra';
+import { PillGroup } from '@/components/ui/pill-group';
+import { ROTULO_PERFIL } from '@/hooks/useAuth';
 
 export default function Configuracoes() {
     return (
@@ -384,12 +386,17 @@ function ProfissionaisPanel() {
     const [nome, setNome] = useState('');
     const [email, setEmail] = useState('');
     const [senha, setSenha] = useState('');
+    const [perfil, setPerfil] = useState<'PROFISSIONAL' | 'ESPECTADOR'>('PROFISSIONAL');
 
     const usersQ = trpc.usuarios.list.useQuery();
     const agendaProfsQ = trpc.agenda.profissionais.list.useQuery();
     const [agendaDe, setAgendaDe] = useState<any>(null);
     const createMut = trpc.usuarios.createProfissional.useMutation({
-        onSuccess: () => { setOpen(false); setNome(''); setEmail(''); setSenha(''); utils.usuarios.list.invalidate(); toast({ title: 'Profissional criado', variant: 'success' }); },
+        onSuccess: () => {
+            setOpen(false); setNome(''); setEmail(''); setSenha(''); setPerfil('PROFISSIONAL');
+            utils.usuarios.list.invalidate(); utils.agenda.profissionais.list.invalidate();
+            toast({ title: 'Usuário criado', variant: 'success' });
+        },
         onError: (e) => toast({ title: e.message, variant: 'error' }),
     });
     const updateMut = trpc.usuarios.update.useMutation({
@@ -401,7 +408,7 @@ function ProfissionaisPanel() {
         <Card>
             <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-3">
                 <CardTitle className="text-sm">Profissionais / Usuários</CardTitle>
-                <Button size="sm" onClick={() => setOpen(true)}>Novo Profissional</Button>
+                <Button size="sm" onClick={() => setOpen(true)}>Novo usuário</Button>
             </CardHeader>
             <CardContent>
                 <Table>
@@ -421,20 +428,20 @@ function ProfissionaisPanel() {
                                     {u.nome}
                                     {/* Celular: perfil e status embaixo do nome (as colunas somem) */}
                                     <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
-                                        <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{u.perfil}</Badge>
+                                        <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{ROTULO_PERFIL[u.perfil]}</Badge>
                                         <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                     </div>
                                 </TableCell>
                                 <TableCell className="hidden sm:table-cell text-gray-400">{u.email}</TableCell>
                                 <TableCell className="hidden sm:table-cell">
-                                    <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{u.perfil}</Badge>
+                                    <Badge variant={u.perfil === 'ADMIN' ? 'default' : 'secondary'}>{ROTULO_PERFIL[u.perfil]}</Badge>
                                 </TableCell>
                                 <TableCell className="hidden sm:table-cell">
                                     <Badge variant={u.ativo ? 'success' : 'destructive'}>{u.ativo ? 'Ativo' : 'Inativo'}</Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end">
-                                    {u.ativo && (
+                                    {u.ativo && u.perfil !== 'ESPECTADOR' && (
                                         <Button variant="ghost" size="sm" className="text-xs" onClick={() => setAgendaDe(((agendaProfsQ.data ?? []) as any[]).find((p) => p.id === u.id) ?? { id: u.id, nome: u.nome })}>
                                             <CalendarDays className="mr-1 h-3.5 w-3.5" /> Agenda
                                         </Button>
@@ -455,12 +462,22 @@ function ProfissionaisPanel() {
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Novo Profissional</DialogTitle>
+                        <DialogTitle>Novo usuário</DialogTitle>
                     </DialogHeader>
                     <form
-                        onSubmit={(e) => { e.preventDefault(); createMut.mutate({ nome, email, senha }); }}
+                        onSubmit={(e) => { e.preventDefault(); createMut.mutate({ nome, email, senha, perfil }); }}
                         className="space-y-4"
                     >
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-500">Tipo de acesso</label>
+                            <PillGroup label="Tipo de acesso" value={perfil} onChange={(v) => setPerfil(v as 'PROFISSIONAL' | 'ESPECTADOR')} className="w-full [&>button]:flex-1"
+                                options={[{ value: 'PROFISSIONAL', label: 'Profissional' }, { value: 'ESPECTADOR', label: 'Espectador' }]} />
+                            <p className="text-xs text-gray-500">
+                                {perfil === 'ESPECTADOR'
+                                    ? 'Só vê a agenda compartilhada e os serviços. Não marca nem altera nada.'
+                                    : 'Atende clientes, tem agenda própria e lança vendas.'}
+                            </p>
+                        </div>
                         <div>
                             <label className="text-xs font-medium text-gray-500">Nome</label>
                             <Input required value={nome} onChange={(e) => setNome(e.target.value)} />

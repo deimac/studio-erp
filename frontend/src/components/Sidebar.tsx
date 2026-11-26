@@ -95,7 +95,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
         contraido && (
             <span
                 role="presentation"
-                className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-full bg-[hsl(var(--foreground))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--background))] opacity-0 shadow-flutuante transition-opacity duration-150 group-hover/item:opacity-100 group-focus-visible/item:opacity-100"
+                className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-2xl bg-[hsl(var(--foreground))] px-3 py-1.5 text-xs font-semibold text-[hsl(var(--background))] opacity-0 shadow-flutuante transition-opacity duration-150 group-hover/item:opacity-100 group-focus-visible/item:opacity-100"
             >
                 {texto}
             </span>
@@ -111,6 +111,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
                 to={link.to}
                 onClick={onNavigate}
                 aria-label={contraido ? link.label : undefined}
+                data-sem-dica
                 className={({ isActive }) => itemCls(isActive || (link.to === '/dashboard' && pathname === '/'))}
             >
                 <span className="relative">
@@ -158,7 +159,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
             <div className={cn(ilhaCls, 'mt-auto flex flex-col gap-1', contraido ? 'items-center' : 'w-full')}>
                 {item({ to: '/configuracoes', label: 'Configurações', icon: Settings, adminOnly: true })}
                 {!instalado && (
-                    <button type="button" onClick={instalarNoCelular} aria-label={contraido ? 'Instalar no celular' : undefined}
+                    <button type="button" onClick={instalarNoCelular} aria-label={contraido ? 'Instalar no celular' : undefined} data-sem-dica
                         className={contraido ? itemCls(false) : botaoCls}>
                         <Smartphone className="h-5 w-5 shrink-0" />
                         {!contraido && <span className="truncate">Instalar no celular</span>}
@@ -167,7 +168,7 @@ export function Sidebar({ onNavigate, contraido = false }: Props) {
                 )}
                 {!isMobile && (
                     <button type="button" onClick={alternarMenuLateral}
-                        aria-label={contraido ? 'Abrir menu' : undefined} aria-expanded={!contraido}
+                        aria-label={contraido ? 'Abrir menu' : undefined} aria-expanded={!contraido} data-sem-dica
                         className={contraido ? itemCls(false) : botaoCls}>
                         {contraido ? <PanelLeftOpen className="h-5 w-5 shrink-0" /> : <PanelLeftClose className="h-5 w-5 shrink-0" />}
                         {!contraido && <span className="truncate">Recolher menu</span>}

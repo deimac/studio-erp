@@ -81,7 +81,9 @@ function tituloPeriodo(view: View, data: Date) {
 }
 
 export default function Agenda() {
-    const { user, isAdmin, veTudo } = useAuth();
+    const { user, isAdmin, veTudo, isEspectador } = useAuth();
+    // Espectador: só olha a agenda compartilhada (não marca, não move, não bloqueia)
+    const soVer = isEspectador;
     const { toast } = useToast();
     const confirm = useConfirm();
     const utils = trpc.useUtils();
@@ -91,7 +93,7 @@ export default function Agenda() {
     const [data, setData] = useState(new Date());
     const [colunas, setColunas] = useState<'profissional' | 'sala'>('profissional');
     // Abre sempre na agenda de quem está logado; "Todos" mostra todo mundo
-    const [selProfsEscolhidos, setSelProfs] = useState<number[]>(() => (user?.id ? [user.id] : []));
+    const [selProfsEscolhidos, setSelProfs] = useState<number[]>(() => (user?.id && !isEspectador ? [user.id] : []));
     // Admin em "Só meu": mostra só a agenda dele (a chave fica no cabeçalho)
     const { escopo } = useEscopo();
     const soMeu = escopo === 'MEU' && !!user?.id;
@@ -266,7 +268,7 @@ export default function Agenda() {
     const atualizarMut = trpc.agenda.atualizar.useMutation();
 
     const podeMexer = (e: Evento) =>
-        e.tipo === 'atendimento' && !!e.atendimento && !e.atendimento.restrito && STATUS_ABERTOS.includes(e.atendimento.status);
+        !soVer && e.tipo === 'atendimento' && !!e.atendimento && !e.atendimento.restrito && STATUS_ABERTOS.includes(e.atendimento.status);
 
     async function mover({ event, start, end, resourceId }: EventInteractionArgs<Evento>) {
         if (!podeMexer(event)) return;
@@ -299,6 +301,7 @@ export default function Agenda() {
     }
 
     function novoNoSlot(slot: SlotInfo) {
+        if (soVer) return;
         const s = slot.start as Date;
         const e = slot.end as Date;
         const rid = (slot as any).resourceId as number | undefined;
@@ -374,7 +377,7 @@ export default function Agenda() {
     }
 
     async function perguntarRemoverBloqueio(b: { id: number; motivo: string | null; id_profissional: number | null }) {
-        if (!isAdmin && b.id_profissional !== user?.id) return;
+        if (soVer || (!isAdmin && b.id_profissional !== user?.id)) return;
         const ok = await confirm({
             title: 'Remover bloqueio?',
             description: `${b.motivo || 'Bloqueio'} — o horário volta a ficar disponível para agendamento.`,
@@ -410,7 +413,7 @@ export default function Agenda() {
         setForm({ open: true, inicial: { data: dataISO(data), hora_inicio: hora, id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } });
 
     // Painel do + do rodapé: o que dá para fazer nesta tela
-    useAcoesDaTela([
+    useAcoesDaTela(soVer ? [] : [
         { id: 'agendamento', label: 'Novo agendamento neste dia', icone: CalendarPlus, onSelect: () => novoAgendamento() },
         { id: 'bloquear', label: 'Bloquear horário', icone: Ban, onSelect: () => setBloqueio({ open: true, inicial: { data: dataISO(data) } }) },
         { id: 'expediente', label: 'Meu expediente', icone: Clock, onSelect: () => setExpediente(true), disabled: !eu },
@@ -494,7 +497,7 @@ export default function Agenda() {
 
     const dialogos = (
         <>
-            <AgendamentoForm open={form.open} onOpenChange={(v) => setForm((f) => ({ ...f, open: v }))} inicial={form.inicial} />
+            {!soVer && <AgendamentoForm open={form.open} onOpenChange={(v) => setForm((f) => ({ ...f, open: v }))} inicial={form.inicial} />}
             <AgendamentoDetalhe
                 evento={detalhe}
                 onOpenChange={(v) => !v && setDetalhe(null)}
@@ -525,9 +528,13 @@ export default function Agenda() {
                     });
                 }}
             />
-            <BloqueioForm open={bloqueio.open} onOpenChange={(v) => setBloqueio((b) => ({ ...b, open: v }))} inicial={bloqueio.inicial} />
-            <ExpedienteDialog open={expediente} onOpenChange={setExpediente} profissional={eu ?? null} admin={isAdmin} />
-            <LembretesDialog open={lembretes} onOpenChange={setLembretes} />
+            {!soVer && (
+                <>
+                    <BloqueioForm open={bloqueio.open} onOpenChange={(v) => setBloqueio((b) => ({ ...b, open: v }))} inicial={bloqueio.inicial} />
+                    <ExpedienteDialog open={expediente} onOpenChange={setExpediente} profissional={eu ?? null} admin={isAdmin} />
+                    <LembretesDialog open={lembretes} onOpenChange={setLembretes} />
+                </>
+            )}
         </>
     );
 
@@ -552,7 +559,7 @@ export default function Agenda() {
             step={passoMin <= 15 ? passoMin : 15}
             timeslots={passoMin <= 15 ? Math.round(60 / passoMin) : 4}
             scrollToTime={new Date(2000, 0, 1, Math.max(minHora.getHours(), new Date().getHours() - 1))}
-            selectable={view === 'day'}
+            selectable={view === 'day' && !soVer}
             longPressThreshold={250}
             onSelectSlot={novoNoSlot}
             onSelectEvent={(e) => selecionar(e)}
@@ -647,11 +654,13 @@ export default function Agenda() {
                             </button>
                         ))}
                     </div>
-                    <div className="ml-auto flex">
-                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Lembretes por WhatsApp" onClick={() => setLembretes(true)}><BellRing className="h-5 w-5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Bloquear horário" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="h-5 w-5" /></Button>
-                        <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Meu expediente" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="h-5 w-5" /></Button>
-                    </div>
+                    {!soVer && (
+                        <div className="ml-auto flex">
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Lembretes por WhatsApp" onClick={() => setLembretes(true)}><BellRing className="h-5 w-5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Bloquear horário" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="h-5 w-5" /></Button>
+                            <Button variant="ghost" size="icon" className="h-10 w-10" aria-label="Meu expediente" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="h-5 w-5" /></Button>
+                        </div>
+                    )}
                 </div>
 
                 {profissionais.length > 1 && !soMeu && (
@@ -748,9 +757,11 @@ export default function Agenda() {
                         </button>
                     ))}
                 </div>
-                <Button size="sm" onClick={() => setForm({ open: true, inicial: { data: dataISO(data), id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } })}>
-                    <Plus className="mr-1 h-4 w-4" /> Agendar
-                </Button>
+                {!soVer && (
+                    <Button size="sm" onClick={() => setForm({ open: true, inicial: { data: dataISO(data), id_profissional: selProfs.length === 1 && veTudo ? selProfs[0] : user?.id } })}>
+                        <Plus className="mr-1 h-4 w-4" /> Agendar
+                    </Button>
+                )}
             </div>
 
             {/* Filtros e ações secundárias */}
@@ -769,11 +780,13 @@ export default function Agenda() {
                     </div>
                 )}
 
-                <div className="ml-auto flex flex-wrap gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => setLembretes(true)}><BellRing className="mr-1.5 h-4 w-4" /> Lembretes</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="mr-1.5 h-4 w-4" /> Bloquear</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="mr-1.5 h-4 w-4" /> Meu expediente</Button>
-                </div>
+                {!soVer && (
+                    <div className="ml-auto flex flex-wrap gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => setLembretes(true)}><BellRing className="mr-1.5 h-4 w-4" /> Lembretes</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setBloqueio({ open: true, inicial: { data: dataISO(data) } })}><Ban className="mr-1.5 h-4 w-4" /> Bloquear</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setExpediente(true)} disabled={!eu}><Clock className="mr-1.5 h-4 w-4" /> Meu expediente</Button>
+                    </div>
+                )}
             </div>
 
             {avisoDia}

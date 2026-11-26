@@ -43,10 +43,11 @@ function gravarAba(a: Aba) {
  * - Técnicas e benefícios: escolhidos em cada serviço; a página do site mostra os dos serviços dela.
  */
 export default function Servicos() {
-    const { user } = useAuth();
+    const { user, isEspectador } = useAuth();
     const isAdmin = user?.perfil === 'ADMIN';
     const abaSalva = useSyncExternalStore((f) => { ouvintes.add(f); return () => ouvintes.delete(f); }, lerAba);
-    const aba: Aba = abaSalva === 'paginas' && !isAdmin ? 'servicos' : abaSalva;
+    // Espectador: só a lista de serviços, para ver
+    const aba: Aba = isEspectador || (abaSalva === 'paginas' && !isAdmin) ? 'servicos' : abaSalva;
 
     const servicosQ = trpc.servicos.list.useQuery({ apenasAtivos: false });
     const protocolosQ = trpc.protocolos.list.useQuery();
@@ -66,8 +67,10 @@ export default function Servicos() {
                     : aba === 'paginas' ? 'As páginas que aparecem no site. Os preços vêm dos serviços ligados a cada página.'
                         : 'Escolhidos em cada serviço. No site aparecem em "Técnicas aplicadas" e "Benefícios".'} />
 
-            <PillGroup label="Seções de serviços" value={aba} onChange={gravarAba}
-                options={abas.map((a) => ({ value: a.id, label: a.rotulo }))} />
+            {!isEspectador && (
+                <PillGroup label="Seções de serviços" value={aba} onChange={gravarAba}
+                    options={abas.map((a) => ({ value: a.id, label: a.rotulo }))} />
+            )}
 
             {aba === 'servicos' && <AbaServicos todos={todos} protocolos={protocolos} carregando={servicosQ.isLoading || protocolosQ.isLoading} />}
             {aba === 'paginas' && <AbaPaginas todos={todos} protocolos={protocolos} carregando={protocolosQ.isLoading} />}
@@ -78,7 +81,7 @@ export default function Servicos() {
 
 function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; protocolos: Protocolo[]; carregando: boolean }) {
     const { toast } = useToast();
-    const { user, veTudo } = useAuth();
+    const { user, veTudo, isEspectador } = useAuth();
     const isAdmin = user?.perfil === 'ADMIN';
     const [busca, setBusca] = useState('');
     const [filtro, setFiltro] = useState<Filtro>('todos');
@@ -117,7 +120,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
     const salvo = () => toast({ title: 'Serviço salvo', variant: 'success' });
     // Botão + do rodapé (celular)
     const [novoSinal, setNovoSinal] = useState(0);
-    useAcoesDaTela([{ id: 'servico', label: 'Novo serviço', icone: Scissors, onSelect: () => setNovoSinal((n) => n + 1) }]);
+    useAcoesDaTela(isEspectador ? [] : [{ id: 'servico', label: 'Novo serviço', icone: Scissors, onSelect: () => setNovoSinal((n) => n + 1) }]);
 
     const filtros: { id: Filtro; rotulo: string }[] = [
         { id: 'todos', rotulo: 'Todos' },
@@ -133,10 +136,12 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                     <Input placeholder="Buscar serviço…" className="pl-9" value={busca} onChange={(e) => setBusca(e.target.value)} />
                 </div>
-                <div className="sm:ml-auto">
-                    <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
-                    <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />
-                </div>
+                {!isEspectador && (
+                    <div className="sm:ml-auto">
+                        <ServicoForm onSuccess={salvo} trigger={<><Plus className="mr-1 h-4 w-4" /> Novo serviço</>} variant="default" />
+                        <ServicoForm onSuccess={salvo} abrirSinal={novoSinal} />
+                    </div>
+                )}
             </div>
 
             {isAdmin && (
@@ -150,7 +155,7 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     ))}
                 </div>
             )}
-            {!isAdmin && contagem.inativos > 0 && (
+            {!isAdmin && !isEspectador && contagem.inativos > 0 && (
                 <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
                     <input type="checkbox" checked={filtro === 'inativos'} onChange={(e) => setFiltro(e.target.checked ? 'inativos' : 'todos')} />
                     Ver só os inativos ({contagem.inativos})
@@ -164,9 +169,9 @@ function AbaServicos({ todos, protocolos, carregando }: { todos: ServicoItem[]; 
                     <CardContent className="flex flex-col items-start gap-3 p-6 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p className="font-medium">{termo ? 'Nenhum serviço com esse nome' : 'Nenhum serviço aqui ainda'}</p>
-                            <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>
+                            {!isEspectador && <p className="text-sm text-gray-500">Cadastre o que você vende e agenda: duração, preço da sessão e pacotes.</p>}
                         </div>
-                        {!termo && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
+                        {!termo && !isEspectador && <ServicoForm onSuccess={salvo} trigger="Cadastrar serviço" />}
                     </CardContent>
                 </Card>
             ) : (

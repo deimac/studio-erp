@@ -122,3 +122,10 @@ input[type='time']::-webkit-date-and-time-value {
 
 .painel-lateral[data-state='open'] { animation: painel-entra 0.22s ease-out; }
 .painel-lateral[data-state='closed'] { animation: painel-entra 0.18s ease-in reverse; }
+
+/* Dica (tooltip) */
+@keyframes dica-entra {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.dica { animation: dica-entra 0.12s ease-out; }

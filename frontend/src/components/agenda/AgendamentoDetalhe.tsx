@@ -7,6 +7,7 @@ import { CalendarClock, CheckCircle2, DoorOpen, MessageCircle, Package, Pencil, 
 import { STATUS_ABERTOS, STATUS_INFO, corPadrao, dataBR, type StatusAtendimento } from '@/lib/agenda';
 import { cn } from '@/lib/utils';
 import { formatarTelefone, linkTelefone } from '@/lib/telefone';
+import { useAuth } from '@/hooks/useAuth';
 
 export type EventoAgenda = {
     id: number;
@@ -52,6 +53,7 @@ type Props = {
 
 export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
     const { toast } = useToast();
+    const { isEspectador } = useAuth();
     const utils = trpc.useUtils();
     const [cancelando, setCancelando] = useState(false);
     const [motivo, setMotivo] = useState('');
@@ -86,7 +88,8 @@ export function AgendamentoDetalhe({ evento, onOpenChange, onEditar }: Props) {
         if (evento.id_venda_item && (regraQ.data as any)?.regra === 'PERGUNTAR') return setFaltando(true);
         statusMut.mutate({ id: evento.id, status: 'FALTOU' });
     }
-    const podeAgir = evento && !evento.restrito && STATUS_ABERTOS.includes(evento.status);
+    // Espectador só olha: sem botões de ação
+    const podeAgir = !isEspectador && evento && !evento.restrito && STATUS_ABERTOS.includes(evento.status);
     const tipoMsg = evento?.status === 'CONFIRMADO' ? 'LEMBRETE' : 'CONFIRMACAO';
     const waQ = trpc.agenda.whatsapp.useQuery(
         { id: evento?.id ?? 0, tipo: tipoMsg },

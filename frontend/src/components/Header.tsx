@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as Menu from '@radix-ui/react-dropdown-menu';
-import { useAuth } from '@/hooks/useAuth';
+import { ROTULO_PERFIL, useAuth } from '@/hooks/useAuth';
 import { definirEscopo, useEscopo } from '@/hooks/useEscopo';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, LogOut, Menu as MenuIcon, Monitor, Moon, Settings, Sun } from 'lucide-react';

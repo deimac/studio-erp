@@ -18,12 +18,12 @@
 
 /* ── Forma: cantos generosos e sombras macias (iguais em todos os temas) ── */
 @theme {
-    --radius-sm: 0.5rem;
-    --radius-md: 0.75rem;
-    --radius-lg: 1rem;
-    --radius-xl: 1.25rem;
-    --radius-2xl: 1.5rem;
-    --radius-3xl: 2rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.625rem;
+    --radius-xl: 0.75rem;
+    --radius-2xl: 1rem;
+    --radius-3xl: 1.5rem;
     --shadow-painel: 0 1px 2px hsl(var(--overlay) / 0.04), 0 10px 30px -18px hsl(var(--overlay) / 0.18);
     --shadow-flutuante: 0 2px 6px hsl(var(--overlay) / 0.06), 0 18px 40px -16px hsl(var(--overlay) / 0.28);
 }
