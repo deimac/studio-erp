@@ -33,6 +33,27 @@
 <body class="min-h-screen antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- Proteção para troca de versão: se o estilo ou o código vierem errados
+         (o servidor responde a página no lugar do arquivo), busca de novo sem usar o cache. -->
+    <script>
+        (function () {
+            var nova = function (url) { return url.split('?')[0] + '?r=' + Date.now(); };
+            window.addEventListener('load', function () {
+                var semEstilo = !getComputedStyle(document.documentElement).getPropertyValue('--radius').trim();
+                var link = document.querySelector('link[rel="stylesheet"][href*="/assets/"]');
+                if (semEstilo && link) {
+                    var l = link.cloneNode();
+                    l.href = nova(link.href);
+                    link.after(l);
+                }
+            });
+            setTimeout(function () {
+                var root = document.getElementById('root');
+                var script = document.querySelector('script[type="module"][src*="/assets/"]');
+                if (root && !root.children.length && script) import(nova(script.src)).catch(function () { location.reload(); });
+            }, 6000);
+        })();
+    </script>
 </body>
 
 </html>
